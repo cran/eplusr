@@ -11,28 +11,35 @@ NULL
 #' Download specified version of EnergyPlus for your platform from GitHub and
 #' install it.
 #'
-#' This function will try to install EnergyPlus into the default location, e.g.
-#' \file{C:/EnergyPlusVX-Y-0} on Windows, \file{/usr/local/EnergyPlus-X-Y-0} on
-#' Linux, and \file{/Applications/EnergyPlus-X-Y-0} on MacOS.
-#'
-#' Note that the installation process requires administrative privileges
-#' required during the installation and you may need to pass password to enable
-#' sudo commands used for installation.
-#'
 #' @param ver The EnergyPlus version number, e.g., \code{8.7}; the special value
 #' \code{"latest"} means the latest version (fetched from GitHub releases).
-#'
-#' @param dir Where to save EnergyPlus installer file. Default is current
-#' working directory. Only applicable to `download_eplus()`. For
-#' `install_eplus()`, it will be saved into `tempdir()`.
 #'
 #' @param force Whether to install EnergyPlus even if it has already been
 #' installed.
 #'
+#' @param dir Where to save EnergyPlus installer file. Default is current
+#' working directory for `download_eplus()` and `tempdir()` for
+#' `install_eplus()`.
+#'
+#' @details
+#'
+#' `download_eplus()` downloads specified version of EnergyPlus from
+#' [EnergyPlus Github Repository](https://github.com/NREL/EnergyPlus).
+#'
+#' `install_eplus()` will try to install EnergyPlus into the default location,
+#' e.g.  \file{C:/EnergyPlusVX-Y-0} on Windows,
+#' \file{/usr/local/EnergyPlus-X-Y-0} on Linux, and
+#' \file{/Applications/EnergyPlus-X-Y-0} on MacOS.
+#'
+#' Note that the installation process requires administrative privileges
+#' during the installation and you have to run R with administrator (or with
+#' sudo if you are on Linux) to make it work if you are not in interactive mode.
+#'
 #' @name install_eplus
 #' @export
+#'
 # install_eplus {{{
-install_eplus <- function (ver = "latest", force = FALSE) {
+install_eplus <- function (ver = "latest", force = FALSE, dir = tempdir()) {
     # check if the same version has been installed already
     if (ver == "latest") ver <- eplus_latest_release()
     ver_exists <- is_avail_eplus(ver)
@@ -48,8 +55,13 @@ install_eplus <- function (ver = "latest", force = FALSE) {
     message(sprintf("Starting to download EnergyPlus v%s...", ver), "\n", cli::rule(line = 2))
     dl <- download_eplus(ver = ver, dir = tempdir())
     exec <- attr(dl, "file")
+    data.table::setattr(exec, "version", ver)
 
     message(sprintf("Starting to install EnergyPlus v%s...", ver), "\n", cli::rule(line = 2))
+
+    message("NOTE: Administrative privileges required during installation. ",
+            "Please make sure R is running with an administrator acount or equivalent.")
+
     res <- switch(os_type(),
            windows = install_eplus_win(exec),
            linux = install_eplus_linux(exec),
@@ -62,7 +74,10 @@ install_eplus <- function (ver = "latest", force = FALSE) {
     path <- eplus_default_path(ver)
     message(sprintf("EnergyPlus v%s successfully installed into %s.", ver, path))
 
-    return(invisible())
+    # add newly installed EnergyPlus to dictionary
+    use_eplus(ver)
+
+    return(invisible(res))
 }
 # }}}
 
@@ -72,7 +87,12 @@ install_eplus <- function (ver = "latest", force = FALSE) {
 download_eplus <- function (ver = "latest", dir = getwd()) {
     release <- repo_releases(owner = "NREL", repo = "EnergyPlus", ver = ver)
     ver <- attr(release, "version")
-    url <- release[core_file == TRUE & ext == "exe" & arch == os_arch(), url]
+
+    # fix arch type to 64bit for non-windows platform
+    arch_type <- switch(os_type(), windows = os_arch(), "64bit")
+
+    url <- release[core_file == TRUE & ext == os_exe() & arch == arch_type, url]
+
     dest <- file.path(dir, basename(url))
 
     # download and install
@@ -80,7 +100,7 @@ download_eplus <- function (ver = "latest", dir = getwd()) {
     if (dl != 0L) {
         stop(sprintf("Failed to download EnergyPlus v%s.", ver), call. = FALSE)
     } else {
-        message("EnergyPlus", paste0("v", ver), " has been downloaded successfully into ",
+        message("EnergyPlus ", paste0("v", ver), " has been downloaded successfully into ",
         dir, ".")
     }
     dl
@@ -225,11 +245,17 @@ os_type <- function () {
 # }}}
 # os_arch: Return the architecture {{{
 os_arch <- function () {
-    if (identical(Sys.info()[['machine']], "x86-64")) {
+    if (identical(Sys.info()[['machine']], "x86-64") ||
+        identical(Sys.info()[['machine']], "x86_64")) {
         c("64bit")
     } else {
         c("32bit")
     }
+}
+# }}}
+# os_exe: Return the architecture {{{
+os_exe <- function () {
+    switch(os_type(), windows = "exe", macos = "dmg", linux = "sh")
 }
 # }}}
 # eplus_latest_release: get the latest release version of EnergyPlus {{{
@@ -242,45 +268,37 @@ eplus_latest_release <- function () {
 # }}}
 # install_eplus_win {{{
 install_eplus_win <- function (exec) {
-    has_ps <- unname(Sys.which("powershell") != "")
-    win_exec <- normalizePath(exec)
-
-    if (has_ps) {
-        cmd <- sprintf("& %s /S | Out-Null", exec)
-        res <- run_cmd(command = "powershell", args = cmd,
-                       echo = TRUE, windows_verbatim_args = TRUE)
-    } else {
-        message("Cannot install EnergyPlus silently. Will try to install from GUI.")
-        res <- run_cmd(commandline = exec)
-    }
-
-    return(res)
+    system(sprintf("%s /S", exec))
 }
 # }}}
 # install_eplus_macos {{{
 install_eplus_macos <- function (exec) {
-    no_ext <- tools::file_path_sans_ext(base)
-    message("NOTE: Administrative privileges required during the installation")
-    cmd <- sprintf("sudo hdiutil attach %s | sudo installer -pkg /Volumes/%s/%s.pkg -target /", exec, no_ext, no_ext)
-    run_cmd(commandline = cmd)
+    # change working directory
+    ori_wd <- getwd()
+    on.exit(setwd(ori_wd), add = TRUE)
+
+    exe_dir <- dirname(exec)
+    setwd(exe_dir)
+
+    f <- basename(exec)
+    no_ext <- tools::file_path_sans_ext(f)
+    cmd <- sprintf("sudo hdiutil attach %s | sudo installer -pkg /Volumes/%s/%s.pkg -target LocalSystem",
+        f, no_ext, no_ext)
+    system(cmd)
 }
 # }}}
 # install_eplus_linux {{{
 install_eplus_linux <- function (exec) {
-    cmd <- sprintf("sudo chmod +x %s | echo 'y\r' | sudo ./%s", exec, exec)
-    run_cmd(commandline = cmd)
-}
-# }}}
-# run_cmd {{{
-# only return the status and suppress annoying warnings from `processx::run`
-run_cmd <- function (...) {
-    res <- tryCatch(
-        {r <- suppressWarnings(processx::run(...))
-         r$status
-        },
-        error = function (e) 1L
-    )
+    # change working directory
+    ori_wd <- getwd()
+    on.exit(setwd(ori_wd), add = TRUE)
 
-    return(res)
+    exe_dir <- dirname(exec)
+    setwd(exe_dir)
+
+    f <- basename(exec)
+    v <- gsub("\\.", "-", attr(exec, "version"))
+    system(sprintf("chmod +x %s", f))
+    system(sprintf('echo "y\r" | sudo ./%s | sudo chmod -R a+w /usr/local/EnergyPlus-%s', f, v))
 }
 # }}}

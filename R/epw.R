@@ -37,7 +37,6 @@
 #' @section Usage:
 #' ```
 #' epw <- read_epw(path)
-#'
 #' epw$city
 #' epw$city <- "city"
 #' epw$state_province
@@ -60,13 +59,10 @@
 #' epw$time_step <- "time_step"
 #' epw$start_day_of_week
 #' epw$start_day_of_week <- "start_day_of_week"
-#'
 #' epw$path()
 #' epw$get_data(year = NULL, unit = FALSE, tz = Sys.timezone(), update = FALSE)
 #' epw$set_data(data)
-#'
 #' epw$save(path, overwrite = FALSE)
-#'
 #' epw$print()
 #' print(epw)
 #' ```
@@ -118,11 +114,11 @@
 #' epw$set_data(data)
 #' ```
 #'
-#' `$path` returns the path of EPW file.
+#' `$path()` returns the path of EPW file.
 #'
-#' `$get_data` returns the core weather data.
+#' `$get_data()` returns the core weather data.
 #'
-#' `$set_data` replaces core weather data with input data. NOTE: This feature is
+#' `$set_data()` replaces core weather data with input data. NOTE: This feature is
 #'     experimental. There is no validation when replacing.
 #'
 #' **NOTE**: Even though `Epw` class provides methods to replace core weather data,
@@ -158,7 +154,7 @@ NULL
 
 #' Read and Parse EnergyPlus Weather File (EPW)
 #'
-#' `read_epw` parses an EPW file and returns an `Epw` object. The parsing
+#' `read_epw()` parses an EPW file and returns an `Epw` object. The parsing
 #' process is extreme inspired by [OpenStudio utilities library](https://openstudio-sdk-documentation.s3.amazonaws.com/cpp/OpenStudio-2.5.1-doc/utilities/html/classopenstudio_1_1_epw_file.html)
 #' with some simplifications. For more details on `Epw`, please see [Epw Class][epw].
 #'

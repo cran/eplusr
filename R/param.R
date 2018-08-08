@@ -9,7 +9,6 @@
 #' ```
 #' param <- param_job(idf, epw)
 #' param$apply_measure(measure, ..., .names = NULL)
-#'
 #' param$run(dir = NULL, parallel_backend = future::multiprocess)
 #' param$kill(which = NULL)
 #' param$status(which = NULL)
@@ -19,7 +18,6 @@
 #' param$report_data_dict(which = NULL)
 #' param$report_data(which = NULL, key_value = NULL, name = NULL, year = NULL, tz = "GMT", case = "auto")
 #' param$tabular_data(which = NULL)
-#'
 #' param$print()
 #' ```
 #' @section Create:
@@ -38,21 +36,21 @@
 #' param$weather()
 #' ```
 #'
-#' `$seed` will return the input `Idf` object.
+#' `$seed()` will return the input `Idf` object.
 #'
-#' `$weather` will return the input `Epw` object.
+#' `$weather()` will return the input `Epw` object.
 #'
 #' @section Apply Design Alternatives:
 #' ```
 #' param$apply_measure(measure, ..., .names = NULL)
 #' ```
 #'
-#' `$apply_measure` allows to apply a measure to an `Idf` and creates parametric
-#'     models for analysis. Basically, a measure is just a function that takes
-#'     an `Idf` object and other arguments as input, and returns a modified `Idf`
-#'     object as output. Use `...` to supply different arguments to that
-#'     measure. Under the hook, [mapply()] is used to create multiple `Idf`s
-#'     according to the input values.
+#' `$apply_measure()` allows to apply a measure to an `Idf` and creates
+#'     parametric models for analysis. Basically, a measure is just a function
+#'     that takes an `Idf` object and other arguments as input, and returns a
+#'     modified `Idf` object as output. Use `...` to supply different arguments
+#'     to that measure. Under the hook, [mapply()] is used to create multiple
+#'     `Idf`s according to the input values.
 #'
 #' **Arguments**
 #'
@@ -93,8 +91,8 @@ NULL
 
 #' Create An EnergyPlus Parametric Simulation Job
 #'
-#' `param_job` takes an IDF and EPW as input and returns a `ParametricJob`. For
-#' details on `ParametricJob`, please see [ParametricJob class][param].
+#' `param_job()` takes an IDF and EPW as input and returns a `ParametricJob`.
+#' For details on `ParametricJob`, please see [ParametricJob class][param].
 #'
 #' @param idf A path to EnergyPlus IDF or IMF file or an `Idf` object.
 #' @param epw A path to EnergyPlus EPW file or an `Epw` object.
@@ -155,13 +153,13 @@ Parametric <- R6::R6Class(classname = "ParametricJob", cloneable = FALSE,
             i_param_kill(self, private, which),
 
         status = function (which = NULL)
-            i_param_status(self, private),
+            i_param_status(self, private, which),
 
         output_dir = function (which = NULL)
-            i_param_output_dir(self, private),
+            i_param_output_dir(self, private, which),
 
         locate_output = function (which = NULL, suffix = ".err", strict = TRUE)
-            i_param_locate_output(self, private, suffix, strict),
+            i_param_locate_output(self, private, which, suffix, strict),
 
         errors = function (which = NULL, info = FALSE)
             i_param_output_errors(self, private, which, info),
@@ -312,6 +310,10 @@ i_param_run <- function (self, private, output_dir = NULL, wait = TRUE, parallel
 
 # i_param_kill {{{
 i_param_kill <- function (self, private, which) {
+    message("Currently, parametric simulations can only be run in waiting mode, ",
+        "and cannot be kill.")
+    return(invisible(NULL))
+
     job <- i_param_job_from_which(self, private, which)
     for (j in job) {
         j$kill()

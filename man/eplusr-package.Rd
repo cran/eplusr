@@ -6,7 +6,10 @@
 \alias{eplusr-package}
 \title{eplusr: A Toolkit for Using EnergyPlus in R}
 \description{
-eplusr: A Toolkit for Using EnergyPlus in R
+A rich toolkit of using the whole building simulation program
+    'EnergyPlus', which enables programmatic navigation, modification of
+    'EnergyPlus' models and makes it less painful to do parametric simulations
+    and analysis.
 }
 \details{
 eplusr provides a rich toolkit of using EnergyPlus directly in
@@ -26,9 +29,6 @@ distributed along with EnergyPlus.
 in R.
 \item Run parametric analysis in parallel and collect results in one go.
 }
-
-To learn more about eplusr, start with the vignettes:
-\code{browseVignettes(package = "eplusr")}
 }
 \seealso{
 Useful links:

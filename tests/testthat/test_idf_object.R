@@ -50,7 +50,8 @@ idf_text <- "
 if (is_avail_eplus(8.8)) {
     idd <- suppressMessages(use_idd(8.8))
 } else {
-    idd <- suppressMessages(use_idd(8.8, download = TRUE))
+    idd_path <- "https://raw.githubusercontent.com/NREL/EnergyPlus/v8.9.0/idd/V8-8-0-Energy%2B.idd"
+    idd <- read_idd(idd_path)
 }
 
 suppressWarnings(idf <- Idf$new(idf_text, idd))
@@ -287,4 +288,15 @@ test_that("S3 assigning works", {
     expect_equal(mat$Roughness, "Rough")
     expect_silent(mat[["Roughness"]] <- "MediumSmooth")
     expect_equal(mat$Roughness, "MediumSmooth")
+})
+
+test_that("$possible_value() works", {
+    pos <- con$possible_value(c(3,1))
+    expect_is(pos, "IdfFieldPossible")
+    expect_equal(pos$field_index, c(3L, 1L))
+    expect_equal(pos$field_name, c("Layer 2", "Name"))
+    expect_equal(pos$auto, rep(NA_character_, 2L))
+    expect_equal(pos$default, rep(list(NA_character_), 2L))
+    expect_equal(pos$choice, rep(list(NA_character_), 2L))
+    expect_equal(pos$reference, list("NewMaterialName", NULL))
 })

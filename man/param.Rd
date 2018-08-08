@@ -14,7 +14,6 @@ Basically, it is a collection of multiple \code{EplusJob} objects.
 \section{Usage}{
 \preformatted{param <- param_job(idf, epw)
 param$apply_measure(measure, ..., .names = NULL)
-
 param$run(dir = NULL, parallel_backend = future::multiprocess)
 param$kill(which = NULL)
 param$status(which = NULL)
@@ -24,7 +23,6 @@ param$locate_output(which = NULL, suffix = ".err", strict = TRUE)
 param$report_data_dict(which = NULL)
 param$report_data(which = NULL, key_value = NULL, name = NULL, year = NULL, tz = "GMT", case = "auto")
 param$tabular_data(which = NULL)
-
 param$print()
 }
 }
@@ -45,21 +43,21 @@ param$print()
 param$weather()
 }
 
-\code{$seed} will return the input \code{Idf} object.
+\code{$seed()} will return the input \code{Idf} object.
 
-\code{$weather} will return the input \code{Epw} object.
+\code{$weather()} will return the input \code{Epw} object.
 }
 
 \section{Apply Design Alternatives}{
 \preformatted{param$apply_measure(measure, ..., .names = NULL)
 }
 
-\code{$apply_measure} allows to apply a measure to an \code{Idf} and creates parametric
-models for analysis. Basically, a measure is just a function that takes
-an \code{Idf} object and other arguments as input, and returns a modified \code{Idf}
-object as output. Use \code{...} to supply different arguments to that
-measure. Under the hook, \code{\link[=mapply]{mapply()}} is used to create multiple \code{Idf}s
-according to the input values.
+\code{$apply_measure()} allows to apply a measure to an \code{Idf} and creates
+parametric models for analysis. Basically, a measure is just a function
+that takes an \code{Idf} object and other arguments as input, and returns a
+modified \code{Idf} object as output. Use \code{...} to supply different arguments
+to that measure. Under the hook, \code{\link[=mapply]{mapply()}} is used to create multiple
+\code{Idf}s according to the input values.
 
 \strong{Arguments}
 \itemize{
