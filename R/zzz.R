@@ -1,3 +1,7 @@
 .onLoad <- function(libname, pkgname) {
-    suppressMessages(init_avail_eplus())
+    locate_eplus()
+}
+
+.onAttach <- function(libname, pkgname) {
+    locate_eplus()
 }

@@ -7,9 +7,9 @@
 eplus_job(idf, epw)
 }
 \arguments{
-\item{idf}{A path to an EnergyPlus IDF or IMF file or an \code{Idf} object.}
+\item{idf}{A path to an local EnergyPlus IDF file or an \code{Idf} object.}
 
-\item{epw}{A path to an EnergyPlus EPW file or an \code{Epw} object.}
+\item{epw}{A path to an local EnergyPlus EPW file or an \code{Epw} object.}
 }
 \value{
 An \code{EplusJob} object.
@@ -17,8 +17,26 @@ An \code{EplusJob} object.
 \description{
 \code{eplus_job()} takes an IDF and EPW as input, and returns an \code{EplusJob} object
 for running EnergyPlus simulation and collecting outputs. For more details,
-please see \link{job}.
+please see \link{EplusJob}.
+}
+\examples{
+if (is_avail_eplus(8.8)) {
+    idf_name <- "1ZoneUncontrolled.idf"
+    epw_name <-  "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
+
+    idf_path <- file.path(eplus_config(8.8)$dir, "ExampleFiles", idf_name)
+    epw_path <- file.path(eplus_config(8.8)$dir, "WeatherData", epw_name)
+
+    # create from local files
+    eplus_job(idf_path, epw_path)
+
+    # create from an Idf and an Epw object
+    eplus_job(read_idf(idf_path), read_epw(epw_path))
+}
 }
 \seealso{
 \code{\link[=param_job]{param_job()}} for creating an EnergyPlus parametric job.
+}
+\author{
+Hongyuan Jia
 }

@@ -13,3 +13,17 @@ clean_wd(path)
 Clean working directory of an EnergyPlus simulation by deleting all input and
 output files of previous simulation.
 }
+\details{
+\code{clean_wd()} imitates the same process that EnergyPlus does whenever a new
+simulation is getting to start. It deletes all related output files that have
+the same name prefix as the input path. The input model itself and any
+weather file are not deleted.
+}
+\examples{
+\dontrun{
+clean_wd("foo.idf")
+}
+}
+\author{
+Hongyuan Jia
+}

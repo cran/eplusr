@@ -1,3 +1,15 @@
+#' @importFrom R6 R6Class
+#' @importFrom data.table fread setnames shift copy fwrite between as.ITime setDT
+#' @importFrom readr write_lines
+#' @importFrom cli cat_line rule cat_bullet
+#' @importFrom crayon bold
+#' @importFrom lubridate year month mday hour minute leap_year days force_tz
+#' @importFrom units ud_units drop_units
+#' @importFrom stringr str_trim
+#' @importFrom fasttime fastPOSIXct
+#' @importFrom stats na.omit
+NULL
+
 #' Read, and modify an EnergyPlus Weather File (EPW)
 #'
 #' Reading an EPW file starts with function [read_epw()], which parses an EPW
@@ -10,7 +22,7 @@
 #' data of location, design conditions, typical/extreme periods, ground
 #' temperatures, holidays/daylight savings, data periods and other comments. For
 #' now, eplusr only parses headers of location, holidays/daylight savings and
-#' data periods. All other headers will be left as they were when parsing and
+#' data periods. All other headers are left as they were when parsing and
 #' saving. For details on the data structure of EPW file, please see "Chapter 2 - Weather Converter Program"
 #' in EnergyPlus "Auxiliary Programs" documentation. An online version can be
 #' found [here](https://bigladdersoftware.com/epx/docs/).
@@ -33,6 +45,9 @@
 #' 12. snow depth
 #' 13. liquid precipitation depth
 #' 14. liquid precipitation rate
+#'
+#' **NOTE**: Even though `Epw` class provides methods to replace core weather data,
+#' it is still not recommended.
 #'
 #' @section Usage:
 #' ```
@@ -107,6 +122,10 @@
 #' `$start_day_of_week` are all active bindings, which means that you can get
 #' the value and also set new value to it.
 #'
+#' **NOTE**: Please be super careful when trying to modify those data. Some of them
+#' must be consistent with weather data in order to make the weather file
+#' successfully parsed by EnergyPlus and eplusr.
+#'
 #' @section Query and Modify Data:
 #' ```
 #' epw$path()
@@ -114,26 +133,25 @@
 #' epw$set_data(data)
 #' ```
 #'
-#' `$path()` returns the path of EPW file.
+#' `$path()` returns the path of EPW file. `NULL` if Epw is not created from
+#'     local file.
 #'
-#' `$get_data()` returns the core weather data.
+#' `$get_data()` returns the core weather data in a data.table.
 #'
 #' `$set_data()` replaces core weather data with input data. NOTE: This feature is
 #'     experimental. There is no validation when replacing.
 #'
-#' **NOTE**: Even though `Epw` class provides methods to replace core weather data,
-#' it is still not recommended.
-#'
 #' **Arguments**
 #'
 #' * `year`: A integer to indicate the year value in the return `datetime` column.
-#'     If `NULL`, the year will be left as it is in EPW file.
-#' * `tz`: The time zone of Date and Time in `datetime` column.
-#' * `unit`: If `TRUE`, units will be set to all numeric columns using
-#'     [units::set_units()].
+#'     If `NULL`, which is the default, the year is left as it is in EPW file.
+#' * `tz`: The time zone of Date and Time in `datetime` column. Default:
+#'   value of `Sys.timezone()`.
+#' * `unit`: If `TRUE`, units are set to all numeric columns using
+#'     [units::set_units()]. Default: `FALSE`.
 #' * `update`: If `TRUE`, not only `datetime` column, but also `year`, `month`,
-#'     `day`, `hour` and `minute` will also be updated according to the input
-#'     `year` value.
+#'     `day`, `hour` and `minute` are also updated according to the input
+#'     `year` value. Default: FALSE
 #' * `data`: A data.frame which has all required columns.
 #'
 #' @section Read:
@@ -143,12 +161,109 @@
 #' **Arguments**
 #'
 #' * `path`: A path where to save the weather file. If `NULL`, the path of the
-#'     weather file itself will be used. Default: `NULL`.
+#'     weather file itself is used.
 #' * `overwrite`: Whether to overwrite the file if it already exists. Default is
 #'     `FALSE`.
+#' @examples
+#' \dontrun{
+#' # read an EPW file from EnergyPlus website
+#' path_base <- "https://energyplus.net/weather-download"
+#' path_region <- "north_and_central_america_wmo_region_4/USA/CA"
+#' path_file <- "USA_CA_San.Francisco.Intl.AP.724940_TMY3/USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
+#' path_epw <- file.path(path_base, path_region, path_file)
+#' epw <- read_epw(path_epw)
 #'
+#' # read an EPW file distributed with EnergyPlus
+#' if (is_avail_eplus(8.8)) {
+#'     epw_path <- file.path(
+#'         eplus_config(8.8)$dir,
+#'         "WeatherData",
+#'         "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
+#'     )
+#'     epw <- read_epw(path_epw)
+#' }
+#'
+#' # get file path
+#' epw$path()
+#'
+#' # get basic info
+#' epw$city
+#' epw$state_province
+#' epw$country
+#' epw$data_source
+#' epw$wmo_number
+#' epw$latitude
+#' epw$longitude
+#' epw$time_zone
+#' epw$elevation
+#' epw$time_step
+#' epw$start_day_of_week
+#'
+#' # set basic info
+#' # NOTE: Use with caution. May mess up your weather data
+#' epw$city <- "Chongqing"
+#' epw$city
+#'
+#' epw$state_province <- "Chongqing"
+#' epw$state_province
+#'
+#' epw$country <- "China"
+#' epw$country
+#'
+#' epw$data_source <- "TMY"
+#' epw$data_source
+#'
+#' epw$wmo_number <- "724944"
+#' epw$wmo_number
+#'
+#' epw$latitude <- 20.0
+#' epw$latitude
+#'
+#' epw$longitude <- -120.0
+#' epw$longitude
+#'
+#' epw$time_zone <- 8
+#' epw$time_zone
+#'
+#' epw$elevation <- 100
+#' epw$elevation
+#'
+#' epw$time_step <- 2
+#' epw$time_step
+#'
+#' epw$start_day_of_week <- "Monday"
+#' epw$start_day_of_week
+#'
+#' # get weather data
+#' str(epw$get_data())
+#'
+#' # get weather data but change the year to 2018
+#' # the year column is not changed by default, only the returned datetime column
+#' str(epw$get_data(year = 2018)$datetime)
+#' str(epw$get_data(year = 2018)$year)
+#' # you can force to update the year column
+#' str(epw$get_data(year = 2018, update = TRUE)$year)
+#'
+#' # get weather data with units
+#' str(epw$get_data(unit = TRUE))
+#' # with units specified, you can easily perform unit conversion using units
+#' # package
+#' t_dry_bulb <- epw$get_data(unit = TRUE)$dry_bulb_temperature
+#' units(t_dry_bulb) <- with(units::ud_units, "kelvin")
+#' str(t_dry_bulb)
+#'
+#' # change the time zone of datetime column in the returned weather data
+#' attributes(epw$get_data()$datetime)
+#' attributes(epw$get_data(tz = "America/Chicago")$datetime)
+#'
+#' # change the weather data
+#' # NOTE: This feature is experimental. There is no validation when replacing.
+#' epw$set_data(epw$get_data())
+#' # save the weather file
+#' epw$save(file.path(tempdir(), "weather.epw"))
+#' }
 #' @docType class
-#' @name epw
+#' @name Epw
 #' @author Hongyuan Jia
 NULL
 
@@ -156,29 +271,38 @@ NULL
 #'
 #' `read_epw()` parses an EPW file and returns an `Epw` object. The parsing
 #' process is extreme inspired by [OpenStudio utilities library](https://openstudio-sdk-documentation.s3.amazonaws.com/cpp/OpenStudio-2.5.1-doc/utilities/html/classopenstudio_1_1_epw_file.html)
-#' with some simplifications. For more details on `Epw`, please see [Epw Class][epw].
+#' with some simplifications. For more details on `Epw`, please see [Epw] class.
 #'
 #' @param path A path of an EnergyPlus `EPW` file.
 #' @return An `Epw` object.
-#' @seealso [Epw class][epw]
+#' @examples
+#' # read an EPW file from EnergyPlus v8.8 installation folder
+#' if (is_avail_eplus(8.8)) {
+#'     path_epw <- file.path(
+#'         eplus_config(8.8)$dir,
+#'         "WeatherData",
+#'         "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
+#'    )
+#'    epw <- read_epw(path_epw)
+#' }
+#'
+#' \dontrun{
+#' # read an EPW file from EnergyPlus website
+#' path_base <- "https://energyplus.net/weather-download"
+#' path_region <- "north_and_central_america_wmo_region_4/USA/CA"
+#' path_file <- "USA_CA_San.Francisco.Intl.AP.724940_TMY3/USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
+#' path_epw <- file.path(path_base, path_region, path_file)
+#' epw <- read_epw(path_epw)
+#' }
+#' @seealso [Epw] class
+#' @author Hongyuan Jia
 #' @export
-#' @rdname read_epw
 # read_epw {{{
 read_epw <- function (path) {
     Epw$new(path)
 }
 # }}}
 
-#' @importFrom R6 R6Class
-#' @importFrom data.table fread setnames shift copy fwrite between as.ITime
-#' @importFrom readr write_lines
-#' @importFrom cli cat_line rule cat_bullet
-#' @importFrom lubridate year month mday leap_year minute days
-#' @importFrom purrr map map_lgl keep
-#' @importFrom units ud_units
-#' @importFrom stringr str_trim
-#' @importFrom fasttime fastPOSIXct
-#' @importFrom stats na.omit
 # Epw {{{
 Epw <- R6::R6Class(classname = "Epw",
     # ACTIVE {{{
@@ -196,9 +320,9 @@ Epw <- R6::R6Class(classname = "Epw",
         state_province = function (value) {
             # {{{
             if (missing(value)) {
-                private$m_header$location$state_province
+                private$m_header$location$state
             } else {
-                private$m_header$location$state_province <- value
+                private$m_header$location$state <- value
             }
             # }}}
         },
@@ -383,7 +507,8 @@ Epw <- R6::R6Class(classname = "Epw",
         set_data = function (data) {
             # replace weather data
             # {{{
-            assert_that(has_names(data, private$m_data))
+            assert_that(has_names(data, names(private$m_data)))
+            data.table::setDT(data)
             private$m_data <- private$set_na(data)
             # TODO:
             # set NA
@@ -439,7 +564,7 @@ Epw <- R6::R6Class(classname = "Epw",
             header$holidays_daylight_savings <- paste0(
                 c("HOLIDAYS/DAYLIGHT SAVINGS", hldys_dlt_svgs), collapse = ",")
 
-            header <- purrr::keep(header, not_empty)
+            header <- Filter(not_empty, header)
             write_lines_eol(header, path)
 
             d <- data.table::copy(private$m_data)[, `:=`(datetime = NULL)]
@@ -451,27 +576,29 @@ Epw <- R6::R6Class(classname = "Epw",
         },
 
         print = function () {
-            cli::cat_line(cli::rule("Location"))
+            # print
+            # {{{
+            cli::cat_line(crayon::bold(cli::rule("Location")), col = "green")
             loc_keys <- c(
-                "[ City    ]",
-                "[ State   ]",
-                "[ Country ]",
-                "[ Source  ]",
-                "[ WMO Num ]",
-                "[Latitude ]",
-                "[Longitude]",
-                "[Time Zone]",
-                "[Evevation]")
+                crayon::bold("[ City    ]"),
+                crayon::bold("[ State   ]"),
+                crayon::bold("[ Country ]"),
+                crayon::bold("[ Source  ]"),
+                crayon::bold("[ WMO Num ]"),
+                crayon::bold("[Latitude ]"),
+                crayon::bold("[Longitude]"),
+                crayon::bold("[Time Zone]"),
+                crayon::bold("[Evevation]"))
             loc_str <- paste0(loc_keys, ": ", private$m_header$location)
-            cli::cat_bullet(loc_str)
+            cli::cat_bullet(loc_str, col = "cyan", bullet_col = "cyan")
 
-            cli::cat_line("\n", cli::rule("Data Period"))
+            cli::cat_line("\n", cli::rule(crayon::bold("Data Period"), col = "green"))
             dp_keys <- c(
-                "[Period Num ]",
-                "[Time Step  ]",
-                "[Date Range ]",
-                "[1st Weekday]",
-                "[Real Year  ]")
+                crayon::bold("[Period Num ]"),
+                crayon::bold("[Time Step  ]"),
+                crayon::bold("[Date Range ]"),
+                crayon::bold("[1st Weekday]"),
+                crayon::bold("[Real Year  ]"))
             dp <- private$m_header$data_periods
             num <- dp$n_data_periods
             time_step <- paste0(60/ dp$time_step, " min")
@@ -481,13 +608,13 @@ Epw <- R6::R6Class(classname = "Epw",
             weekday <- dp$start_day_of_week
             real_year <- dp$is_real_year
             dp_str <- paste0(dp_keys, ": ", c(num, time_step, range, weekday))
-            cli::cat_bullet(dp_str)
+            cli::cat_bullet(dp_str, col = "cyan", bullet_col = "cyan")
 
-            cli::cat_line("\n", cli::rule("Holidays and Daylight Savings"))
+            cli::cat_line("\n", cli::rule(crayon::bold("Holidays and Daylight Savings"), col = "green"))
             dst_keys <- c(
-                "[ Leap Year ]",
-                "[ DST Range ]",
-                "[Holiday Num]")
+                crayon::bold("[ Leap Year ]"),
+                crayon::bold("[ DST Range ]"),
+                crayon::bold("[Holiday Num]"))
             dst <- private$m_header$holidays_daylight_savings
             if (!is.na(dst$dls_start_day)) {
                 dst_range <- paste0(dst$dls_start_day, " - ", dst$dls_end_day)
@@ -496,7 +623,8 @@ Epw <- R6::R6Class(classname = "Epw",
             }
             hol_num <- dst$num_of_holiday
             dst_str <- paste0(dst_keys, ": ", list(dst$leap_year, dst_range, hol_num))
-            cli::cat_bullet(dst_str)
+            cli::cat_bullet(dst_str, col = "cyan", bullet_col = "cyan")
+            # }}}
         }
     ),
 
@@ -529,7 +657,6 @@ Epw <- R6::R6Class(classname = "Epw",
             units(private$m_data$visibility) <- with(units::ud_units, "km")
             units(private$m_data$ceiling_height) <- with(units::ud_units, "m")
             units(private$m_data$present_weather_observation) <- with(units::ud_units, 1L)
-            units(private$m_data$present_weather_codes) <- with(units::ud_units, 1L)
             units(private$m_data$precipitable_water) <- with(units::ud_units, "mm")
             units(private$m_data$aerosol_optical_depth) <- with(units::ud_units, 1L)
             units(private$m_data$snow_depth) <- with(units::ud_units, "cm")
@@ -634,9 +761,9 @@ parse_epw_file <- function (path, strict = TRUE) {
     header_key <- c("LOCATION", "DESIGN CONDITIONS", "TYPICAL/EXTREME PERIODS",
         "GROUND TEMPERATURES", "HOLIDAYS/DAYLIGHT SAVINGS", "COMMENTS 1",
         "COMMENTS 2", "DATA PERIODS" )
-    l_header_pairs <- purrr::map(header_key, grep, x = header, fixed = TRUE)
+    l_header_pairs <- lapply(header_key, grep, x = header, fixed = TRUE)
     names(l_header_pairs) <- header_key
-    missing_header <- purrr::map_lgl(l_header_pairs, is_empty)
+    missing_header <- vapply(l_header_pairs, is_empty, FUN.VALUE = logical(1))
     to_parse <- c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, TRUE)
 
     if (any(missing_header)) {
@@ -654,7 +781,7 @@ parse_epw_file <- function (path, strict = TRUE) {
 
         num_header <- max(l_known)
     }
-    header_pairs <- purrr::map(l_header_pairs, ~header[.x])
+    header_pairs <- lapply(l_header_pairs, function (x) header[x])
     names(header_pairs) <- tolower(gsub("[^[:alnum:]]", "_", names(header_pairs)))
     # }}}
 

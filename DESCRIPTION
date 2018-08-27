@@ -1,7 +1,7 @@
 Package: eplusr
 Title: A Toolkit for Using Whole Building Simulation Program
         'EnergyPlus'
-Version: 0.8.3
+Version: 0.9.0
 Authors@R: 
     person(given = "Hongyuan",
            family = "Jia",
@@ -9,27 +9,30 @@ Authors@R:
            email = "hongyuanjia@cqu.edu.cn",
            comment = c(ORCID = "0000-0002-0075-8183"))
 Description: A rich toolkit of using the whole building simulation program
-    'EnergyPlus', which enables programmatic navigation, modification of
-    'EnergyPlus' models and makes it less painful to do parametric simulations
-    and analysis.
+    'EnergyPlus'(<https://energyplus.net>), which enables programmatic
+    navigation, modification of 'EnergyPlus' models and makes it less painful to
+    do parametric simulations and analysis.
 License: GPL-3
-URL: https://hongyuanjia.github.io/eplusr
+URL: https://hongyuanjia.github.io/eplusr,
+        https://github.com/hongyuanjia/eplusr
 BugReports: https://github.com/hongyuanjia/eplusr/issues
 Depends: R (>= 3.2.0)
-Imports: R6, RSQLite, assertthat, cli, clisymbols, data.table (>=
-        1.9.8), fasttime, furrr, future, gh, lubridate, processx,
-        progress, purrr, readr, stringr, units, uuid
-Suggests: testthat, covr
+Imports: R6, RSQLite, assertthat, callr (>= 2.0.4), cli, crayon,
+        data.table (>= 1.9.8), fasttime, later, lubridate, processx (>=
+        3.2.0), progress (>= 1.2.0), readr, stringr, units, uuid
+Suggests: testthat, covr, pkgdown, knitr, rmarkdown
 Encoding: UTF-8
 LazyData: true
+SystemRequirements: EnergyPlus (<https://energyplus.net>)
 RoxygenNote: 6.1.0
 Collate: 'constants.R' 'utils.R' 'units.R' 'assertions.R' 'impl.R'
         'parse.R' 'epw.R' 'idd.R' 'idd_object.R' 'idf.R' 'idf_object.R'
-        'validate.R' 'format.R' 'run.R' 'job.R' 'param.R' 'install.R'
-        'eplusr.R' 'zzz.R'
+        'validate.R' 'format.R' 'run.R' 'sql.R' 'job.R' 'param.R'
+        'install.R' 'eplusr.R' 'zzz.R'
+VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2018-08-08 02:33:52 UTC; hongyuanjia
+Packaged: 2018-08-24 18:13:38 UTC; hongyuanjia
 Author: Hongyuan Jia [aut, cre] (<https://orcid.org/0000-0002-0075-8183>)
 Maintainer: Hongyuan Jia <hongyuanjia@cqu.edu.cn>
 Repository: CRAN
-Date/Publication: 2018-08-08 04:40:03 UTC
+Date/Publication: 2018-08-27 09:24:26 UTC

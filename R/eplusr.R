@@ -11,6 +11,7 @@
 #' * Query on models, including classes, objects and fields
 #' * Directly add, modify, duplicate, and delete objects of IDF in R.
 #' * Automatically change referred fields when modifying objects.
+#' * Check any possible errors whenever modifications are made.
 #' * Save the changed models into standard formats in the same way as IDFEditor
 #'   distributed along with EnergyPlus.
 #' * Run your models directly and collect the simulation output of EnergyPlus
@@ -18,6 +19,7 @@
 #' * Run parametric analysis in parallel and collect results in one go.
 #'
 #' @name eplusr-package
+#' @author Hongyuan Jia
 "_PACKAGE"
 
 # package level global constant
@@ -41,7 +43,8 @@
 #'
 #' @param ... Any options can be defined, using `name = value`. All available
 #'     options are below. If no options are given, then all values of current
-#'     options are returned.
+#'     options are returned. If a single option name, then its value is
+#'     returned.
 #'
 #' @details
 #' * `num_digits`: Integer indicating the number of decimal places for numeric
@@ -54,11 +57,12 @@
 #'     modification and model error checking. Possible value: `"none"`,
 #'     `"draft"` and `"final"`. Default: `"final"`. Detailed description:
 #'   - For `"none"`, none validation will be done;
-#'   - For `"draft"`, checking of invalid autosize, autocalculate, numeric,
-#'     integer, and choice field values will be done;
-#'   - For `"final"`, besides above, checking of missing required objects,
-#'     duplicated unique objects, object name conflicts, missing required fields
-#'     and invalid field value reference will also be done.
+#'   - For `"draft"`, checking of invalid autosize, autocalculate, character,
+#'     numeric, integer, and choice field values will be done;
+#'   - For `"final"`, besides above, checking of incomplete extensible groups,
+#'     missing required objects, duplicated unique objects, object name
+#'     conflicts, missing required fields and invalid field value reference will
+#'     also be done.
 #'
 #' * `verbose_info`: Whether to show information messages. Default: `TRUE`.
 #'
@@ -72,12 +76,28 @@
 #'
 #' * `num_parallel`: Maximum number of parallel simulations to run. Default:
 #'     `parallel::detectCores()`.
+#' @return If called directly, a named list of input option values. If input is
+#'     a single option name, a length-one vector whose type is determined by
+#'     that option. If input is new option values, a named list of newly set
+#'     option values.
+#' @examples
+#' # list all current options
+#' eplusr_option() # a named list
 #'
+#' # get a specific option value
+#' eplusr_option("verbose_info")
+#'
+#' # set options
+#' eplusr_option(verbose_info = TRUE, view_in_ip = FALSE)
 #' @export
+#' @author Hongyuan Jia
 # eplusr_option {{{
 eplusr_option <- function (...) {
-    opt <- purrr::splice(...)
+    opt <- list(...)
+
     if (is_empty(opt)) return(as.list.environment(.options))
+
+    if (vec_depth(opt) == 3L) opt <- Reduce(c, opt)
 
     nm <- names(opt)
 
@@ -103,6 +123,8 @@ eplusr_option <- function (...) {
     onoff_opt <- c("view_in_ip", "verbose_info")
 
     count_opt <- c("num_digits", "num_parallel")
+
+    number_opt <- c()
 
     # assign_onoff_opt {{{
     assign_onoff_opt <- function (input, name) {
@@ -138,7 +160,15 @@ eplusr_option <- function (...) {
     assign_count_opt <- function (input, name) {
         if (not_empty(input[[name]])) {
             assert_that(is_count(input[[name]]))
-            .options[[name]] <- input[[name]]
+            .options[[name]] <- as.integer(input[[name]])
+        }
+    }
+    # }}}
+    # assign_number_opt {{{
+    assign_number_opt <- function (input, name) {
+        if (not_empty(input[[name]])) {
+            assert_that(is.numeric(input[[name]]))
+            .options[[name]] <- as.numeric(input[[name]])
         }
     }
     # }}}
@@ -146,6 +176,7 @@ eplusr_option <- function (...) {
     for (nm_opt in choice_opt) assign_choice_opt(opt, nm_opt)
     for (nm_opt in onoff_opt) assign_onoff_opt(opt, nm_opt)
     for (nm_opt in count_opt) assign_count_opt(opt, nm_opt)
+    for (nm_opt in number_opt) assign_number_opt(opt, nm_opt)
 
     as.list.environment(.options)[nm]
 }
