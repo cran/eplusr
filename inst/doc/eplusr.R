@@ -1,7 +1,8 @@
 ## ----setup, include = FALSE----------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  screenshot.force = FALSE
 )
 
 # the default output hook
@@ -22,6 +23,8 @@ knitr::opts_knit$set(root.dir = tempdir())
 
 options(crayon.enabled = FALSE)
 
+can_run <- eplusr:::os_type() != "unknown"
+
 ## ----cran-install, eval = FALSE------------------------------------------
 #  install.packages("eplusr")
 
@@ -37,23 +40,31 @@ options(crayon.enabled = FALSE)
 #  # manually by yourself
 #  eplusr::download_eplus("latest", dir = tempdir())
 
-## ----install_eplus, include = FALSE--------------------------------------
+## ----install_eplus, include = FALSE, eval = can_run----------------------
 if (!eplusr::is_avail_eplus(8.8)) {
-    if (!eplusr:::is_linux()) {
+    if (eplusr:::is_windows()) {
         eplusr::install_eplus(8.8)
     } else {
-        l <- eplusr:::eplus_download_url(8.8)
-        url <- paste0(tools::file_path_sans_ext(l), ".tar.gz")
-        file <- basename(url)
+        base <- "https://github.com/NREL/EnergyPlus/releases/download/v8.8.0"
+        plat <- switch(eplusr:::os_type(), linux = "Linux", macos = "Darwin")
+        file <- paste0("EnergyPlus-8.8.0-7c3bbe4830-", plat, "-x86_64.tar.gz")
+        url <- file.path(base, file)
         dest <- file.path(tempdir(), file)
         dl <- eplusr:::download_file(url, dest)
-        eplus_dir <- "EnergyPlus-8.8.0-7c3bbe4830-Linux-x86_64/EnergyPlus-8-8-0"
+        eplus_dir <- paste0("EnergyPlus-8.8.0-7c3bbe4830-", plat, "-x86_64/EnergyPlus-8-8-0")
         untar(dest, exdir = tempdir())
         eplusr::use_eplus(file.path(tempdir(), eplus_dir))
     }
 }
 
-## ----copy_example, include = FALSE---------------------------------------
+## ---- results = "asis", echo = FALSE, eval = can_run---------------------
+cat('
+<p align="center">
+  <img src="../man/figures/class_structure.png"/>
+</p>
+')
+
+## ----copy_example, include = FALSE, eval = can_run-----------------------
 library(eplusr)
 
 cfg <- eplus_config(8.8)
@@ -76,6 +87,16 @@ file.copy(c(path_weather, path_ddy),
 #  
 #  # OR
 #  use_idd(8.8, download = TRUE)
+
+## ----idd_solaris, include = FALSE, eval = !can_run-----------------------
+#  use_idd(8.8, download = TRUE)
+#  path_example <- "https://raw.githubusercontent.com/NREL/EnergyPlus/v8.8.0/testfiles/5Zone_Transformer.idf"
+#  path_weather <- "https://raw.githubusercontent.com/NREL/EnergyPlus/v8.8.0/weather/USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
+#  path_ddy <- "https://raw.githubusercontent.com/NREL/EnergyPlus/v8.8.0/weather/USA_CA_San.Francisco.Intl.AP.724940_TMY3.ddy"
+#  
+#  eplusr:::download_file(path_example, file.path(tempdir(), basename(path_example)))
+#  eplusr:::download_file(path_weather, file.path(tempdir(), "San_Francisco.epw"))
+#  eplusr:::download_file(path_ddy, file.path(tempdir(), "San_Francisco.ddy"))
 
 ## ----read, out.lines = 30------------------------------------------------
 model <- read_idf(path = "5Zone_Transformer.idf", idd = NULL)
@@ -237,34 +258,34 @@ setdiff(ls(epw_sf), "initialize")
 epw_data <- epw_sf$get_data()
 str(epw_data)
 
-## ----run-----------------------------------------------------------------
+## ----run, eval = can_run-------------------------------------------------
 # read the model again
 model <- read_idf("5Zone_Transformer.idf", idd = NULL)
 
 job <- model$run(epw_sf, dir = ".", wait = TRUE)
 job
 
-## ----errors--------------------------------------------------------------
+## ----errors, eval = can_run----------------------------------------------
 job$errors()
 
-## ----dict----------------------------------------------------------------
+## ----dict, eval = can_run------------------------------------------------
 str(job$report_data_dict())
 
-## ----output--------------------------------------------------------------
+## ----output, eval = can_run----------------------------------------------
 str(job$report_data(name = "Site Outdoor Air Drybulb Temperature"))
 
-## ----tab-----------------------------------------------------------------
+## ----tab, eval = can_run-------------------------------------------------
 str(job$tabular_data())
 
-## ----del_job, include = FALSE--------------------------------------------
+## ----del_job, include = FALSE, eval = can_run----------------------------
 clean_wd(model$path())
 
-## ----param---------------------------------------------------------------
+## ----param, eval = can_run-----------------------------------------------
 param <- param_job(idf = model, epw = epw_sf)
 
 param
 
-## ----mea-----------------------------------------------------------------
+## ----mea, eval = can_run-------------------------------------------------
 set_infil_rate <- function (idf, infil_rate) {
 
     # validate input value
@@ -286,13 +307,13 @@ set_infil_rate <- function (idf, infil_rate) {
     idf
 }
 
-## ----apply---------------------------------------------------------------
+## ----apply, eval = can_run-----------------------------------------------
 param$apply_measure(set_infil_rate, seq(0, 4, by = 1), .names = NULL)
 
-## ----param_run-----------------------------------------------------------
+## ----param_run, eval = can_run-------------------------------------------
 param$run()
 
-## ----param_res-----------------------------------------------------------
+## ----param_res, eval = can_run-------------------------------------------
 tab <- param$tabular_data()
 
 total_eng <- tab[TableName == "Site and Source Energy" &
@@ -300,14 +321,16 @@ total_eng <- tab[TableName == "Site and Source Energy" &
     RowName == "Total Site Energy",
     list(Case, `Total Energy (GJ)` = as.numeric(Value))]
 
-## ----eval=FALSE----------------------------------------------------------
+## ----eval = FALSE--------------------------------------------------------
 #  total_eng
 
-## ----echo=FALSE, results="asis"------------------------------------------
+## ----echo = FALSE, results="asis", eval = can_run------------------------
 knitr::kable(total_eng)
 
-## ----del_param, include = FALSE------------------------------------------
+## ----del_param, include = FALSE, eval = can_run--------------------------
 dir_nms <- paste0("set_infil_rate_", 1:5)
 lapply(dir_nms, unlink, recursive = TRUE, force = TRUE)
+
+## ----clean_files, include = FALSE----------------------------------------
 unlink(file.path(tempdir(), c(example_name, "San_Francisco.epw", "San_Francisco.ddy")))
 
