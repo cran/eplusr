@@ -44,6 +44,7 @@ job$locate_output(suffix = ".err", strict = TRUE)
 job$report_data_dict()
 job$report_data(key_value = NULL, name = NULL, year = NULL, tz = "GMT", case = "auto")
 job$tabular_data()
+job$clone(deep = FALSE)
 job$print()
 }
 }
@@ -151,6 +152,22 @@ of this simulation. If \code{"auto"}, the name of the IDF file will be used.
 }
 }
 
+\section{Clone}{
+\preformatted{job$clone(deep = FALSE)
+}
+
+\code{$clone()} copies and returns the cloned job. Because \code{EplusJob} uses
+\code{R6Class} under the hook which has "modify-in-place" semantics, \code{job_2 <- job_1} does not copy \code{job_1} at all but only create a new binding to
+\code{job_1}.  Modify \code{job_1} will also affect \code{job_2} as well, as these two
+are exactly the same thing underneath. In order to create a complete
+cloned copy, please use \code{$clone(deep = TRUE)}.
+
+\strong{Arguments}
+\itemize{
+\item \code{deep}: Has to be \code{TRUE} if a complete cloned copy is desired.
+}
+}
+
 \section{Printing}{
 \preformatted{job$print()
 print(job)
@@ -217,7 +234,7 @@ if (is_avail_eplus(8.8)) {
     # does not exist
     job$locate_output(".exe", strict = TRUE)
 
-    # retreive simulation results will fail if there is no EnergyPlus SQL output.
+    # retrieve simulation results will fail if there is no EnergyPlus SQL output.
     job$report_data_dict()
 
     # instead, using `$run()` method in Idf class, which will add an

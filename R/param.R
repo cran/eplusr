@@ -31,6 +31,7 @@ NULL
 #' param$report_data_dict(which = NULL)
 #' param$report_data(which = NULL, key_value = NULL, name = NULL, year = NULL, tz = "GMT", case = "auto")
 #' param$tabular_data(which = NULL)
+#' job$clone(deep = FALSE)
 #' param$print()
 #' ```
 #' @section Create:
@@ -152,6 +153,23 @@ NULL
 #' * `year`: The year of the date and time in column `DateTime`. If `NULL`, it
 #'    will be the current year. Default: `NULL`
 #' * `tz`: Time zone of date and time in column `DateTime`. Default: `"GMT"`.
+#'
+#' @section Clone:
+#'
+#' ```
+#' job$clone(deep = FALSE)
+#' ```
+#'
+#' `$clone()` copies and returns the cloned job. Because `ParametricJob` uses
+#'     `R6Class` under the hook which has "modify-in-place" semantics, `job_2 <-
+#'     job_1` does not copy `job_1` at all but only create a new binding to
+#'     `job_1`. Modify `job_1` will also affect `job_2` as well, as these two
+#'     are exactly the same thing underneath. In order to create a complete
+#'     cloned copy, please use `$clone(deep = TRUE)`.
+#'
+#' **Arguments**
+#'
+#' * `deep`: Has to be `TRUE` if a complete cloned copy is desired.
 #'
 #' @section Printing:
 #' ```
@@ -290,16 +308,19 @@ Parametric <- R6::R6Class(classname = "ParametricJob", cloneable = FALSE,
         # }}}
     ),
 
-    # PRIVATE FIELDS {{{
     private = list(
+        # PRIVATE FIELDS {{{
         m_idf = NULL,
         m_epw = NULL,
         m_job = NULL,
         m_sql = NULL,
         m_log = NULL,
-        m_param = NULL
+        m_param = NULL,
+        # }}}
+
+        deep_clone = function (name, value)
+            i_deep_clone(self, private, name, value)
     )
-    # }}}
 )
 # }}}
 
@@ -313,7 +334,7 @@ i_param_apply_measure <- function (self, private, measure, ..., .names = NULL) {
 
     measure_wrapper <- function (idf, ...) {
         assert_that(is_idf(idf))
-        idf <- idf$clone()
+        idf <- idf$clone(deep = TRUE)
         measure(idf, ...)
     }
 
@@ -342,8 +363,8 @@ i_param_apply_measure <- function (self, private, measure, ..., .names = NULL) {
 }
 # }}}
 
-# i_param_retreive_data {{{
-i_param_retreive_data <- function (self, private) {
+# i_param_retrieve_data {{{
+i_param_retrieve_data <- function (self, private) {
     status <- i_param_status(self, private)
 
     if (!status$run_before) return(invisible())
@@ -365,7 +386,7 @@ i_param_retreive_data <- function (self, private) {
             if (inherits(private$m_job, "r_process")) {
                 private$m_job <- tryCatch(private$m_job$get_result(),
                     error = function (e) {
-                        stop("Failed to retreive output of parametric job. ", e, "\n",
+                        stop("Failed to retrieve output of parametric job. ", e, "\n",
                             private$m_log$stderr, call. = FALSE)
                     }
                 )
@@ -404,8 +425,8 @@ i_param_job_from_which <- function (self, private, which) {
         warning("The seed model has been changed since last run. ",
             "The job output may not be correct.", call. = FALSE)
 
-    # if success, retreive data
-    i_param_retreive_data(self, private)
+    # if success, retrieve data
+    i_param_retrieve_data(self, private)
 
     jobs <- private$m_job
 
@@ -717,7 +738,7 @@ i_param_print <- function (self, private) {
 
     status <- i_param_status(self, private)
 
-    i_param_retreive_data(self, private)
+    i_param_retrieve_data(self, private)
 
     if (!status$run_before) {
 

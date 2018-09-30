@@ -57,7 +57,7 @@ if (!eplusr::is_avail_eplus(8.8)) {
     }
 }
 
-## ---- results = "asis", echo = FALSE, eval = can_run---------------------
+## ---- results = "asis", echo = FALSE, eval = can_run, include = can_run----
 cat('
 <p align="center">
   <img src="../man/figures/class_structure.png"/>
@@ -89,6 +89,7 @@ file.copy(c(path_weather, path_ddy),
 #  use_idd(8.8, download = TRUE)
 
 ## ----idd_solaris, include = FALSE, eval = !can_run-----------------------
+#  library(eplusr)
 #  use_idd(8.8, download = TRUE)
 #  path_example <- "https://raw.githubusercontent.com/NREL/EnergyPlus/v8.8.0/testfiles/5Zone_Transformer.idf"
 #  path_weather <- "https://raw.githubusercontent.com/NREL/EnergyPlus/v8.8.0/weather/USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
