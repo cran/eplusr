@@ -313,7 +313,7 @@ v8.8.0 has been installed, we can just ignore the <code>idd</code> argument.</p>
 
 model
 #&gt; ══ EnergPlus Input Data File ══════════════════════════════════════════════
-#&gt; ● Path: `/tmp/RtmprTXu33/5Zone_Transformer.idf`
+#&gt; ● Path: `/tmp/RtmpIoJq6N/5Zone_Transformer.idf`
 #&gt; ● Version: `8.8`
 #&gt; 
 #&gt; Group: `Simulation Parameters`
@@ -933,7 +933,7 @@ or non-named values in lists. For example:</p>
 #&gt; $rp_test_3
 #&gt; IdfObject &lt;&lt;[ID:326] `rp_test_3`&gt;&gt;`RunPeriod`
 #&gt; ─────────────────────────────── * COMMENTS * ──────────────────────────────
-#&gt; !2018-09-30
+#&gt; !2018-10-11
 #&gt; !begin day has been changed.
 #&gt; ──────────────────────────────── * VALUES * ───────────────────────────────
 #&gt;   1: rp_test_3,         !- Name
@@ -1324,13 +1324,13 @@ job &lt;- model$run(epw_sf, dir = &quot;.&quot;, wait = TRUE)
 #&gt; Adding object `Output:SQLite` and setting `Option Type` to `SimpleAndTabular`.
 #&gt; 
 #&gt; ── Info ───────────────────────────────────────────────────────────────────
-#&gt; Replace the existing file located  at /tmp/RtmprTXu33/5Zone_Transformer.idf.
+#&gt; Replace the existing file located  at /tmp/RtmpIoJq6N/5Zone_Transformer.idf.
 #&gt; 
 #&gt; ExpandObjects Started.
 #&gt; No expanded file generated.
-#&gt; ExpandObjects Finished. Time:     0.125
+#&gt; ExpandObjects Finished. Time:     0.031
 #&gt; EnergyPlus Starting
-#&gt; EnergyPlus, Version 8.8.0-7c3bbe4830, YMD=2018.09.30 10:49
+#&gt; EnergyPlus, Version 8.8.0-7c3bbe4830, YMD=2018.10.11 16:54
 #&gt; Processing Data Dictionary
 #&gt; Processing Input File
 #&gt; Initializing Response Factors
@@ -1407,19 +1407,19 @@ job &lt;- model$run(epw_sf, dir = &quot;.&quot;, wait = TRUE)
 #&gt; Writing tabular output file results using HTML format.
 #&gt; Writing final SQL reports
 #&gt;  ReadVarsESO program starting.
-#&gt;  ReadVars Run Time=00hr 00min  0.17sec
+#&gt;  ReadVars Run Time=00hr 00min  0.08sec
 #&gt;  ReadVarsESO program completed successfully.
 #&gt;  ReadVarsESO program starting.
-#&gt;  ReadVars Run Time=00hr 00min  0.11sec
+#&gt;  ReadVars Run Time=00hr 00min  0.06sec
 #&gt;  ReadVarsESO program completed successfully.
-#&gt; EnergyPlus Run Time=00hr 00min 10.46sec
+#&gt; EnergyPlus Run Time=00hr 00min  2.22sec
 job
 #&gt; ── EnergyPlus Simulation Job ──────────────────────────────────────────────
-#&gt; ● Model: `/tmp/RtmprTXu33/5Zone_Transformer.idf`
-#&gt; ● Weather: `/tmp/RtmprTXu33/San_Francisco.epw`
+#&gt; ● Model: `/tmp/RtmpIoJq6N/5Zone_Transformer.idf`
+#&gt; ● Weather: `/tmp/RtmpIoJq6N/San_Francisco.epw`
 #&gt; ● EnergyPlus Version: `8.8.0`
 #&gt; ● EnergyPlus Path: `/usr/local/EnergyPlus-8-8-0`
-#&gt;  Simulation started at `2018-09-30 10:49:38` and completed successfully after 11.52 secs.
+#&gt;  Simulation started at `2018-10-11 16:54:56` and completed successfully after 2.45 secs.
 </code></pre>
 
 <h3>Print simulation errors</h3>
@@ -1517,8 +1517,8 @@ as the <em>seed</em> and an EPW file or an <code>Epw</code> object as <em>weathe
 
 param
 #&gt; ── EnergPlus Parametric Job ───────────────────────────────────────────────
-#&gt; ● Seed Model: `/tmp/RtmprTXu33/5Zone_Transformer.idf`
-#&gt; ● Weather: `/tmp/RtmprTXu33/San_Francisco.epw`
+#&gt; ● Seed Model: `/tmp/RtmpIoJq6N/5Zone_Transformer.idf`
+#&gt; ● Weather: `/tmp/RtmpIoJq6N/San_Francisco.epw`
 #&gt; ● EnergyPlus Version: `8.8.0`
 #&gt; ● EnergyPlus Path: `/usr/local/EnergyPlus-8-8-0`
 #&gt; &lt;&lt; No measure has been applied &gt;&gt;
@@ -1597,15 +1597,14 @@ in waiting mode. This may be changed in the future.</p>
 #&gt; 2|RUNNING    --&gt; [IDF]`set_infil_rate_2.idf` + [EPW]`San_Francisco.epw`
 #&gt; 3|RUNNING    --&gt; [IDF]`set_infil_rate_3.idf` + [EPW]`San_Francisco.epw`
 #&gt; 4|RUNNING    --&gt; [IDF]`set_infil_rate_4.idf` + [EPW]`San_Francisco.epw`
-#&gt; 1|COMPLETED  --&gt; [IDF]`set_infil_rate_1.idf` + [EPW]`San_Francisco.epw`
+#&gt; 1|COMPLETED  --&gt; [IDF]`set_infil_rate_1.idf` + [EPW]`San_Francisco.epw...
 #&gt; 5|RUNNING    --&gt; [IDF]`set_infil_rate_5.idf` + [EPW]`San_Francisco.epw`
 #&gt; 2|COMPLETED  --&gt; [IDF]`set_infil_rate_2.idf` + [EPW]`San_Francisco.epw`
-#&gt; 3|COMPLETED  --&gt; [IDF]`set_infil_rate_3.idf` + [EPW]`San_Francisco.epw`
 #&gt; 4|COMPLETED  --&gt; [IDF]`set_infil_rate_4.idf` + [EPW]`San_Francisco.epw`
 #&gt; 5|COMPLETED  --&gt; [IDF]`set_infil_rate_5.idf` + [EPW]`San_Francisco.epw`
 #&gt; ── EnergPlus Parametric Job ───────────────────────────────────────────────
-#&gt; ● Seed Model: `/tmp/RtmprTXu33/5Zone_Transformer.idf`
-#&gt; ● Weather: `/tmp/RtmprTXu33/San_Francisco.epw`
+#&gt; ● Seed Model: `/tmp/RtmpIoJq6N/5Zone_Transformer.idf`
+#&gt; ● Weather: `/tmp/RtmpIoJq6N/San_Francisco.epw`
 #&gt; ● EnergyPlus Version: `8.8.0`
 #&gt; ● EnergyPlus Path: `/usr/local/EnergyPlus-8-8-0`
 #&gt; ● Applied Measure: `set_infil_rate`
@@ -1615,7 +1614,7 @@ in waiting mode. This may be changed in the future.</p>
 #&gt;   - set_infil_rate_3
 #&gt;   - set_infil_rate_4
 #&gt;   - set_infil_rate_5
-#&gt;  Simulation started at `2018-09-30 10:49:57` and completed successfully after 38.11 secs.
+#&gt;  Simulation started at `2018-10-11 16:55:01` and completed successfully after 13.48 secs.
 </code></pre>
 
 <p>After all simulations completed, let&#39;s see the variations of total energy.</p>

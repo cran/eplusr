@@ -1,3 +1,13 @@
+# eplusr 0.9.3
+
+## New features
+
+* Add support for EnergyPlus v9.0.0.
+
+## Bug fixes
+
+* Remove duplicates when update value references (#20).
+
 # eplusr 0.9.2
 
 ## Break changes

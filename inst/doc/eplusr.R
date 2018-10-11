@@ -332,6 +332,6 @@ knitr::kable(total_eng)
 dir_nms <- paste0("set_infil_rate_", 1:5)
 lapply(dir_nms, unlink, recursive = TRUE, force = TRUE)
 
-## ----clean_files, include = FALSE----------------------------------------
+## ----clean_files, include = FALSE, eval = can_run------------------------
 unlink(file.path(tempdir(), c(example_name, "San_Francisco.epw", "San_Francisco.ddy")))
 

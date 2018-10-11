@@ -1,8 +1,8 @@
-6c20a19f38c130f125cb7c6d3c1f021e *DESCRIPTION
+b4ee4fbb554be4f541d3ad1c3fd85b43 *DESCRIPTION
 2a86a9b56dc3cba6a6e5dfb7155dc938 *NAMESPACE
-842eeb7e9d96efd5dea61f3efe0d665e *NEWS.md
+ecfd8ecff816426b3f4d0625185ae1b5 *NEWS.md
 cf066b6473a8d156aabafab7eb4b2fe3 *R/assertions.R
-bdd8271457b50fa39dcb359b19ea48c7 *R/constants.R
+d38d4c7d7633317e6f3281d4a1b4f4bf *R/constants.R
 6093bb674817e4ce1d4931ce1a759808 *R/eplusr.R
 80827b2eb7a9787cba172142f6a51fed *R/epw.R
 f147043aa4c35e038a5ea7caa6bd17fc *R/format.R
@@ -10,7 +10,7 @@ b9756af6c382d847fb1a44647b0cb3b1 *R/idd.R
 6babb243bd68d8d65af687fd325dc255 *R/idd_object.R
 be6f73773ef96afbbc87b286f245c002 *R/idf.R
 95d6eed41567e72547a189f9e6c16701 *R/idf_object.R
-9ccf48b3be75bb0bd765b2dc3645245c *R/impl.R
+b7361ce6cff318934f3f2c1035d87fa1 *R/impl.R
 925d92e78d7b94b2868d92a1b96ce91c *R/install.R
 e04ce75682b1fdc11e757e0769b0c5c3 *R/job.R
 46f20b17ad4f42274704361c5627abe2 *R/param.R
@@ -24,9 +24,9 @@ bf26f173bd5cd4f46630c4b5a759036e *R/units.R
 3d5d35da7c1a1d1c5e5663f1cd6e9e28 *README.md
 15097e952f13f16c6400bd28c4d1407c *build/vignette.rds
 dfca3470e67c8c3e6eba5154552e30ad *inst/CITATION
-19dc7c1573ef3a38a5bbaa41fac47383 *inst/doc/eplusr.R
-4cb5caabe9c399ea1901c31f57170041 *inst/doc/eplusr.Rmd
-f473495f22c579dfce35129ac577f90b *inst/doc/eplusr.html
+d76a4b9af2829141a19e09cdd7c1a3b9 *inst/doc/eplusr.R
+2e31507cddc1f90075a8dc91e7e59020 *inst/doc/eplusr.Rmd
+4e7de9c0778718b6e1cf5151d636d304 *inst/doc/eplusr.html
 3464b5091116411ee9552cd5f674a2d9 *inst/extdata/1ZoneUncontrolled.idf
 e682a0a2738347be5cd5caa719557632 *man/EplusJob.Rd
 4f86fa7b83bd5da33ec1c64b9929e0d6 *man/EplusSql.Rd
@@ -53,11 +53,11 @@ e2ad08a3a5f7ae64645854c75e5738e7 *man/run_model.Rd
 4924216e2296a035a34dbadba1122dd3 *tests/testthat.R
 cfb8f062b46d99785a2bd810d1014068 *tests/testthat/helper-copy.R
 b5d0cacd6086e6cbe40c93160edcd8c8 *tests/testthat/test_epw.R
-cfdb8cd876b24210e42744dd84dbdc9c *tests/testthat/test_idd.R
+739c7c48906dd28914491bf77fb19a13 *tests/testthat/test_idd.R
 31fb98ab61e4bbb6c37d1aab04a5178b *tests/testthat/test_idf.R
 6d97687c33ae15c64227560d07c354de *tests/testthat/test_job.R
 ad3bd6f910718e1b1af7a95d7a8aa7ea *tests/testthat/test_options.R
 4fa4fa62c6f9e88eb36674036b32488e *tests/testthat/test_param.R
 f2d49989ffecdee42b95d72c3ab3b0f6 *tests/testthat/test_sql.R
 9f9e398050b2514ba5d134e69cde744a *tests/testthat/test_utils.R
-4cb5caabe9c399ea1901c31f57170041 *vignettes/eplusr.Rmd
+2e31507cddc1f90075a8dc91e7e59020 *vignettes/eplusr.Rmd
