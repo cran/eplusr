@@ -33,28 +33,32 @@ can_run <- eplusr:::os_type() != "unknown"
 #  devtools::install_github("hongyuanjia/eplusr")
 
 ## ----eplus-install, eval = FALSE-----------------------------------------
-#  # install the latest version (currently v8.9.0)
+#  # install the latest version (currently v9.0.0)
 #  eplusr::install_eplus("latest")
 #  
-#  # OR download the latest version (currently v8.9.0) and run the installer
+#  # OR download the latest version (currently v9.0.0) and run the installer
 #  # manually by yourself
 #  eplusr::download_eplus("latest", dir = tempdir())
 
 ## ----install_eplus, include = FALSE, eval = can_run----------------------
+# download portable EnergyPlus
 if (!eplusr::is_avail_eplus(8.8)) {
+    binary_url <- eplusr:::eplus_download_url(8.8)
     if (eplusr:::is_windows()) {
-        eplusr::install_eplus(8.8)
+        ext <- ".zip"
     } else {
-        base <- "https://github.com/NREL/EnergyPlus/releases/download/v8.8.0"
-        plat <- switch(eplusr:::os_type(), linux = "Linux", macos = "Darwin")
-        file <- paste0("EnergyPlus-8.8.0-7c3bbe4830-", plat, "-x86_64.tar.gz")
-        url <- file.path(base, file)
-        dest <- file.path(tempdir(), file)
-        dl <- eplusr:::download_file(url, dest)
-        eplus_dir <- paste0("EnergyPlus-8.8.0-7c3bbe4830-", plat, "-x86_64/EnergyPlus-8-8-0")
-        untar(dest, exdir = tempdir())
-        eplusr::use_eplus(file.path(tempdir(), eplus_dir))
+        ext <- ".tar.gz"
     }
+    port_url <- paste0(tools::file_path_sans_ext(binary_url), ext)
+    dest <- file.path(tempdir(), basename(port_url))
+    dl <- eplusr:::download_file(port_url, dest)
+    eplus_dir <- file.path(tools::file_path_sans_ext(basename(binary_url)), "EnergyPlus-8-8-0")
+    if (eplusr:::is_windows()) {
+        unzip(dest, exdir = tempdir())
+    } else {
+        untar(dest, exdir = tempdir())
+    }
+    eplusr::use_eplus(file.path(tempdir(), eplus_dir))
 }
 
 ## ---- results = "asis", echo = FALSE, eval = can_run, include = can_run----
@@ -248,8 +252,12 @@ avail_eplus()
 ## ----install, eval = FALSE-----------------------------------------------
 #  install_eplus(ver = 8.9)
 
+## ----epw-download--------------------------------------------------------
+epw_sf <- download_weather("san francisco.*tmy3", filename = "San_Francisco",
+    dir = tempdir(), type = "epw", ask = FALSE)
+
 ## ----epw-----------------------------------------------------------------
-epw_sf <- read_epw("San_Francisco.epw")
+epw_sf <- read_epw(epw_sf)
 epw_sf
 
 ## ----epw_method----------------------------------------------------------

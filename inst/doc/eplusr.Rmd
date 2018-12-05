@@ -67,10 +67,10 @@ are helper functions in eplusr to download and install it automatically on major
 operating systems (Windows, macOS and Linux):
 
 ```{r eplus-install, eval = FALSE}
-# install the latest version (currently v8.9.0)
+# install the latest version (currently v9.0.0)
 eplusr::install_eplus("latest")
 
-# OR download the latest version (currently v8.9.0) and run the installer
+# OR download the latest version (currently v9.0.0) and run the installer
 # manually by yourself
 eplusr::download_eplus("latest", dir = tempdir())
 ```
@@ -81,20 +81,24 @@ sudo if you are on macOS or Linux) to make it work if you are not in interactive
 mode.
 
 ```{r install_eplus, include = FALSE, eval = can_run}
+# download portable EnergyPlus
 if (!eplusr::is_avail_eplus(8.8)) {
+    binary_url <- eplusr:::eplus_download_url(8.8)
     if (eplusr:::is_windows()) {
-        eplusr::install_eplus(8.8)
+        ext <- ".zip"
     } else {
-        base <- "https://github.com/NREL/EnergyPlus/releases/download/v8.8.0"
-        plat <- switch(eplusr:::os_type(), linux = "Linux", macos = "Darwin")
-        file <- paste0("EnergyPlus-8.8.0-7c3bbe4830-", plat, "-x86_64.tar.gz")
-        url <- file.path(base, file)
-        dest <- file.path(tempdir(), file)
-        dl <- eplusr:::download_file(url, dest)
-        eplus_dir <- paste0("EnergyPlus-8.8.0-7c3bbe4830-", plat, "-x86_64/EnergyPlus-8-8-0")
-        untar(dest, exdir = tempdir())
-        eplusr::use_eplus(file.path(tempdir(), eplus_dir))
+        ext <- ".tar.gz"
     }
+    port_url <- paste0(tools::file_path_sans_ext(binary_url), ext)
+    dest <- file.path(tempdir(), basename(port_url))
+    dl <- eplusr:::download_file(port_url, dest)
+    eplus_dir <- file.path(tools::file_path_sans_ext(basename(binary_url)), "EnergyPlus-8-8-0")
+    if (eplusr:::is_windows()) {
+        unzip(dest, exdir = tempdir())
+    } else {
+        untar(dest, exdir = tempdir())
+    }
+    eplusr::use_eplus(file.path(tempdir(), eplus_dir))
 }
 ```
 
@@ -594,11 +598,27 @@ install_eplus(ver = 8.9)
 
 Sometimes, before simulation, it may be useful to retrieve weather data from
 EnergyPlus Weather (EPW) file and conduct analysis on the weather. eplusr
-provides `read_epw()` to let you read an EPW file and `Epw` class to query and
-modify weather data.
+provides `download_weather()` to search and download EPW files, `read_epw()`
+to read EPW files and `Epw` class to query and modify weather data.
+
+`download_weather()`You can search weather locations using an 
+
+`download_weather()` takes a regular expression as input, searches through
+EnergyPlus weather data base (stored in this package), download corresponding
+EPW and/or DDY files and return the saved paths.
+
+Let's download San Francisco weather data in TMY3 format, save it with name 
+`"San_Francisco.epw"` in temperory directory.
+
+```{r epw-download}
+epw_sf <- download_weather("san francisco.*tmy3", filename = "San_Francisco",
+    dir = tempdir(), type = "epw", ask = FALSE)
+```
+
+After downloading EPW file, we can read it using `read_epw()`.
 
 ```{r epw}
-epw_sf <- read_epw("San_Francisco.epw")
+epw_sf <- read_epw(epw_sf)
 epw_sf
 ```
 

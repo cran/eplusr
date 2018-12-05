@@ -7,11 +7,11 @@
 NULL
 
 # format_header: return header of an Idf output {{{
-format_header <- function (format = c("sorted", "new_top", "new_bottom"), view_in_ip = FALSE) {
-    format <- switch(format,
+format_header <- function (format = c("sorted", "new_top", "new_bot"), view_in_ip = FALSE) {
+    format <- switch(match.arg(format),
         sorted = "SortedOrder",
         new_top = "OriginalOrderTop",
-        new_bottom = "OriginalOrderBottom")
+        new_bot = "OriginalOrderBottom")
 
     header_generator <- "!-Generator eplusr"
 
@@ -43,6 +43,7 @@ format_output <- function (value_tbl, comment_tbl, ...) {
     dots <- list(...)
     header <- dots$header %||% TRUE
     sav_fmt <- dots$format %||% eplusr_option("save_format")
+    if (sav_fmt == "asis") sav_fmt <- "sorted"
     leading <- dots$leading %||% 4L
     in_ip <- dots$in_ip %||% eplusr_option("view_in_ip")
     sep_at <- dots$sep_at %||% 29L
@@ -55,8 +56,12 @@ format_output <- function (value_tbl, comment_tbl, ...) {
         data.table::setorder(value_tbl, class_id, object_id, field_index)
     } else if (sav_fmt == "new_top") {
         data.table::setorder(value_tbl, -object_order, object_id, class_id, field_index)
-    } else {
+    } else if (sav_fmt == "new_bot"){
         data.table::setorder(value_tbl, object_order, object_id, class_id, field_index)
+    } else {
+        stop("Invalid format found: ", backtick(sav_fmt), ". It should be one of ",
+            "`asis`, `sorted`, `new_top` and `new_bot`.", call. = FALSE
+        )
     }
 
     # add field output
