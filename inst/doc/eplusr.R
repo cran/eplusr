@@ -1,22 +1,24 @@
 ## ----setup, include = FALSE----------------------------------------------
 knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>",
-  screenshot.force = FALSE
+    collapse = TRUE,
+    comment = "#>",
+    screenshot.force = FALSE
 )
 
 # the default output hook
 hook_output = knitr::knit_hooks$get('output')
 knitr::knit_hooks$set(output = function(x, options) {
-  if (!is.null(n <- options$out.lines)) {
-    x = unlist(stringr::str_split(x, '\n'))
-    if (length(x) > n) {
-      # truncate the output
-      x = c(head(x, n), '....\n')
+    if (!is.null(n <- options$out.lines)) {
+        x <- unlist(strsplit(x, '\n', fixed = TRUE))
+        if (length(x) > n) {
+            # truncate the output
+            x <- c(head(x, n), '....', '')
+        } else {
+            x <- c(x, "")
+        }
+        x <- paste(x, collapse = '\n') # paste first n lines together
     }
-    x = paste(x, collapse = '\n') # paste first n lines together
-  }
-  hook_output(x, options)
+    hook_output(x, options)
 })
 
 knitr::opts_knit$set(root.dir = tempdir())
@@ -29,14 +31,14 @@ can_run <- eplusr:::os_type() != "unknown"
 #  install.packages("eplusr")
 
 ## ----gh-installation, eval = FALSE---------------------------------------
-#  # install.packages("devtools")
-#  devtools::install_github("hongyuanjia/eplusr")
+#  # install.packages("remotes")
+#  remotes::install_github("hongyuanjia/eplusr")
 
 ## ----eplus-install, eval = FALSE-----------------------------------------
-#  # install the latest version (currently v9.0.0)
+#  # install the latest version (currently v9.1.0)
 #  eplusr::install_eplus("latest")
 #  
-#  # OR download the latest version (currently v9.0.0) and run the installer
+#  # OR download the latest version (currently v9.1.0) and run the installer
 #  # manually by yourself
 #  eplusr::download_eplus("latest", dir = tempdir())
 
@@ -103,43 +105,40 @@ file.copy(c(path_weather, path_ddy),
 #  eplusr:::download_file(path_weather, file.path(tempdir(), "San_Francisco.epw"))
 #  eplusr:::download_file(path_ddy, file.path(tempdir(), "San_Francisco.ddy"))
 
-## ----read, out.lines = 30------------------------------------------------
+## ----read, out.lines = 10------------------------------------------------
 model <- read_idf(path = "5Zone_Transformer.idf", idd = NULL)
 
 model
 
-## ----idf_methods---------------------------------------------------------
-setdiff(ls(model), "initialize")
-
-## ----all_grp, out.lines = 14---------------------------------------------
+## ----all_grp, out.lines = 5----------------------------------------------
 model$group_name()
 
-## ----all_cls, out.lines = 14---------------------------------------------
+## ----all_cls, out.lines = 5----------------------------------------------
 model$class_name()
 
+## ----chk_grp-------------------------------------------------------------
+model$is_valid_group("Schedules")
+model$is_valid_class("ZoneInfiltration:DesignFlowRate")
+
 ## ----all_field-----------------------------------------------------------
-def_mat <- model$definition(class = "Material")[[1]]
+def_mat <- model$definition("Material")
 def_mat
 
-## ----idd_obj-------------------------------------------------------------
-idd <- use_idd(8.8)
-
-idd$Material
-
-# OR
-# idd$object("Material")[[1]]
-
-## ----iddobj_methods------------------------------------------------------
-setdiff(ls(def_mat), "initialize")
+## ----idd_obj, eval = FALSE-----------------------------------------------
+#  idd <- use_idd(8.8)
+#  idd$Material
+#  
+#  # OR
+#  # idd$object("Material")
+#  
+#  # OR
+#  # idd_object(8.8, "Material")
 
 ## ----mat_def-------------------------------------------------------------
 def_val <- def_mat$field_default()
-def_val
+str(def_val)
 
-## ----def_type------------------------------------------------------------
-vapply(def_val, class, character(1))
-
-## ----all_id, out.lines = 20----------------------------------------------
+## ----all_id--------------------------------------------------------------
 model$object_id(class = c("Material", "Construction"), simplify = FALSE)
 
 ## ----obj_nm--------------------------------------------------------------
@@ -149,10 +148,10 @@ model$object_name(class = c("Version", "Material", "Construction"), simplify = F
 model$object_num(c("BuildingSurface:Detailed", "Material", "Output:Variable"))
 
 ## ----obj-----------------------------------------------------------------
-model$object(c("WD10", "ROOF-1"))
+model$objects(c("WD10", "ROOF-1"))
 
 ## ----obj_in_cls, out.lines = 30------------------------------------------
-model$object_in_class("Material")
+model$objects_in_class("Material")
 
 ## ----obj_in_cls_shortcut_1, out.lines = 30-------------------------------
 model$Material_NoMass
@@ -161,82 +160,117 @@ model$Material_NoMass
 
 ## ----rp------------------------------------------------------------------
 rp <- model$RunPeriod[[1]]
-rp
 
-## ----search_obj, out.lines = 20------------------------------------------
-model$search_object("Demand", class = "Branch")
+## ----objuni--------------------------------------------------------------
+model$object_unique("Building")
 
-## ----idfobj_methods------------------------------------------------------
-setdiff(ls(rp), "initialize")
+# OR just
+# model$Building
+
+## ----rel-----------------------------------------------------------------
+model$object_name("Material:NoMass")
+model$object_relation("mat-clng-1")
+
+## ----obj_rel-------------------------------------------------------------
+mat_const <- model$objects_in_relation("mat-clng-1", "ref_by")
+mat_const
 
 ## ----s3_obj--------------------------------------------------------------
 rp$Begin_Day_of_Month
 
 # OR
-rp[["Begin_Day_of_Month"]]
-rp[[3]]
+# rp[["Begin_Day_of_Month"]]
+# rp[[3]]
 
 ## ----chain---------------------------------------------------------------
 model$RunPeriod$WinterDay$Begin_Day_of_Month
 
 ## ----dup-----------------------------------------------------------------
-model$dup_object(c("ROOF-1", "ROOF-1", "WALL-1"))
+model$dup(c(my_roof = "ROOF-1", "ROOF-1", "WALL-1"))
 
 ## ----add_obj-------------------------------------------------------------
-model$add_object(rep("RunPeriod", 2),
-  value = list(
-    list("rp_test_1", 1, 1, 2, 1),
+rp1 <- list(RunPeriod = list("rp_test_1", 1, 1, 2, 1, .comment = c("Comment for new object 1", "Another comment")))
 
-    list(name = "rp_test_2",
-         begin_month = 3,
-         begin_day_of_month = 1,
-         end_month = 4,
-         end_day_of_month = 1)
-    ),
-  comment = list(
-    list("Comment for new object 1", "Another comment"),
-    list("Comment for new object 2")),
-  default = TRUE
+model$add(rp1,
+  RunPeriod = list(name = "rp_test_2", begin_month = 3, begin_day_of_month = 1,
+    end_month = 4, end_day_of_month = 1, .comment = "Comment for new object 2"
+  )
 )
 
 ## ----set_obj-------------------------------------------------------------
-model$set_object("rp_test_1", list(name = "rp_test_3", begin_day_of_month = 2),
-  comment = list(format(Sys.Date()), "begin day has been changed."))
+model$set(
+  rp_test_1 = list(name = "rp_test_3", begin_day_of_month = 2,
+    .comment = c(format(Sys.Date()), "begin day has been changed.")
+  )
+)
+
+## ----set_chain-----------------------------------------------------------
+model$RunPeriod$rp_test_2$End_Day_of_Month <- 2
+model$RunPeriod$rp_test_2$End_Day_of_Month
 
 ## ----set_ref-------------------------------------------------------------
 mat <- model$Material$CC03
 
-# get other objects referencing this object
-mat$ref_by_object()
+mat$value_relation("Name")
 
-mat$set_value(name = "CC03_renamed")
+mat$set(name = "CC03_renamed")
 
-mat$ref_by_object()
+mat$value_relation("Name")
 
 ## ----possible------------------------------------------------------------
-mat$possible_value()
+mat$value_possible(c(2, 7))
 
 ## ----ddy, warning=TRUE, out.lines = 20-----------------------------------
 # read ddy file as normal IDF
 ddy <- read_idf("San_Francisco.ddy", idd = 8.8)
 
-model$ins_object(ddy$SizingPeriod_DesignDay)
+model$insert(ddy$SizingPeriod_DesignDay)
+
+# get location data
+loc <- ddy$Site_Location$value()
+
+model$Site_Location$set(loc)
+
+
+## ----load_chr------------------------------------------------------------
+mat_chr <- c("Construction,", "new_const1,", paste0(model$Material[[1]]$name(), ";"))
+model$load(mat_chr)
+
+# extract first construction data in a data.table
+dt <- model$Construction[[1L]]$to_table()
+# modify value
+dt[1, value := "new_const2"]
+model$load(dt)
+
+## ------------------------------------------------------------------------
+model$object_relation("new_const1")
+model$object_relation("new_const2")
 
 ## ----ref_by--------------------------------------------------------------
-clng <- model$Material_NoMass$MAT_CLNG_1
-clng$ref_by_object()
+model$Material_NoMass$`MAT-CLNG-1`$value_relation()
 
 ## ----del, error = TRUE---------------------------------------------------
+model$del("mat-clng-1")
+
+## ----del_1---------------------------------------------------------------
+model$del("mat-clng-1", .force = TRUE)
+
+## ----validate------------------------------------------------------------
 eplusr_option("validate_level")
-model$del_object("mat-clng-1")
+str(level_checks("final"))
 
-## ----del_force-----------------------------------------------------------
-eplusr_option(validate_level = "draft")
-invisible(model$del_object("mat-clng-1", referenced = TRUE))
+## ----valid---------------------------------------------------------------
+model$validate(custom_validate(reference = TRUE))
 
-## ----valid, error = TRUE-------------------------------------------------
-eplusr_option(validate_level = "final")
-model$validate()
+## ------------------------------------------------------------------------
+(id <- model$validate()$invalid_reference$object_id)
+model$objects(id)
+
+## ------------------------------------------------------------------------
+model$object(id)$value_possible("Outside Layer")$source
+
+## ------------------------------------------------------------------------
+model$object(id)$set(Outside_Layer = "WD10")
 
 ## ----save, eval = FALSE--------------------------------------------------
 #  model$save(overwrite = TRUE)
@@ -250,29 +284,14 @@ avail_eplus()
 #  use_eplus("C:/EnergyPlusV8-8-0")
 
 ## ----install, eval = FALSE-----------------------------------------------
-#  install_eplus(ver = 8.9)
+#  install_eplus(ver = 8.8)
 
-## ----epw-download--------------------------------------------------------
-epw_sf <- download_weather("san francisco.*tmy3", filename = "San_Francisco",
-    dir = tempdir(), type = "epw", ask = FALSE)
-
-## ----epw-----------------------------------------------------------------
-epw_sf <- read_epw(epw_sf)
-epw_sf
-
-## ----epw_method----------------------------------------------------------
-setdiff(ls(epw_sf), "initialize")
-
-## ----epw_data------------------------------------------------------------
-epw_data <- epw_sf$get_data()
-str(epw_data)
-
-## ----run, eval = can_run-------------------------------------------------
+## ----run, eval = can_run, out.lines = 10---------------------------------
 # read the model again
-model <- read_idf("5Zone_Transformer.idf", idd = NULL)
+model <- read_idf("5Zone_Transformer.idf")
+path_epw <- "San_Francisco.epw"
 
-job <- model$run(epw_sf, dir = ".", wait = TRUE)
-job
+job <- model$run(path_epw, wait = TRUE)
 
 ## ----errors, eval = can_run----------------------------------------------
 job$errors()
@@ -281,54 +300,63 @@ job$errors()
 str(job$report_data_dict())
 
 ## ----output, eval = can_run----------------------------------------------
-str(job$report_data(name = "Site Outdoor Air Drybulb Temperature"))
+power <- job$report_data("transformer 1", "transformer input electric power", case = "example",
+  all = TRUE, simulation_days = 1, environment_name = "summerday", hour = 11, minute = 0)
+
+str(power)
 
 ## ----tab, eval = can_run-------------------------------------------------
-str(job$tabular_data())
+site_energy <- job$tabular_data(column_name = "energy per total building area", row_name = "total site energy")
+site_energy[, value := as.numeric(value)]
+str(site_energy)
 
 ## ----del_job, include = FALSE, eval = can_run----------------------------
 clean_wd(model$path())
 
 ## ----param, eval = can_run-----------------------------------------------
-param <- param_job(idf = model, epw = epw_sf)
+param <- param_job(idf = model, epw = path_epw)
 
 param
 
 ## ----mea, eval = can_run-------------------------------------------------
 set_infil_rate <- function (idf, infil_rate) {
 
-    # validate input value
-    # this is optional, as validations will be performed when setting values
-    stopifnot(is.numeric(infil_rate), infil_rate >= 0)
+  # validate input value
+  # this is optional, as validations will be made when setting values to `Idf`
+  stopifnot(is.numeric(infil_rate), infil_rate >= 0)
 
-    if (!idf$is_valid_class("ZoneInfiltration:DesignFlowRate"))
-      stop("Input model does not have any object in class `ZoneInfiltration:DesignFlowRate`")
+  if (!idf$is_valid_class("ZoneInfiltration:DesignFlowRate"))
+    stop("Input model does not have any object in class `ZoneInfiltration:DesignFlowRate`")
 
-    ids <- idf$object_id("ZoneInfiltration:DesignFlowRate", simplify = TRUE)
+  # get all object IDS
+  ids <- idf$object_id("ZoneInfiltration:DesignFlowRate", simplify = TRUE)
 
-    idf$set_object(ids,
-        value = rep(list(list(
-            design_flow_rate_calculation_method = "AirChanges/Hour",
-            air_changes_per_hour = infil_rate)),
-            times = length(ids))
-        )
+  # make a list of new values to set
+  new_val <- list(design_flow_rate_calculation_method = "AirChanges/Hour", air_changes_per_hour = infil_rate)
 
-    idf
+  # create proper format for all objects in that class
+  val <- rep(list(new_val), length(ids))
+  names(val) <- paste0("..", ids)
+
+  idf$set(val)
+
+  idf
 }
 
 ## ----apply, eval = can_run-----------------------------------------------
 param$apply_measure(set_infil_rate, seq(0, 4, by = 1), .names = NULL)
 
 ## ----param_run, eval = can_run-------------------------------------------
-param$run()
+param$run(wait = TRUE)
 
 ## ----param_res, eval = can_run-------------------------------------------
-tab <- param$tabular_data()
+tab <- param$tabular_data(
+  table_name = "Site and Source Energy",
+  column_name = "Total Energy",
+  row_name = "Total Site Energy"
+)
 
-total_eng <- tab[TableName == "Site and Source Energy" &
-    ColumnName == "Total Energy" &
-    RowName == "Total Site Energy",
-    list(Case, `Total Energy (GJ)` = as.numeric(Value))]
+total_eng <- tab[, list(case, `Total Energy (GJ)` = as.numeric(value))]
 
 ## ----eval = FALSE--------------------------------------------------------
 #  total_eng
