@@ -317,7 +317,7 @@ vector of object names for \code{$objects()}.
 \code{$objects_in_relation()} and \code{$search_object()}.
 \item \code{group}: A single string of group name.
 \item \code{pattern}, \code{ignore.case}, \code{perl}, \code{fixed} and \code{useBytes}: All of them are
-directly passed to \code{\link[base:grepl]{base::grepl()}}.
+directly passed to \link[base:grep]{base::grepl}.
 \item \code{ClassName}: A single string of class name. For \code{[[}, \code{ClassName} can
 be an underscore-style class name, where all characters other than letters
 and numbers are replaced by underscores \code{_}.
@@ -328,7 +328,7 @@ material named \code{mat} is referred by a construction named \code{const}, and
 \code{const} is also referred by a surface named \code{surf}, all \code{mat}, \code{const} and
 \code{surf} are returned.
 \item \code{ignore.case}, \code{perl}, \code{fixed} and \code{useBytes}: All are directly passed to
-\code{\link[base:grepl]{base::grepl()}}.
+\link[base:grep]{base::grepl}.
 }
 }
 
@@ -745,7 +745,8 @@ error prone. Validation rules also apply during replacing.
 \item \code{class}: A character vector of invalid class names in current \code{Idf} object
 to search for values. If \code{NULL}, all classes are used.
 \item \code{pattern}, \code{replacement}, \code{ignore.case}, \code{perl}, \code{fixed} and \code{useBytes}:
-All of them are directly passed to \code{\link[base:grepl]{base::grepl()}} and \code{\link[base:gsub]{base::gsub()}}.
+All of them are directly passed to \link[base:grep]{base::grepl} and
+\link[base:grep]{base::gsub}.
 }
 
 \strong{Usage}:
@@ -1125,6 +1126,7 @@ length(idf$search_object("r\\\\d", ignore.case = TRUE, class = "Construction"))
 names(idf$search_object("r\\\\d", ignore.case = TRUE, class = "Construction"))
 
 # ===== DUPLICATE OBJECTS =====
+\dontrun{
 # duplicate objects in "Construction" class
 names(idf$Construction)
 idf$dup("R13WALL")
@@ -1137,9 +1139,11 @@ names(idf$Construction)
 idf$dup(My_R13Wall = "R13WALL")
 
 # duplicate an object multiple times
-\dontrun{idf$dup(rep("R13WALL", times = 10))}
+idf$dup(rep("R13WALL", times = 10))
+}
 
 # ===== ADD OBJECTS =====
+\dontrun{
 # add two new objects in "RunPeriod" class
 idf$add(
     RunPeriod = list("rp_test_1", 1, 1, 2, 1,
@@ -1154,8 +1158,10 @@ idf$add(
         .comment = "Comment for new object 2"
      )
 )
+}
 
 # ===== INSERT OBJECTS =====
+\dontrun{
 # insert objects from other Idf object
 idf_1 <- read_idf(system.file("extdata/1ZoneUncontrolled.idf", package = "eplusr"),
     idd = use_idd(8.8, download = "auto"))
@@ -1174,9 +1180,11 @@ idf$insert(idf_1$Material$test)
 idf$object_name("Material")
 
 # $insert() is useful when importing design days from a ".ddy" file
-\dontrun{idf$insert(read_idf("foo.ddy"))}
+idf$insert(read_idf("foo.ddy"))
+}
 
 # ===== SET OBJECTS =====
+\dontrun{
 # set the thickness of newly inserted material "test" to 0.2 m
 idf$set(test = list(thickness = 0.2))
 idf$Material$test$Thickness
@@ -1196,12 +1204,16 @@ idf$set(val)
 
 # check results
 lapply(idf$Material, function (mat) mat$Thermal_Absorptance)
+}
 
 # ===== RENAME OBJECTS =====
+\dontrun{
 idf$rename(new_test = "test")
 idf$object_name("Material")
+}
 
 # ===== DELELTE OBJECTS =====
+\dontrun{
 # delete the added run period "rp_test_1", "rp_test_2" and "new_test" from above
 idf$del(c("new_test", "rp_test_1", "rp_test_2"))
 names(idf$Material)
@@ -1215,14 +1227,15 @@ eplusr_option("validate_level")
 idf$Material_NoMass$R13LAYER$ref_by_object()
 length(idf$Material_NoMass$R13LAYER$ref_by_object())
 
-\dontrun{idf$del("R13LAYER")} # will give an error in "final" validate level
+idf$del("R13LAYER") # will give an error in "final" validate level
 
 # objects referencing target objects can also be deleted by setting
 # `referenced` to TRUE
-\dontrun{idf$del("R13LAYER", .ref_by = TRUE)} # will give an error in "final" validate level
+idf$del("R13LAYER", .ref_by = TRUE) # will give an error in "final" validate level
 
 # it is possible to force delete objects
-\dontrun{idf$del("R13LAYER", .ref_by = TRUE, .force = TRUE)}
+idf$del("R13LAYER", .ref_by = TRUE, .force = TRUE)
+}
 
 # ===== SEARCH ADN REPLACE OBJECT VALUES =====
 # get objects whose field values contains both "VAV" and "Node"
@@ -1231,10 +1244,9 @@ length(idf$search_value("WALL"))
 names(idf$search_value("WALL"))
 
 # replace values using regular expression
-idf$replace_value("WALL", "A_WALL")
+\dontrun{idf$replace_value("WALL", "A_WALL")}
 
 # ===== VALIDATE MODEL =====
-# CRAN does not like long-time tests
 \dontrun{
 # check if there are errors in current model
 idf$validate()
@@ -1271,11 +1283,12 @@ head(idf$to_string(comment = FALSE, header = FALSE))
 # check if the model has been modified since read or last saved
 idf$is_unsaved()
 
+\dontrun{
 # save and overwrite current model
-\dontrun{idf$save(overwrite = TRUE)}
+idf$save(overwrite = TRUE)
 
 # save the model with newly created and modified objects at the top
-\dontrun{idf$save(overwrite = TRUE, format = "new_top")}
+idf$save(overwrite = TRUE, format = "new_top")
 
 # save the model to a new file
 idf$save(path = file.path(tempdir(), "test.idf"))
@@ -1286,8 +1299,10 @@ idf$save(path = file.path(tempdir(), "test1.idf"), copy_external = TRUE)
 
 # the path of this model will be changed to the saved path
 idf$path()
+}
 
 # ===== CLONE MODEL =====
+\dontrun{
 # Idf object are modified in place and has reference semantic.
 idf_2 <- idf
 idf_2$object_name("Building")
@@ -1304,8 +1319,9 @@ idf_3$Building$set(name = "Building_Name_Changed_Again")
 idf_3$object_name("Building")
 
 idf$object_name("Building")
+}
 
-# run the model
+# ===== RUN MODEL =====
 \dontrun{
 if (is_avail_eplus(8.8)) {
 
@@ -1345,11 +1361,13 @@ if (is_avail_eplus(8.8)) {
     job$report_data()
 }
 }
-# print the text format of model
+# ===== PRINT MODEL =====
+\dontrun{
 idf$print("group")
 idf$print("class")
 idf$print("object")
 idf$print("field")
+}
 }
 \seealso{
 \link{IdfObject} class

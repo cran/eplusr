@@ -2801,6 +2801,8 @@ check_epw_new_data <- function (epw_data, epw_header, data, target_period, other
                 leapyear <- FALSE
             }
         }
+        # reset leap year indicator
+        epw_header$holiday$leapyear <- leapyear
     }
     # }}}
 
@@ -2971,8 +2973,14 @@ find_nearst_wday_year <- function (date, week_day, year = NULL, leap_year = FALS
     year <- as.integer(year %||% lubridate::year(Sys.Date()))
     targ <- get_epw_wday(week_day)
 
-    while (wday(make_date(year, m, d)) != targ) {
-        year <- year - 1L
+    if (leap_year) {
+        while (wday(make_date(year, m, d)) != targ || !leap_year(year)) {
+            year <- year - 1L
+        }
+    } else {
+        while (wday(make_date(year, m, d)) != targ) {
+            year <- year - 1L
+        }
     }
 
     year

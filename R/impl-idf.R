@@ -395,8 +395,9 @@ sep_value_dots <- function (..., .empty = !in_final_mode(), .duplicate = FALSE) 
 
                     # not NULL, character or numeric {{{
                     # this will find out "list()"
-                    if (any(vlapply(value_list, function (x) !is.null(x) && !is.character(x) && !is.numeric(x)))) {
-                        id <- rleid[vlapply(value_list, function (x) !is.null(x) && !is.character(x) && !is.numeric(x))]
+                    is_num <- vlapply(value_list, is.numeric)
+                    if (any(vlapply(value_list, function (x) !is.null(x) && !is.character(x)) & !is_num)) {
+                        id <- rleid[vlapply(value_list, function (x) !is.null(x) && !is.character(x)) & !is_num]
                         abort_invalid_format(unique(id))
                     }
                     # }}}
@@ -429,7 +430,7 @@ sep_value_dots <- function (..., .empty = !in_final_mode(), .duplicate = FALSE) 
                     s[stri_isempty(s)] <- NA_character_
                     value_chr[!defaulted] <- s
 
-                    value_num[!defaulted] <- suppressWarnings(as.double(s))
+                    value_num[!defaulted & is_num] <- unlist(value_list[!defaulted & is_num], use.names = FALSE)
 
                     # change empty field names to NA
                     field_name[no_nm] <- NA_character_
@@ -1754,7 +1755,11 @@ del_idf_object <- function (idd_env, idf_env, ..., .ref_to = FALSE, .ref_by = FA
 
     if (nrow(rel$ref_by)) {
         # stop if objects are referred {{{
-        if (!.ref_by && !.force) {
+        # should be able to delete targets objects in at least one condition:
+        # 1. current validate level does not includ reference checking
+        # 2. want to delete both targets and referees
+        # 3. `.force` is TRUE
+        if (level_checks()$reference && !.ref_by && !.force) {
             if (!eplusr_option("verbose_info")) {
                 rel$ref_by <- add_idf_relation_format_cols(idd_env, idf_env, rel$ref_by)
             }
@@ -1835,7 +1840,7 @@ del_idf_object <- function (idd_env, idf_env, ..., .ref_to = FALSE, .ref_by = FA
         }
     }
 
-    if (eplusr_option("verbose_info")) {
+    if (eplusr_option("verbose_info") && (.ref_to || .ref_by)) {
         msg <- paste0(c(msg, "", "Object relation is shown below:", ""), collapse = "\n")
         msg_rel <- paste0(" ", capture.output(print.IdfRelation(rel)), collapse = "\n")
         verbose_info(paste0(msg, msg_rel, collapse = "\n"))
