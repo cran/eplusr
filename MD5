@@ -1,7 +1,7 @@
-52854d08b94b6f3016730726b0703ba1 *DESCRIPTION
+ed62c38f54298a01962a972d65e23c0f *DESCRIPTION
 27d7e2fdc55268f2ab3924aa50f514dc *LICENSE
 6c25b723b9e1b6b2d8ce931d658ae042 *NAMESPACE
-98ed9a608c79e3e3250124b887382034 *NEWS.md
+cce88b1aaef4feaf7cfe66e0e2840fc0 *NEWS.md
 e443b9a18b1f457ac43c1a36fcf300f5 *R/assertions.R
 10c198fd7edfa8231a9388ef70f85a42 *R/constants.R
 afda6191d7a1a0a3c9c620daa65edbff *R/eplusr.R
@@ -17,7 +17,7 @@ d93d2a4d64f1b0e1a037a576bf0af285 *R/impl-idd.R
 d3d81931766400fd9ee058f456cd538e *R/impl-iddobj.R
 ee7c9bf59e6e1b66b9885321ff2cf590 *R/impl-idf.R
 efce4c86ffa1b8b46d6f7b195f0181b8 *R/impl-idfobj.R
-d031b21844bf63a64e6e70ab7ea0195f *R/impl-sql.R
+a48168c200b91e3c9c470dbbf15b24e3 *R/impl-sql.R
 a52bec431afeeb1d2b82bd9733fb9980 *R/impl.R
 57a22abefea2418f9c0a8678bf87508b *R/install.R
 65d5fee239608bd4166d4cc1cb6e3f7d *R/job.R
@@ -35,7 +35,7 @@ a320d7a08f73f0a00ae8d3d97edfce84 *README.md
 dfca3470e67c8c3e6eba5154552e30ad *inst/CITATION
 418890ac1f97c5093cb97a67f579367b *inst/doc/eplusr.R
 f398f8c02ebead41068d0d185cc79d2b *inst/doc/eplusr.Rmd
-25143e221639edecf78eedf585a0ba0f *inst/doc/eplusr.html
+270d9c8eb05e95bc84a8e09fee34e87a *inst/doc/eplusr.html
 3464b5091116411ee9552cd5f674a2d9 *inst/extdata/1ZoneUncontrolled.idf
 9a32ca275c8abd941eeabb7c69ffd68b *man/EplusJob.Rd
 a0e9b4677038b8a70d19307bef485c4a *man/EplusSql.Rd
@@ -81,10 +81,10 @@ f015f736f11c548c6b21e7f145e68636 *man/use_eplus.Rd
 400b62f42d5a49981419f27799052b8c *tests/testthat/test-idfobj.R
 711bf3842eb668fc4c75fbd657c51eae *tests/testthat/test_assert.R
 898c702f36219e490cd2ea43504a1aec *tests/testthat/test_epw.R
-e16aa1f6c6816962575002cb373ee221 *tests/testthat/test_format.R
+9b49fe9baa33e3f0fd500d8a2e9c0e5a *tests/testthat/test_format.R
 1245c172797ce2e4a5ec043fade8688e *tests/testthat/test_idd.R
 790ca858234dd0cdedfff0efe6a1482b *tests/testthat/test_iddobj.R
-335d58ad40c784413d1c05046067ec40 *tests/testthat/test_idf.R
+9dc48e20581f64d735b4014b0e615f39 *tests/testthat/test_idf.R
 cd248626d5ee5e4303985f206ff84eb1 *tests/testthat/test_impl-idd.R
 11ba6ed18f9574d664c54837fd87391d *tests/testthat/test_impl-idf.R
 f9552786cbf8be47fcc85e2e5f027751 *tests/testthat/test_job.R

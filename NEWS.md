@@ -1,3 +1,13 @@
+# eplusr 0.10.2
+
+This is a patch update mainly to fix CRAN check errors on a strict Latin locale,
+with a bug fix.
+
+## Bug fixes
+
+* `$report_data()` method in `EplusSql` class now correctly returns data if
+  even if `key_value` is not given (#37)
+
 # eplusr 0.10.1
 
 This is a patch update mainly to fix CRAN check errors, with few bug fixes.
