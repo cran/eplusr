@@ -27,11 +27,13 @@ idfobj[[Field]]
 idfobj$set(..., .defaults = TRUE)
 idfobj$FieldName <- Value
 idfobj[[Field]] <- Value
-idfobj$value_relation(which = NULL, direction = c("all", "ref_to", "ref_by"))
-idfobj$ref_to_object(which = NULL, class = NULL)
-idfobj$ref_by_object(which = NULL, class = NULL)
+idfobj$value_relation(which = NULL, direction = c("all", "ref_to", "ref_by", "node"), recursive = FALSE, depth = 1L)
+idfobj$ref_to_object(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+idfobj$ref_by_object(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+idfobj$ref_to_node(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
 idfobj$has_ref_to(which = NULL, class = NULL)
 idfobj$has_ref_by(which = NULL, class = NULL)
+idfobj$has_ref_node(which = NULL, class = NULL)
 idfobj$has_ref(which)
 idfobj$validate(level = eplusr_option("validate_level"))
 idfobj$is_valid(level = eplusr_option("validate_level"))
@@ -261,24 +263,30 @@ letters and numbers are replaced by underscores.
 \section{Field Value Relation}{
 
 \preformatted{
-idfobj$value_relation(which = NULL, direction = c("all", "ref_to", "ref_by"))
-idfobj$ref_to_object(which = NULL, class = NULL)
-idfobj$ref_by_object(which = NULL, class = NULL)
+idfobj$value_relation(which = NULL, direction = c("all", "ref_to", "ref_by", "node"), recursive = FALSE, depth = 1L)
+idfobj$ref_to_object(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+idfobj$ref_by_object(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+idfobj$ref_to_node(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
 idfobj$has_ref_to(which = NULL, class = NULL)
 idfobj$has_ref_by(which = NULL, class = NULL)
+idfobj$has_ref_node(which = NULL, class = NULL)
 idfobj$has_ref(which)
 }
 
 Many fields in \link{Idd} can be referred by others. For example, the \code{Outside Layer} and other fields in \code{Construction} class refer to the \code{Name} field
 in \code{Material} class and other material related classes. Here it means that
 the \code{Outside Layer} field \strong{refers to} the \code{Name} field and the \code{Name} field
-is \strong{referred by} the \code{Outside Layer}.
+is \strong{referred by} the \code{Outside Layer}. In EnergyPlus, there is also a
+special type of field called \code{Node}, which together with \code{Branch} and
+\code{BranchList} define the topography of the HVAC connections. A outlet node of
+a component can be referred by another component as its inlet node, but can
+also exists independently, such as zone air node.
 
 \code{$value_relation()} provides a simple interface to get this kind of
 relation. It takes field indexes or field names, together a relation
 direction, and returns an \code{IdfRelation} object which contains data presenting
-such relation above. For instance, if \code{idfobj$value_relation("Name", "ref_by")}
-gives results below:\preformatted{-- Referred by Others ------------------------
+such relation described above. For instance, if
+\code{idfobj$value_relation("Name", "ref_by")} gives results below:\preformatted{-- Referred by Others ------------------------
   \- 1: "WALL-1";      !- Name
      ^~~~~~~~~~~~~~~~~~~~~~~~~
      \- Class: <BuildingSurface:Detailed>
@@ -301,6 +309,10 @@ fields refer to.
 vector of field names, and returns a list of \code{IdfObject}s that refer to
 specified fields.
 
+\code{$ref_to_node()} takes an integer vector of field indexes or a character
+vector of field names, and returns a list of \code{IdfObject}s whose nodes are
+referred by specified fields.
+
 \code{$has_ref_to()} takes an integer vector of field indexes or a character
 vector of field names, and returns a logical vector showing whether specified
 fields refer to other object values or not.
@@ -309,10 +321,15 @@ fields refer to other object values or not.
 vector of field names, and returns a logical vector showing whether there are
 other object values ref to specified fields.
 
+\code{$has_ref_node()} takes an integer vector of field indexes or a character
+vector of field names, and returns a logical vector showing whether specified
+fields refer to other objects' nodes.
+
 \code{$has_ref()} takes an integer vector of field indexes or a character
 vector of field names, and returns a logical vector showing whether there are
 other object values ref to specified field values or specified field values
-refer to other object values.
+refer to other object values or specified field values refer to other
+objects' nodes.
 
 \strong{Arguments}:
 \itemize{
@@ -321,6 +338,13 @@ names.
 \item \code{class}: A character vector of class names.
 \item \code{direciton}: The relation direction to extract. Should be either \code{"all"},
 \code{"ref_to"} or "ref_by".
+\item \code{recursive}: If \code{TRUE}, the relation is searched recursively. A simple
+example of recursive reference: one material named \code{mat} is referred by a
+construction named \code{const}, and \code{const} is also referred by a surface named
+\code{surf}.
+\item \code{depth}: Only applicable when \code{recursive} is \code{TRUE}. This is a depth to
+when searching value relations recursively. If \code{NULL}, all recursive
+relations are returned. Default: \code{1}.
 }
 }
 
@@ -397,7 +421,7 @@ number.  Default: \code{TRUE}.
 \item \code{unit}: Only applicable when \code{string_value} is \code{FALSE}. If \code{TRUE}, values
 of numeric fields are assigned with units using \code{\link[units:set_units]{units::set_units()}} if
 applicable. Default: \code{FALSE}.
-\item \code{wide}: If \code{TRUE}, a wide table will be returned, i.e. first three column
+\item \code{wide}: If \code{TRUE}, a wide table will be returned, i.e. first three columns
 are always \code{id}, \code{name} and \code{class}, and then every field in a separate
 column. Default: \code{FALSE}.
 \item \code{comment}: If \code{FALSE}, all comments will not be included. Default: \code{TRUE}.
@@ -434,6 +458,7 @@ largest character length of values. Default: \code{FALSE}.
 }
 
 \examples{
+\dontrun{
 # read an IDF file
 idf <- read_idf(system.file("extdata/1ZoneUncontrolled.idf", package = "eplusr"),
     idd = use_idd(8.8, download = "auto"))
@@ -519,7 +544,6 @@ mat[["Thickness"]] <- 0.019
 mat$Thickness
 
 # check validate
-\dontrun{
 mat$validate()
 mat$is_valid()
 
@@ -541,7 +565,6 @@ mat$has_ref_by()
 
 # check if having any referenced objects or is referenced by other objects
 mat$has_ref()
-}
 
 # get all object data in a data.table format without field units
 str(mat$to_table(unit = FALSE))
@@ -572,6 +595,7 @@ mat$print(comment = FALSE)
 # print the object, and auto separate field values and field names at the
 # largetst character length of field values
 mat$print(auto_sep = TRUE)
+}
 }
 \seealso{
 \link{Idf} class

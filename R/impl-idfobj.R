@@ -43,8 +43,8 @@ set_idfobj_comment <- function (idd_env, idf_env, object_id, comment, append = T
 # }}}
 # get_idfobj_value {{{
 get_idfobj_value <- function (idd_env, idf_env, object, which = NULL, all = FALSE,
-                              simplify = FALSE, unit = FALSE) {
-    val <- get_idf_value(idd_env, idf_env, NULL, object, which, NULL, all = all)
+                              simplify = FALSE, unit = FALSE, underscore = FALSE) {
+    val <- get_idf_value(idd_env, idf_env, NULL, object, which, NULL, all = all, align = TRUE, underscore = underscore)
     if (simplify) return(val$value_chr)
     add_field_property(idd_env, val, "type_enum")
 
@@ -63,10 +63,11 @@ get_value_list <- function (dt_value, unit = FALSE) {
 
     val <- dt_value$value_num
     is_double <- dt_value$type_enum == IDDFIELD_TYPE$real
+    exists <- !is.na(val)
     res[num & is_double] <- val[num & is_double]
     res[num & !is_double] <- as.integer(val[num & !is_double])
 
-    if (any(res[num & !is_double] != val[num & !is_double])) {
+    if (any(unlist(res[exists & num & !is_double]) != val[exists & num & !is_double])) {
         warn("warning_value_int_trunc",
             paste0("Truncated error introduced when converting value of field ",
                 collapse(dt_value[["field_name"]][res[num & !is_double] != val[num & !is_double]]),
@@ -196,15 +197,25 @@ get_idfobj_possible <- function (idd_env, idf_env, object, field,
 
     # source
     if ("source" %chin% type) {
+        # handle NODE
+        node <- val[J(IDDFIELD_TYPE$node), on = "type_enum", nomatch = 0L, list(field_id)]
+        if (nrow(node)) {
+            add_field_property(idd_env, idf_env$value, "type_enum")
+            nodes <- idf_env$value[J(IDDFIELD_TYPE$node), on = "type_enum", unique(value_chr)]
+            set(idf_env$value, NULL, "type_enum", NULL)
+            set(node, NULL, "source", list(list(nodes)))
+        }
+
         setnames(idf_env$value, "field_id", "src_field_id")
-
         src <- get_idd_relation(idd_env, NULL, val$field_id, max_depth = 0L, direction = "ref_to")
-        src <- idf_env$value[src, on = c("src_field_id"), allow.cartesian = TRUE, nomatch = 0L][,
-             list(source = list(value_chr)), by = "field_id"]
-
+        src <- idf_env$value[src, on = c("src_field_id"), allow.cartesian = TRUE, nomatch = 0L]
+        # add class name in case of class-name reference
+        add_joined_cols(idd_env$class, src, c(src_class_id = "class_id"), c(src_class_name = "class_name"))
+        src[J(1L), on = "src_enum", `:=`(value_chr = src_class_name)]
+        src <- src[, list(source = list(value_chr)), by = "field_id"]
         setnames(idf_env$value, "src_field_id", "field_id")
 
-        add_joined_cols(src, val, "field_id", "source")
+        add_joined_cols(rbindlist(list(node, src), fill = TRUE), val, "field_id", "source")
     }
 
     res <- val[, .SD, .SDcols = c(
@@ -220,86 +231,53 @@ get_idfobj_possible <- function (idd_env, idf_env, object, field,
 # }}}
 # get_idfobj_relation {{{
 get_idfobj_relation <- function (idd_env, idf_env, object_id = NULL, value_id = NULL,
-                                 name = TRUE, direction = c("ref_to", "ref_by", "all"),
+                                 name = TRUE, direction = c("ref_to", "ref_by", "node", "all"),
                                  keep_all = FALSE, by_value = FALSE, max_depth = 0L,
-                                 recursive = FALSE) {
-    direction <- match.arg(direction)
-    if (direction == "ref_to") {
-        res <- list(
-            ref_to = get_idf_relation(idd_env, idf_env, object_id, value_id,
-                max_depth = max_depth, name = name, direction = "ref_to",
-                keep_all = keep_all, recursive = recursive),
-            ref_by = NULL
+                                 recursive = FALSE, recursive_depth = 1L) {
+    all_dir <- c("ref_to", "ref_by", "node", "all")
+    direction <- all_dir[sort(chmatch(direction, all_dir))]
+    assert(no_na(direction), msg = paste0("`direction` should be one or some of ", collapse(all_dir)))
+
+    rel <- list(ref_to = NULL, ref_by = NULL, node = NULL)
+
+    if ("all" %in% direction) direction <- unique(c(direction, all_dir))
+
+    if ("ref_to" %in% direction) {
+        rel$ref_to <- get_idf_relation(idd_env, idf_env, object_id, value_id,
+            max_depth = max_depth, name = name, direction = "ref_to",
+            keep_all = keep_all, recursive = recursive, recursive_depth = recursive_depth
         )
-        setattr(res$ref_to, "by_value", by_value)
-    } else if (direction == "ref_by") {
-        res <- list(
-            ref_to = NULL,
-            ref_by = get_idf_relation(idd_env, idf_env, object_id, value_id,
-                max_depth = max_depth, name = name, direction = "ref_by",
-                keep_all = keep_all, recursive = recursive)
-        )
-        setattr(res$ref_by, "by_value", by_value)
-    } else {
-        res <- list(
-            ref_to = get_idf_relation(idd_env, idf_env, object_id, value_id,
-                max_depth = max_depth, name = name, direction = "ref_to",
-                keep_all = keep_all, recursive = recursive),
-            ref_by = get_idf_relation(idd_env, idf_env, object_id, value_id,
-                max_depth = max_depth, name = name, direction = "ref_by",
-                keep_all = keep_all, recursive = recursive)
-        )
-        setattr(res$ref_to, "by_value", by_value)
-        setattr(res$ref_by, "by_value", by_value)
+        setattr(rel$ref_to, "by_value", by_value)
     }
 
-    setattr(res, "class", c("IdfRelation", class(res)))
+    if ("ref_by" %in% direction) {
+        rel$ref_by <- get_idf_relation(idd_env, idf_env, object_id, value_id,
+            max_depth = max_depth, name = name, direction = "ref_by",
+            keep_all = keep_all, recursive = recursive, recursive_depth = recursive_depth
+        )
+        setattr(rel$ref_by, "by_value", by_value)
+    }
 
-    res
+    if ("node" %in% direction) {
+        rel$node <- get_idf_node_relation(idd_env, idf_env, object_id, value_id,
+            name = name, keep_all = keep_all, recursive = recursive, recursive_depth = recursive_depth
+        )
+        setattr(rel$node, "by_value", by_value)
+    }
+
+
+    setattr(rel, "class", c("IdfRelation", class(rel)))
+
+    rel
 }
 # }}}
 
 # get_idfobj_table {{{
 get_idfobj_table <- function (idd_env, idf_env, object_id, all = FALSE,
                               unit = TRUE, wide = FALSE, string_value = TRUE) {
-    cols <- c("object_id", "object_name", "class_name",
-              "field_index", "field_name", "units", "ip_units", "type_enum",
-              "value_chr", "value_num")
-
-    val <- get_idf_value(idd_env, idf_env, object = object_id,
-        property = c("units", "ip_units", "type_enum"), all = all)[, .SD, .SDcols = cols]
-
-    setnames(val,
-        c("object_id", "object_name", "class_name", "field_index", "field_name"),
-        c("id", "name", "class", "index", "field"))
-
-    if (string_value) {
-        if (wide) {
-            dcast(val, id + name + class ~ field, value.var = "value_chr")
-        } else {
-            setnames(val, "value_chr", "value")
-            val[, .SD, .SDcols = c("id", "name", "class", "index", "field", "value")]
-        }
-    } else {
-        lst <- get_value_list(val, unit = unit)
-        if (nrow(val) == 1L) {
-            set(val, NULL, "value", list(lst))
-        } else {
-            set(val, NULL, "value", lst)
-        }
-        if (wide) {
-            val <- setcolorder(
-                dcast(val, id + name + class ~ field, value.var = "value"),
-                c("id", "name", "class", val$field)
-            )
-            for (col in setdiff(names(val), c("id", "name", "class"))) {
-                set(val, NULL, col, val[[col]][[1L]])
-            }
-            val
-        } else {
-            val[, .SD, .SDcols = c("id", "name", "class", "index", "field", "value")]
-        }
-    }
+    get_idf_table(idd_env, idf_env, NULL, object_id, all = all, unit = unit,
+        wide = wide, string_value = string_value
+    )
 }
 # }}}
 # get_idfobj_string {{{
@@ -322,18 +300,6 @@ get_idfobj_string <- function (idd_env, idf_env, object_id, comment = TRUE, lead
     if (!is.null(cmt)) cmt <- c(paste0("!", cmt), "")
 
     c(cmt, cls, fld)
-}
-# }}}
-# idfobj_to_string {{{
-idfobj_to_string <- function (self, private, comment = TRUE, leading = 4L, sep_at = 29L) {
-    unlist(with_nocolor(with_format_cols(private$idd_env(), private$idf_env(),
-        format_idf(
-            get_idf_value(private$idd_env(), private$idf_env(), object = private$m_object_id),
-            get_idf_object(private$idd_env(), private$idf_env(), object = private$m_object_id),
-            comment = comment, header = FALSE, save_format = "sorted",
-            leading = leading, sep_at = sep_at
-        )
-    ))$format$fmt[[1L]][[2L]], use.names = FALSE)
 }
 # }}}
 

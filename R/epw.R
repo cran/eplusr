@@ -2,7 +2,7 @@
 #' @importFrom stringi stri_detect_regex
 #' @importFrom cli rule cat_rule
 #' @importFrom R6 R6Class
-#' @importFrom utils menu download.file
+#' @importFrom utils menu
 #' @include impl-epw.R
 NULL
 
@@ -402,7 +402,7 @@ NULL
 #'   compliance with the start day of week value specified in `DATA PERIODS`
 #'   header.
 #' * `tz`: A valid time zone to be assigned to the `datetime` column. All valid
-#'   time zone names can be obtained using [base::OlsonNames()]. Default:`"UTC"`.
+#'   time zone names can be obtained using `OlsonNames()`. Default:`"UTC"`.
 #' * `update`: If `TRUE`, the `year` column are updated according to the newly
 #'   created `datetime` column using `start_year`. If `FALSE`, original year
 #'   data in the `Epw` object is kept. Default: `FALSE`.
@@ -429,8 +429,8 @@ NULL
 #' after calling these methods.
 #'
 #' `$make_na()` converts specified abnormal data into `NA`s in specified data
-#' period. This makes it easier to find abnormal data directly using
-#' [base::is.na()] instead of using `$missing_code()`.
+#' period. This makes it easier to find abnormal data directly using `is.na()`
+#' instead of using `$missing_code()`.
 #'
 #' `$fill_abnormal()` fills specified abnormal data using corresponding actions
 #' listed in `$fill_action()`. For what kinds of actions to be performed, please
@@ -1446,10 +1446,13 @@ epw_print <- function (self, private) {
 # }}}
 # epw_deep_clone {{{
 epw_deep_clone <- function (self, private, name, value) {
-    if (is_idd(value)) {
-        value
-    } else if (is.environment(value)) {
-        list2env(as.list.environment(value))
+    if (is.environment(value)) {
+        l <- as.list.environment(value)
+        # copy data.table is necessary here
+        l <- lapply(l, function (x) if (inherits(x, "data.table")) copy(x) else x)
+        list2env(l)
+    } else if (inherits(value, "data.table")){
+        copy(value)
     } else {
         value
     }
@@ -1574,14 +1577,14 @@ download_weather <- function (pattern, filename = NULL, dir = ".", type = c("all
     ]
 
     if (type == "all") {
-        utils::download.file(res$epw_url, res$epw_path, method = "libcurl", mode = "wb")
-        utils::download.file(res$ddy_url, res$ddy_path, method = "libcurl", mode = "wb")
+        download_file(res$epw_url, res$epw_path)
+        download_file(res$ddy_url, res$ddy_path)
         c(res$epw_path, res$ddy_path)
     } else if (type == "ddy") {
-        utils::download.file(res$ddy_url, res$ddy_path, method = "libcurl", mode = "wb")
+        download_file(res$ddy_url, res$ddy_path)
         res$ddy_path
     } else {
-        utils::download.file(res$epw_url, res$epw_path, method = "libcurl", mode = "wb")
+        download_file(res$epw_url, res$epw_path)
         res$epw_path
     }
 }

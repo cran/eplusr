@@ -376,6 +376,10 @@ test_that("table", {
             src_enum = c(2L, 2L), dep = c(0L, 1L)
         )
     )
+    expect_equal(
+        get_idf_node_relation(idd_env, idf_env, id, recursive = TRUE),
+        set(idf_env$reference[0L], NULL, "dep", integer())
+    )
     # }}}
 })
 # }}}
@@ -582,7 +586,7 @@ test_that("DEFINITION DOTS", {
 
     const1 <- idd$Construction$to_string(all = TRUE)
     const2 <- idd$Construction$to_string()
-    expect_equal(sep_definition_dots(const1, const2, .version = 8.8),
+    expect_equivalent(sep_definition_dots(const1, const2, .version = 8.8),
         list(parsed = list(
                 version = numeric_version("8.8.0"),
                 options = list(idf_editor = FALSE, special_format = FALSE, view_in_ip = FALSE, save_format = "sorted"),
@@ -718,6 +722,7 @@ test_that("Set", {
 
 # DEL {{{
 test_that("Del", {
+    eplusr_option(verbose_info = FALSE)
     # read idf
     idf <- read_idf(example(), 8.8)
     idf_env <- ._get_private(idf)$m_idf_env
@@ -846,6 +851,72 @@ test_that("Load", {
 })
 # }}}
 
+# UPDATE {{{
+test_that("Update", {
+    # read idf
+    idf <- read_idf(example(), 8.8)
+    idf_env <- ._get_private(idf)$m_idf_env
+    idd_env <- ._get_private(idf)$idd_env()
+
+    expect_error(update_idf_object(idd_env, idf_env, 8.8), class = "error_empty_input")
+
+    mat <- idf$definition("Material")$to_string()
+    const <- idf$to_table(class = "Construction")
+
+    const[4, class := "construction"]
+    expect_error(update_idf_object(idd_env, idf_env, 8.8, mat, const), class = "error_class_name")
+
+    const[4, `:=`(class = "Construction", id = 100L)]
+    expect_error(update_idf_object(idd_env, idf_env, 8.8, mat, const), class = "error_object_id")
+
+    const[4, `:=`(id = 16L, index = 20L)]
+    expect_error(update_idf_object(idd_env, idf_env, 8.8, mat, const, const), class = "error_set_multi_time")
+    expect_error(update_idf_object(idd_env, idf_env, 8.8, mat, const), class = "error_bad_field_index")
+
+    const[4, index := 2L]
+    expect_error(update_idf_object(idd_env, idf_env, 8.8, mat, const), class = "error_missing_object_name")
+
+    mat_chr <- c("Construction,", "new_const1,", paste0(idf$Material[[1]]$name(), ";"))
+    expect_error(update_idf_object(idd_env, idf_env, version = idf$version(), mat_chr), class = "error_object_name")
+
+    expect_silent(upd <- update_idf_object(idd_env, idf_env, version = idf$version(), const, idf$Material[[1]]$to_string()))
+
+    expect_equivalent(upd$object,
+        data.table(object_id = c(15:17, 14L), class_id = c(rep(90L, 3), 55L), comment = list(NULL),
+            object_name = c("R13WALL", "FLOOR", "ROOF31", "C5 - 4 IN HW CONCRETE"),
+            object_name_lower = c("r13wall", "floor", "roof31", "c5 - 4 in hw concrete")
+        )
+    )
+
+    mat <- idf$Material[[1]]$to_table()
+    expect_equivalent(upd$value,
+        data.table(value_id = c(108:113, 99:107),
+            value_chr = c(const$value, mat$value),
+            value_num = c(suppressWarnings(as.double(c(const$value, mat$value)))),
+            object_id = c(rep(15:17, each = 2), rep(14L, 9)),
+            field_id = c(rep(11006:11007, 3), 7081:7089)
+        )
+    )
+    expect_equivalent(upd$reference, idf_env$reference)
+
+    # can also update objects without name using character vector
+    expect_silent(upd <- update_idf_object(idd_env, idf_env, idf$version(), idf$SimulationControl$to_string()))
+    expect_equivalent(upd$object,
+        data.table(object_id = 7L, class_id = 2L, comment = list(NULL),
+            object_name = NA_character_, object_name_lower = NA_character_
+        )
+    )
+    expect_equivalent(upd$value,
+        data.table(value_id = c(14:18), value_chr = c("No", "No", "No", "Yes", "Yes"),
+            value_num = rep(NA_real_, 5L), object_id = rep(7L, 5L), field_id = 2:6
+        )
+    )
+    expect_equivalent(upd$reference, idf_env$reference)
+
+    expect_silent(update_idf_object(idd_env, idf_env, idf$version(), mat[4]))
+})
+# }}}
+
 # SAVE {{{
 test_that("Save", {
     # read idf
@@ -867,6 +938,75 @@ test_that("Save", {
         save_idf(idd_env, idf_env, idf_env$object[, list(object_id, object_order = 0)],
             tempfile(fileext = ".idf"), format = "new_bot"
         )
+    )
+})
+# }}}
+
+# TO_TABLE {{{
+test_that("TO_TABLE", {
+    # read idf
+    idf <- read_idf(example(), 8.8)
+    idf_env <- ._get_private(idf)$m_idf_env
+    idd_env <- ._get_private(idf)$idd_env()
+
+    expect_equivalent(get_idf_table(idd_env, idf_env, "Material"),
+        data.table(id = 14L, name = "C5 - 4 IN HW CONCRETE", class = "Material",
+            index = 1:9,
+            field = c(
+                "Name", "Roughness", "Thickness", "Conductivity", "Density",
+                "Specific Heat", "Thermal Absorptance", "Solar Absorptance",
+                "Visible Absorptance"
+            ),
+            value = c(
+                "C5 - 4 IN HW CONCRETE", "MediumRough", "0.1014984", "1.729577",
+                "2242.585", "836.8", "0.9", "0.65", "0.65"
+            )
+        )
+    )
+    expect_equivalent(get_idf_table(idd_env, idf_env, "Material", string_value = FALSE),
+        data.table(id = 14L, name = "C5 - 4 IN HW CONCRETE", class = "Material",
+            index = 1:9,
+            field = c(
+                "Name", "Roughness", "Thickness", "Conductivity", "Density",
+                "Specific Heat", "Thermal Absorptance", "Solar Absorptance",
+                "Visible Absorptance"
+            ),
+            value = list(
+                "C5 - 4 IN HW CONCRETE", "MediumRough", 0.1014984, 1.729577,
+                2242.585, 836.8, 0.9, 0.65, 0.65
+            )
+        ), tolerance = 1e-5
+    )
+    expect_equivalent(get_idf_table(idd_env, idf_env, "Material", string_value = FALSE, unit = TRUE),
+        data.table(id = 14L, name = "C5 - 4 IN HW CONCRETE", class = "Material",
+            index = 1:9,
+            field = c(
+                "Name", "Roughness", "Thickness", "Conductivity", "Density",
+                "Specific Heat", "Thermal Absorptance", "Solar Absorptance",
+                "Visible Absorptance"
+            ),
+            value = list(
+                "C5 - 4 IN HW CONCRETE", "MediumRough",
+                units::set_units(0.1014984, "m"),
+                units::set_units(1.729577, "W/K/m"),
+                units::set_units(2242.585, "kg/m^3"),
+                units::set_units(836.8, "J/K/kg"),
+                0.9, 0.65, 0.65
+            )
+        ), tolerance = 1e-5
+    )
+    expect_equivalent(get_idf_table(idd_env, idf_env, "Material", string_value = FALSE, unit = TRUE, wide = TRUE),
+        data.table(id = 14L, name = "C5 - 4 IN HW CONCRETE", class = "Material",
+            "Name" = "C5 - 4 IN HW CONCRETE",
+            "Roughness" = "MediumRough",
+            "Thickness" = units::set_units(0.1014984, "m"),
+            "Conductivity" = units::set_units(1.729577, "W/K/m"),
+            "Density" = units::set_units(2242.585, "kg/m^3"),
+            "Specific Heat" = units::set_units(836.8, "J/K/kg"),
+            "Thermal Absorptance" = 0.9,
+            "Solar Absorptance" = 0.65,
+            "Visible Absorptance" = 0.65
+        ), tolerance = 1e-5
     )
 })
 # }}}

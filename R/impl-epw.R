@@ -751,7 +751,7 @@ parse_epw_header_design <- function (input, ...) {
             dbl = c(7L:20L, 23L:52L, 55L:70L)
         ),
         range = list(
-            `hours_8_to_4_12.8_20.6` = ranger(0),
+            `hours_8_to_4_12.8_20.6` = ranger(0L, TRUE),
             `coldest_month` = ranger(1L, TRUE, 12L, TRUE),
             `hotest_month` = ranger(1L, TRUE, 12L, TRUE)
         ),
@@ -1290,6 +1290,10 @@ as_EpwDate.character <- function (x, leapyear = TRUE) {
 
     # coerce to double first
     is_dbl <- !is.na(suppressWarnings(as.double(x)))
+    # check if ending with zero, e.g. "3.10"
+    is_tenth <- as.double(stri_split_fixed(x[is_dbl], ".", 2L, simplify = TRUE)[, 2L]) %% 10 == 0L
+    is_dbl[is_tenth] <- FALSE
+
     res[is_dbl] <- as_EpwDate.numeric(as.double(x[is_dbl]))
 
     if (sum(is_dbl) == length(x)) return(res)
@@ -1421,14 +1425,14 @@ parse_epwdate_wday <- function (x, leapyear = TRUE) {
             if (n == 0L) {
                 ref_day - lubridate::days(wkd1 - wkd)
             } else {
-                ref_day + lubridate::days(7L - wkd1 + wkd) * n
+                ref_day + lubridate::days(7L - wkd1 + wkd + 7L * (n - 1L))
             }
         # for example: wkd1 Mon(1), wkd Sat(6)
         } else if (wkd1 < wkd) {
             if (n == 0L) {
                 ref_day - lubridate::days(wkd1 + 7L - wkd)
             } else {
-                ref_day + lubridate::days(wkd - wkd1) * n
+                ref_day + lubridate::days(wkd - wkd1 + 7 * (n - 1L))
             }
         } else {
             ref_day
@@ -1713,6 +1717,8 @@ match_epw_data_period <- function (epw_data, data_period, interval, leapyear, wa
              data$minute_in
         )
     )
+    # reset year
+    set(epw_data, NULL, "datetime", {d <- epw_data$datetime; lubridate::year(d) <- epw_data$year; d})
     # }}}
 
     list(from = from, to = to, missing = abnormal[1L], out_of_range = abnormal[2L])
@@ -2115,7 +2121,7 @@ set_epw_holiday <- function (epw_header, leapyear, dst, holiday) {
         set(holiday, NULL, "day", reset_epwdate_year(epw_date(holiday$day), epw_header$holiday$leapyear))
         assert(are_epwdate(holiday$day), prefix = "Holiday")
 
-        epw_header$holiday <- holiday
+        epw_header$holiday$holiday <- holiday
     }
 
     epw_header

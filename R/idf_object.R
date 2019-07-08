@@ -25,11 +25,13 @@ NULL
 #' idfobj$set(..., .defaults = TRUE)
 #' idfobj$FieldName <- Value
 #' idfobj[[Field]] <- Value
-#' idfobj$value_relation(which = NULL, direction = c("all", "ref_to", "ref_by"))
-#' idfobj$ref_to_object(which = NULL, class = NULL)
-#' idfobj$ref_by_object(which = NULL, class = NULL)
+#' idfobj$value_relation(which = NULL, direction = c("all", "ref_to", "ref_by", "node"), recursive = FALSE, depth = 1L)
+#' idfobj$ref_to_object(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+#' idfobj$ref_by_object(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+#' idfobj$ref_to_node(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
 #' idfobj$has_ref_to(which = NULL, class = NULL)
 #' idfobj$has_ref_by(which = NULL, class = NULL)
+#' idfobj$has_ref_node(which = NULL, class = NULL)
 #' idfobj$has_ref(which)
 #' idfobj$validate(level = eplusr_option("validate_level"))
 #' idfobj$is_valid(level = eplusr_option("validate_level"))
@@ -244,11 +246,13 @@ NULL
 #'
 #' @section Field Value Relation:
 #' \preformatted{
-#' idfobj$value_relation(which = NULL, direction = c("all", "ref_to", "ref_by"))
-#' idfobj$ref_to_object(which = NULL, class = NULL)
-#' idfobj$ref_by_object(which = NULL, class = NULL)
+#' idfobj$value_relation(which = NULL, direction = c("all", "ref_to", "ref_by", "node"), recursive = FALSE, depth = 1L)
+#' idfobj$ref_to_object(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+#' idfobj$ref_by_object(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+#' idfobj$ref_to_node(which = NULL, class = NULL, recursive = FALSE, depth = 1L)
 #' idfobj$has_ref_to(which = NULL, class = NULL)
 #' idfobj$has_ref_by(which = NULL, class = NULL)
+#' idfobj$has_ref_node(which = NULL, class = NULL)
 #' idfobj$has_ref(which)
 #' }
 #'
@@ -256,13 +260,17 @@ NULL
 #' Layer` and other fields in `Construction` class refer to the `Name` field
 #' in `Material` class and other material related classes. Here it means that
 #' the `Outside Layer` field **refers to** the `Name` field and the `Name` field
-#' is **referred by** the `Outside Layer`.
+#' is **referred by** the `Outside Layer`. In EnergyPlus, there is also a
+#' special type of field called `Node`, which together with `Branch` and
+#' `BranchList` define the topography of the HVAC connections. A outlet node of
+#' a component can be referred by another component as its inlet node, but can
+#' also exists independently, such as zone air node.
 #'
 #' `$value_relation()` provides a simple interface to get this kind of
 #' relation. It takes field indexes or field names, together a relation
 #' direction, and returns an `IdfRelation` object which contains data presenting
-#' such relation above. For instance, if `idfobj$value_relation("Name", "ref_by")`
-#' gives results below:
+#' such relation described above. For instance, if
+#' `idfobj$value_relation("Name", "ref_by")` gives results below:
 #'
 #' ```
 #' -- Referred by Others ------------------------
@@ -288,6 +296,10 @@ NULL
 #' vector of field names, and returns a list of `IdfObject`s that refer to
 #' specified fields.
 #'
+#' `$ref_to_node()` takes an integer vector of field indexes or a character
+#' vector of field names, and returns a list of `IdfObject`s whose nodes are
+#' referred by specified fields.
+#'
 #' `$has_ref_to()` takes an integer vector of field indexes or a character
 #' vector of field names, and returns a logical vector showing whether specified
 #' fields refer to other object values or not.
@@ -296,10 +308,15 @@ NULL
 #' vector of field names, and returns a logical vector showing whether there are
 #' other object values ref to specified fields.
 #'
+#' `$has_ref_node()` takes an integer vector of field indexes or a character
+#' vector of field names, and returns a logical vector showing whether specified
+#' fields refer to other objects' nodes.
+#'
 #' `$has_ref()` takes an integer vector of field indexes or a character
 #' vector of field names, and returns a logical vector showing whether there are
 #' other object values ref to specified field values or specified field values
-#' refer to other object values.
+#' refer to other object values or specified field values refer to other
+#' objects' nodes.
 #'
 #' **Arguments**:
 #'
@@ -308,6 +325,13 @@ NULL
 #' * `class`: A character vector of class names.
 #' * `direciton`: The relation direction to extract. Should be either `"all"`,
 #'   `"ref_to"` or "ref_by".
+#' * `recursive`: If `TRUE`, the relation is searched recursively. A simple
+#'   example of recursive reference: one material named `mat` is referred by a
+#'   construction named `const`, and `const` is also referred by a surface named
+#'   `surf`.
+#' * `depth`: Only applicable when `recursive` is `TRUE`. This is a depth to
+#'   when searching value relations recursively. If `NULL`, all recursive
+#'   relations are returned. Default: `1`.
 #'
 #' @section Validation:
 #'
@@ -393,7 +417,7 @@ NULL
 #' * `unit`: Only applicable when `string_value` is `FALSE`. If `TRUE`, values
 #'   of numeric fields are assigned with units using [units::set_units()] if
 #'   applicable. Default: `FALSE`.
-#' * `wide`: If `TRUE`, a wide table will be returned, i.e. first three column
+#' * `wide`: If `TRUE`, a wide table will be returned, i.e. first three columns
 #'   are always `id`, `name` and `class`, and then every field in a separate
 #'   column. Default: `FALSE`.
 #' * `comment`: If `FALSE`, all comments will not be included. Default: `TRUE`.
@@ -428,6 +452,7 @@ NULL
 #'
 #' @importFrom R6 R6Class
 #' @examples
+#' \dontrun{
 #' # read an IDF file
 #' idf <- read_idf(system.file("extdata/1ZoneUncontrolled.idf", package = "eplusr"),
 #'     idd = use_idd(8.8, download = "auto"))
@@ -513,7 +538,6 @@ NULL
 #' mat$Thickness
 #'
 #' # check validate
-#' \dontrun{
 #' mat$validate()
 #' mat$is_valid()
 #'
@@ -535,7 +559,6 @@ NULL
 #'
 #' # check if having any referenced objects or is referenced by other objects
 #' mat$has_ref()
-#' }
 #'
 #' # get all object data in a data.table format without field units
 #' str(mat$to_table(unit = FALSE))
@@ -566,6 +589,7 @@ NULL
 #' # print the object, and auto separate field values and field names at the
 #' # largetst character length of field values
 #' mat$print(auto_sep = TRUE)
+#' }
 #' @docType class
 #' @name IdfObject
 #' @seealso [Idf] class
@@ -688,12 +712,60 @@ idf_object <- function (parent, object = NULL, class = NULL) {
         class <- obj$class_id
     }
 
-    IdfObject$new(object, class, parent)
+    obj <- IdfObject$new(object, class, parent)
+
+    add_idfobj_field_bindings(obj)
+}
+# }}}
+
+# add_idfobj_field_bindings {{{
+add_idfobj_field_bindings <- function (obj, field_index = NULL, update = FALSE) {
+    # create active bindings
+    # get first 30 field names in current IDD class
+    env <- .subset2(obj, ".__enclos_env__")
+    self <- .subset2(env, "self")
+    private <- .subset2(env, "private")
+
+    fld_id <- private$idf_env()$value[J(private$m_object_id), on = "object_id", field_id]
+    if (!is.null(field_index)) {
+        fld_id <- fld_id[field_index]
+    }
+    fld_nm <- private$idd_env()$field[J(fld_id), on = "field_id", field_name]
+
+    get_field_value <- function (env, self, private, field, value) {
+        fun <- function (value) {
+            field <- field
+            if (missing(value)) {
+                self$value(field)[[1L]]
+            } else {
+                names(value) <- field
+                self$set(c(value))
+                invisible(self)
+            }
+        }
+        environment(fun) <- env
+        body(fun)[[2]][[3]] <- field
+        fun
+    }
+
+    # move deleted field bindings
+    if (update && length(setdiff(ls(obj, pattern = "^[A-Z]"), fld_nm))) {
+        rm(list = setdiff(ls(obj, pattern = "^[A-Z]"), fld_nm), envir = obj)
+    }
+
+    # skip if nothing to add
+    if (!length(setdiff(fld_nm, ls(obj)))) return(obj)
+
+    for (i in setdiff(fld_nm, ls(obj))) {
+        makeActiveBinding(i, get_field_value(env, self, private, i, value), obj)
+    }
+
+    obj
 }
 # }}}
 
 # IdfObject {{{
-IdfObject <- R6::R6Class(classname = "IdfObject",
+IdfObject <- R6::R6Class(classname = "IdfObject", lock_objects = FALSE,
     public = list(
         # INITIALIZE {{{
         initialize = function (object, class = NULL, parent) {
@@ -769,17 +841,20 @@ IdfObject <- R6::R6Class(classname = "IdfObject",
         is_valid = function (level = eplusr_option("validate_level"))
             idfobj_is_valid(self, private, level),
 
-        value_relation = function (which = NULL, direction = c("all", "ref_to", "ref_by"))
-            idfobj_value_relation(self, private, which, direction),
+        value_relation = function (which = NULL, direction = c("all", "ref_to", "ref_by", "node"), recursive = FALSE, depth = 1L)
+            idfobj_value_relation(self, private, which, match.arg(direction), recursive, depth),
 
-        ref_to_object = function (which = NULL, class = NULL)
-            idfobj_ref_to_object(self, private, which, class),
+        ref_to_object = function (which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+            idfobj_ref_to_object(self, private, which, class, recursive, depth),
 
         ref_from_object = function ()
             idfobj_ref_from_object(self, private),
 
-        ref_by_object = function (which = NULL, class = NULL)
-            idfobj_ref_by_object(self, private, which, class),
+        ref_by_object = function (which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+            idfobj_ref_by_object(self, private, which, class, recursive, depth),
+
+        ref_to_node = function (which = NULL, class = NULL, recursive = FALSE, depth = 1L)
+            idfobj_ref_to_node(self, private, which, class, recursive, depth),
 
         has_ref_to = function (which = NULL, class = NULL)
             idfobj_has_ref_to(self, private, which, class),
@@ -789,6 +864,9 @@ IdfObject <- R6::R6Class(classname = "IdfObject",
 
         has_ref_by = function (which = NULL, class = NULL)
             idfobj_has_ref_by(self, private, which, class),
+
+        has_ref_node = function (which = NULL, class = NULL)
+            idfobj_has_ref_node(self, private, which, class),
 
         has_ref = function (which = NULL)
             idfobj_has_ref(self, private, which),
@@ -916,7 +994,7 @@ idfobj_set <- function (self, private, ..., .default = TRUE) {
     set <- set_idfobj_value(private$idd_env(), private$idf_env(),
         private$m_object_id, ..., .default = .default
     )
-    merge_idf_data(private$idf_env(), set)
+    merge_idf_data(private$idf_env(), set, by_object = TRUE)
 
     # log
     log_add_order(private$log_env(), set$object$object_id)
@@ -957,7 +1035,9 @@ idfobj_is_valid <- function (self, private, level = eplusr_option("validate_leve
 }
 # }}}
 # idfobj_value_relation {{{
-idfobj_value_relation <- function (self, private, which = NULL, direction = c("all", "ref_to", "ref_by")) {
+idfobj_value_relation <- function (self, private, which = NULL,
+                                   direction = c("all", "ref_to", "ref_by", "node"),
+                                   recursive = FALSE, recursive_depth = 1L) {
     direction <- match.arg(direction)
 
     val <- get_idf_value(private$idd_env(), private$idf_env(),
@@ -966,11 +1046,11 @@ idfobj_value_relation <- function (self, private, which = NULL, direction = c("a
 
     get_idfobj_relation(private$idd_env(), private$idf_env(),
         value_id = val$value_id, name = TRUE, direction = direction,
-        keep_all = TRUE, by_value = TRUE)
+        keep_all = TRUE, by_value = TRUE, recursive = recursive)
 }
 # }}}
 # idfobj_ref_to_object {{{
-idfobj_ref_to_object <- function (self, private, which = NULL, class = NULL, recursive = FALSE) {
+idfobj_ref_to_object <- function (self, private, which = NULL, class = NULL, recursive = FALSE, recursive_depth = 1L) {
     val <- get_idf_value(private$idd_env(), private$idf_env(),
         object = private$m_object_id, field = which
     )
@@ -989,16 +1069,16 @@ idfobj_ref_to_object <- function (self, private, which = NULL, class = NULL, rec
 
     if (!nrow(rel)) {
         if (is.null(class)) {
-            message("Target object does not refer to any other object.")
+            verbose_info("Target object does not refer to any other object.")
         } else {
-            message("Target object does not refer to any other object in class ",
+            verbose_info("Target object does not refer to any other object in class ",
                 collapse(cls$class_name), "."
             )
         }
         return(invisible())
     } else {
         rel <- rel[, list(src_object_id = unique(src_object_id)), by = "object_id"]
-        message("Target object refers to ", nrow(rel), " object(s) [ID:",
+        verbose_info("Target object refers to ", nrow(rel), " object(s) [ID:",
             collapse(rel$src_object_id), "].\n"
         )
         res <- apply2(
@@ -1006,6 +1086,7 @@ idfobj_ref_to_object <- function (self, private, which = NULL, class = NULL, rec
             private$idf_env()$object[J(rel$src_object_id), on = "object_id", class_id],
             IdfObject$new, list(parent = private$m_parent)
         )
+        res <- lapply(res, add_idfobj_field_bindings)
         setattr(res, "names", private$idf_env()$object[J(rel$src_object_id), on = "object_id", object_name])
         res
     }
@@ -1018,14 +1099,14 @@ idfobj_ref_from_object <- function (self, private) {
 }
 # }}}
 # idfobj_ref_by_object {{{
-idfobj_ref_by_object <- function (self, private, which = NULL, class = NULL) {
+idfobj_ref_by_object <- function (self, private, which = NULL, class = NULL, recursive = FALSE, recursive_depth = 1L) {
     val <- get_idf_value(private$idd_env(), private$idf_env(),
         object = private$m_object_id, field = which
     )
 
     # exclude invalid references
     rel <- get_idf_relation(private$idd_env(), private$idf_env(),
-        value_id = val$value_id, direction = "ref_by"
+        value_id = val$value_id, direction = "ref_by", recursive = recursive
     )[!is.na(value_id)]
 
     # only include specified class
@@ -1037,29 +1118,72 @@ idfobj_ref_by_object <- function (self, private, which = NULL, class = NULL) {
 
     if (!nrow(rel)) {
         if (is.null(class)) {
-            message("Target object is not referred by any other object.")
+            verbose_info("Target object is not referred by any other object.")
         } else {
-            message("Target object is not referred by any other object in class ",
+            verbose_info("Target object is not referred by any other object in class ",
                 collapse(cls$class_name), "."
             )
         }
         return(invisible())
     } else {
         rel <- rel[, list(object_id = unique(object_id)), by = "src_object_id"]
-        message("Target object is referred by ", nrow(rel), " object(s) [ID:",
+        verbose_info("Target object is referred by ", nrow(rel), " object(s) [ID:",
             collapse(rel$object_id), "].\n")
         res <- apply2(
             rel$object_id,
             private$idf_env()$object[J(rel$object_id), on = "object_id", class_id],
             IdfObject$new, list(parent = private$m_parent)
         )
+        res <- lapply(res, add_idfobj_field_bindings)
+        setattr(res, "names", private$idf_env()$object[J(rel$object_id), on = "object_id", object_name])
+        res
+    }
+}
+# }}}
+# idfobj_ref_to_node {{{
+idfobj_ref_to_node <- function (self, private, which = NULL, class = NULL, recursive = FALSE, recursive_depth = 1L) {
+    val <- get_idf_value(private$idd_env(), private$idf_env(),
+        object = private$m_object_id, field = which
+    )
+
+    # exclude invalid references
+    rel <- get_idf_node_relation(private$idd_env(), private$idf_env(),
+        value_id = val$value_id, recursive = recursive, recursive_depth = recursive_depth
+    )[!is.na(value_id)]
+
+    # only include specified class
+    if (!is.null(class)) {
+        add_joined_cols(private$idf_env()$object, rel, "object_id", "class_id")
+        cls <- get_idd_class(private$idd_env(), class)
+        rel <- rel[J(cls$class_id), on = "class_id"]
+    }
+
+    if (!nrow(rel)) {
+        if (is.null(class)) {
+            verbose_info("Target object has no node or its nodes have no reference to other object.")
+        } else {
+            verbose_info("Target object has no node referring to any object in class ",
+                collapse(cls$class_name), "."
+            )
+        }
+        return(invisible())
+    } else {
+        rel <- rel[, list(object_id = unique(object_id)), by = "src_object_id"]
+        verbose_info("Target object has node(s) referring to ", nrow(rel), " object(s) [ID:",
+            collapse(rel$object_id), "].\n")
+        res <- apply2(
+            rel$object_id,
+            private$idf_env()$object[J(rel$object_id), on = "object_id", class_id],
+            IdfObject$new, list(parent = private$m_parent)
+        )
+        res <- lapply(res, add_idfobj_field_bindings)
         setattr(res, "names", private$idf_env()$object[J(rel$object_id), on = "object_id", object_name])
         res
     }
 }
 # }}}
 # idfobj_has_ref {{{
-idfobj_has_ref <- function (self, private, which = NULL, class = NULL, type = c("all", "ref_to", "ref_by")) {
+idfobj_has_ref <- function (self, private, which = NULL, class = NULL, type = c("all", "ref_to", "ref_by", "node")) {
     type <- match.arg(type)
     if (is.null(which)) {
         rel <- get_idfobj_relation(private$idd_env(), private$idf_env(), private$m_object_id,
@@ -1081,16 +1205,22 @@ idfobj_has_ref <- function (self, private, which = NULL, class = NULL, type = c(
         } else if (type %in% c("all", "ref_to")) {
             add_joined_cols(private$idf_env()$object, rel$ref_to, c(src_object_id = "object_id"), c(src_class_id = "class_id"))
             rel$ref_to <- rel$ref_to[J(cls$class_id), on = "src_class_id"]
+        } else if (type %in% c("all", "node")) {
+            add_joined_cols(private$idf_env()$object, rel$node, "object_id", "class_id")
+            rel$node <- rel$node[J(cls$class_id), on = "class_id"]
         }
     }
 
     if (type == "all") {
         rel$ref_to[, list(.N > 0 && any(!is.na(src_value_id))), by = "value_id"]$V1 |
-        rel$ref_by[, list(.N > 0 && any(!is.na(value_id))), by = "src_value_id"]$V1
+        rel$ref_by[, list(.N > 0 && any(!is.na(value_id))), by = "src_value_id"]$V1 |
+        rel$node[, list(.N > 0 && any(!is.na(value_id))), by = "src_value_id"]$V1
     } else if (type == "ref_to") {
         rel$ref_to[, list(.N > 0 && any(!is.na(src_value_id))), by = "value_id"]$V1
-    } else {
+    } else if (type == "ref_by") {
         rel$ref_by[, list(.N > 0 && any(!is.na(value_id))), by = "src_value_id"]$V1
+    } else {
+        rel$node[, list(.N > 0 && any(!is.na(value_id))), by = "src_value_id"]$V1
     }
 }
 # }}}
@@ -1108,6 +1238,11 @@ idfobj_has_ref_from <- function (self, private) {
 # idfobj_has_ref_by {{{
 idfobj_has_ref_by <- function (self, private, which = NULL, class = NULL) {
     idfobj_has_ref(self, private, which, class, "ref_by")
+}
+# }}}
+# idfobj_has_ref_node {{{
+idfobj_has_ref_node <- function (self, private, which = NULL, class = NULL) {
+    idfobj_has_ref(self, private, which, class, "node")
 }
 # }}}
 # idfobj_to_table {{{
@@ -1241,28 +1376,39 @@ str.IdfObject <- function (object, ...) {
 # }}}
 
 #' @export
+# print.IdfObject {{{
+print.IdfObject <- function (x, comment = TRUE, auto_sep = TRUE, brief = FALSE, ...) {
+    add_idfobj_field_bindings(x, update = TRUE)
+    x$print(comment = comment, auto_sep = auto_sep, brief = brief)
+}
+# }}}
+
+#' @export
 # [.IdfObject {{{
 '[.IdfObject' <- function(x, i, j, ...) {
-    .subset2(x, "value")(i)[j]
+    if (!missing(j)) stop("incorrect number of dimensions")
+    .subset2(x, "value")(i)
 }
 # }}}
 
 #' @export
 # $.IdfObject {{{
 '$.IdfObject' <- function (x, name) {
-    if (is_string(name)) {
-        funs <- setdiff(ls(x), "initialize")
-        if (name %in% funs) {
-            NextMethod()
-        } else {
-            all_nm <- underscore_name(.subset2(.subset2(x, "definition")(), "field_name")())
-            m <- match(underscore_name(name), all_nm)
-            if (!is.na(m)) {
-                .subset2(x, "value")(m)[[1]]
-            } else {
-                NextMethod()
-            }
-        }
+    if (name %in% ls(x)) return(NextMethod())
+
+    self <- ._get_self(x)
+    private <- ._get_private(x)
+
+    # In order to make sure `idfobj$nAmE` is not acceptable
+    fld_nm <- private$idd_env()$field[J(private$m_class_id), on = "class_id", field_name]
+    fld_idx <- chmatch(name, underscore_name(fld_nm))
+    if (!is.na(fld_idx)) {
+        tryCatch(
+            get_idfobj_value(private$idd_env(), private$idf_env(),
+                private$m_object_id, which = name, underscore = TRUE
+            )[[1L]],
+            error_bad_field_name = function (e) NextMethod()
+        )
     } else {
         NextMethod()
     }
@@ -1272,48 +1418,54 @@ str.IdfObject <- function (object, ...) {
 #' @export
 # [[.IdfObject {{{
 '[[.IdfObject' <- function(x, i) {
-    if (is_string(i)) {
-        funs <- setdiff(ls(x), "initialize")
-        if (i %in% funs) {
-            NextMethod()
-        } else {
-            all_nm <- underscore_name(.subset2(.subset2(x, "definition")(), "field_name")())
-            m <- match(underscore_name(i), all_nm)
-            if (!is.na(m)) {
-                .subset2(x, "value")(m)[[1]]
-            } else {
-                NextMethod()
-            }
-        }
-    } else if (is_integer(i)) {
-        .subset2(x, "value")(i)[[1]]
-    } else {
+    if (length(i) != 1L) return(NextMethod())
+
+    if (i %in% ls(x)) {
         NextMethod()
+    } else {
+        self <- ._get_self(x)
+        private <- ._get_private(x)
+
+        # In order to make sure `idfobj$nAmE` is not acceptable
+        if (is_integer(i) || i %chin% private$idd_env()$field[J(private$m_class_id), on = "class_id", field_name]) {
+            tryCatch(
+                get_idfobj_value(private$idd_env(), private$idf_env(),
+                    private$m_object_id, which = i
+                )[[1L]],
+                error_bad_field_name = function (e) NextMethod()
+            )
+        } else {
+            NextMethod()
+        }
     }
 }
 # }}}
 
 #' @export
 # $<-.IdfObject {{{
-'$<-.IdfObject' <- function (x, name, value) {
-    if (is_string(name)) {
-        funs <- setdiff(ls(x), "initialize")
-        if (name %in% funs) {
-            NextMethod()
-        } else {
-            assert(is_scalar(value))
-            all_nm <- underscore_name(.subset2(.subset2(x, "definition")(), "field_name")())
-            m <- match(underscore_name(name), all_nm)
-            if (!is.na(m)) {
-                names(value) <- all_nm[m]
-                .subset2(x, "set")(c(value))
-                invisible(x)
-            } else {
-                NextMethod()
-            }
-        }
+`$<-.IdfObject` <- function (x, name, value) {
+    if (name %in% ls(x)) return(NextMethod())
+
+    self <- ._get_self(x)
+    private <- ._get_private(x)
+
+    assert(is_scalar(value))
+
+    # In order to make sure `idfobj$nAmE <- "a"` is not acceptable
+    fld_nm <- private$idd_env()$field[J(private$m_class_id), on = "class_id", field_name]
+    fld_idx <- chmatch(name, underscore_name(fld_nm))
+    if (!is.na(fld_idx)) {
+        names(value) <- name
+        tryCatch(.subset2(x, "set")(c(value)),
+            error_bad_field_name = function (e) NextMethod()
+        )
+
+        # add bindings
+        add_idfobj_field_bindings(x, fld_idx)
+
+        invisible(x)
     } else {
-        NextMethod()
+        stop("cannot add bindings to a locked environment")
     }
 }
 # }}}
@@ -1321,28 +1473,33 @@ str.IdfObject <- function (object, ...) {
 #' @export
 # [[<-.IdfObject {{{
 '[[<-.IdfObject' <- function(x, i, value) {
-    if (is_string(i)) {
-        funs <- setdiff(ls(x), "initialize")
-        if (i %in% funs) {
-            NextMethod()
-        } else {
-            all_nm <- underscore_name(.subset2(.subset2(x, "definition")(), "field_name")())
-            m <- match(underscore_name(i), all_nm)
-            if (!is.na(m)) {
-                assert(is_scalar(value))
-                names(value) <- all_nm[m]
-                .subset2(x, "set")(c(value))
-                invisible(x)
-            } else {
-                NextMethod()
-            }
-        }
-    } else if (is_integer(i)) {
-        assert(is_scalar(value))
-        names(value) <- .subset2(.subset2(x, "definition")(), "field_name")(i)
-        .subset2(x, "set")(value)
+    if (length(i) != 1) return(NextMethod())
+
+    if (i %in% ls(x)) return(NextMethod())
+
+    self <- ._get_self(x)
+    private <- ._get_private(x)
+
+    # In order to make sure only standard field name is not acceptable
+    fld_nm <- private$idd_env()$field[J(private$m_class_id), on = "class_id", field_name]
+    if (is_integer(i)) {
+        fld_idx <- i
+        i <- fld_nm[[i]]
     } else {
-        NextMethod()
+        fld_idx <- chmatch(i, fld_nm)
+    }
+    if (!is.na(fld_idx)) {
+        names(value) <- i
+        tryCatch(.subset2(x, "set")(c(value)),
+            error_bad_field_name = function (e) NextMethod()
+        )
+
+        # add bindings
+        add_idfobj_field_bindings(x, fld_idx)
+
+        invisible(x)
+    } else {
+        stop("cannot add bindings to a locked environment")
     }
 }
 # }}}

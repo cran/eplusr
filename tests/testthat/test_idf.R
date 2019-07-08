@@ -284,13 +284,14 @@ test_that("Idf class", {
     expect_error(idf$del(5L), class = "error_del_version")
     expect_error(idf$del(c(1, 2, 1)), class = "error_del_multi_time")
     expect_error(idf$del(idf$Building$id()), class = "error_del_required")
-    expect_error(fixed = TRUE,
-        idf_full$del(idf_full$Material_NoMass[[1]]$id()),
-        class = "error_del_referenced"
-    )
+    expect_silent(idf_full <- read_idf(example()))
+    expect_error(idf_full$del(idf_full$Material_NoMass[[1]]$id()), class = "error_del_referenced")
     expect_equal(eplusr_option(validate_level = "none"), list(validate_level = "none"))
-    expect_silent(idf_full$del(12, .ref_by = TRUE, .force = TRUE))
+    expect_silent(idf_full$del(12, .ref_by = TRUE))
     expect_equal(idf_full$is_valid_id(c(12, 15)), c(FALSE, TRUE))
+    expect_silent(idf_full <- read_idf(example()))
+    expect_silent(idf_full$del(12, .ref_by = TRUE, .force = TRUE))
+    expect_equal(idf_full$is_valid_id(c(12, 15)), c(FALSE, FALSE))
     expect_equal(eplusr_option(validate_level = "final"), list(validate_level = "final"))
     # }}}
 
@@ -299,6 +300,7 @@ test_that("Idf class", {
     idf$rename(test = "C5 - 4 IN HW CONCRETE")
     expect_equal(idf$object_name("Material"), list(Material = "test"))
     expect_equal(idf$Construction$FLOOR$Outside_Layer, "test")
+    expect_silent(idf$rename(test = "test"))
     # }}}
 
     # SEARCH AND REPLACE {{{
@@ -388,6 +390,92 @@ test_that("Idf class", {
     expect_output(idf$print("object", order = FALSE))
     expect_output(idf$print("field"))
     expect_output(idf$print("field", order = FALSE))
+    # }}}
+
+    # ACTIVE BINDINGS {{{
+    idf <- read_idf(example())
+
+    # UNIQUE-OBJECT CLASS {{{
+    expect_true("SimulationControl" %in% names(idf))
+
+    # get data.frame input
+    tbl <- idf$SimulationControl$to_table()
+    # get string input
+    str <- idf$SimulationControl$to_string()
+    tbl[5, value := "No"]
+
+    # can replace unique-object class
+    expect_silent(idf$SimulationControl <- tbl)
+    expect_equal(idf$SimulationControl$to_table()$value[[5]], "No")
+    expect_silent(idf$SimulationControl <- str)
+    expect_equal(idf$SimulationControl$to_table()$value[[5]], "Yes")
+
+    # can remove unique-object class
+    expect_silent(idf$SimulationControl <- NULL)
+    expect_false(idf$is_valid_class("SimulationControl"))
+    expect_null(idf$SimulationControl)
+    expect_false({capture.output(print(idf)); "SimulationControl" %in% names(idf)})
+
+    # can insert unique-object class
+    expect_silent(idf$SimulationControl <- tbl)
+    expect_true(idf$is_valid_class("SimulationControl"))
+    expect_silent(idf$SimulationControl <- NULL)
+    expect_silent(idf$SimulationControl <- str)
+    expect_true("SimulationControl" %in% names(idf))
+    # }}}
+
+    # NORMAL CLASS {{{
+    expect_true("Material" %in% names(idf))
+
+    # get data.frame input
+    tbl <- idf$to_table(class = "Material")
+    tbl[3, value := "0.2"]
+    # get string input
+    str <- idf$to_string(class = "Material", header = FALSE)
+
+    # can replace class
+    expect_silent(idf$Material <- tbl)
+    expect_equal(idf$to_table(class = "Material")$value[[3]], "0.2")
+    expect_silent(idf$Material <- str)
+    expect_equal(idf$to_table(class = "Material")$value[[3]], "0.1014984")
+
+    # can remove class
+    expect_error(idf$Material <- NULL, class = "error_del_referenced")
+    eplusr_option(validate_level = {chk <- level_checks("final"); chk$reference <- FALSE; chk})
+    expect_silent(idf$Material <- NULL)
+    expect_false(idf$is_valid_class("Material"))
+    expect_null(idf$Material)
+    # TODO: dynamically modify active bindings
+    # expect_false("Material" %in% names(idf))
+
+    # can insert class
+    expect_silent(idf$Material <- tbl)
+    expect_true(idf$is_valid_class("Material"))
+    expect_silent(idf$Material <- NULL)
+    expect_silent(idf$Material <- str)
+    # TODO: dynamically modify active bindings
+    # expect_true("Material" %in% names(idf))
+    eplusr_option(validate_level = "final")
+    # }}}
+    # }}}
+
+    # S3{{{
+    idf <- read_idf(text("idf", 8.8))
+    expect_equal(names(idf$Material), c("WD01", "WD02"))
+    expect_null(idf$Wrong)
+    expect_silent(idf$Material$WD01$set(thickness = 0.02))
+    expect_silent(idf$Material$WD01$Thickness <- 0.01)
+    expect_silent(idf$add(SimulationControl = list()))
+    expect_silent(idf$SimulationControl$set(Do_Zone_Sizing_Calculation = "no"))
+    expect_silent(idf$SimulationControl$Do_Zone_Sizing_Calculation <- "No")
+    # }}}
+
+    # CLONE {{{
+    idf1 <- read_idf(example())
+    idf2 <- idf1$clone()
+    idf1$Zone[[1]]$set(name = "zone")
+    expect_equal(idf1$Zone[[1]]$Name, "zone")
+    expect_equal(idf2$Zone[[1]]$Name, "ZONE ONE")
     # }}}
 })
 # }}}

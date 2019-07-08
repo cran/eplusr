@@ -18,6 +18,7 @@ NULL
 #' @section Usage:
 #' ```
 #' param <- param_job(idf, epw)
+#' param$version()
 #' param$seed()
 #' param$weater()
 #' param$apply_measure(measure, ..., .names = NULL, .mix = FALSE)
@@ -46,9 +47,12 @@ NULL
 #'
 #' @section Get Seed Model and Weather:
 #' ```
+#' param$version()
 #' param$seed()
 #' param$weather()
 #' ```
+#'
+#' `$version()` returns the version of input [Idf] object.
 #'
 #' `$seed()` returns the input [Idf] object.
 #'
@@ -310,11 +314,14 @@ Parametric <- R6::R6Class(classname = "ParametricJob", cloneable = FALSE,
         # }}}
 
         # PUBLIC FUNCTIONS {{{
+        version = function ()
+            param_version(self, private),
+
         seed = function ()
-            private$m_idf,
+            param_seed(self, private),
 
         weather = function ()
-            private$m_epw,
+            param_weather(self, private),
 
         apply_measure = function (measure, ..., .names = NULL)
             param_apply_measure(self, private, measure, ..., .names = .names),
@@ -375,6 +382,11 @@ Parametric <- R6::R6Class(classname = "ParametricJob", cloneable = FALSE,
 )
 # }}}
 
+# param_version {{{
+param_version <- function (self, private) {
+    private$m_idf$version()
+}
+# }}}
 # param_seed {{{
 param_seed <- function (self, private) {
     private$m_idf
@@ -394,9 +406,11 @@ param_apply_measure <- function (self, private, measure, ..., .names = NULL) {
     }
 
     measure_wrapper <- function (idf, ...) {
-        assert(is_idf(idf))
+        assert(is_idf(idf), msg = paste0("Measure should take an `Idf` object as input, not `", class(idf)[[1]], "`."))
         idf <- idf$clone(deep = TRUE)
-        measure(idf, ...)
+        idf <- measure(idf, ...)
+        assert(is_idf(idf), msg = paste0("Measure should return an `Idf` object, not `", class(idf)[[1]], "`."))
+        idf
     }
 
     mea_nm <- deparse(substitute(measure, parent.frame()))
@@ -715,12 +729,7 @@ param_output_errors <- function (self, private, which, info = FALSE) {
 
     names(err) <- param_case_from_which(self, private, which, name = TRUE)
 
-    if (!info) {
-        err <- lapply(err, function (x) {
-            x$data <- x$data[!(level == "Info" & begin_environment == FALSE)]
-            x
-        })
-    }
+    if (!info) err <- lapply(err, function (x) x[!(level == "Info")])
 
     err
 }

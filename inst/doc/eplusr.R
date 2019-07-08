@@ -2,7 +2,8 @@
 knitr::opts_chunk$set(
     collapse = TRUE,
     comment = "#>",
-    screenshot.force = FALSE
+    screenshot.force = FALSE,
+    fig.align = "center"
 )
 
 # the default output hook
@@ -63,12 +64,8 @@ if (!eplusr::is_avail_eplus(8.8)) {
     eplusr::use_eplus(file.path(tempdir(), eplus_dir))
 }
 
-## ---- results = "asis", echo = FALSE, eval = can_run, include = can_run----
-cat('
-<p align="center">
-  <img src="../man/figures/class_structure.png"/>
-</p>
-')
+## ---- echo = FALSE, eval = can_run, include = can_run, figure.width = "400px"----
+knitr::include_graphics("../man/figures/class_structure.png")
 
 ## ----copy_example, include = FALSE, eval = can_run-----------------------
 library(eplusr)
@@ -88,7 +85,7 @@ file.copy(c(path_weather, path_ddy),
   file.path(tempdir(), c("San_Francisco.epw", "San_Francisco.ddy")), overwrite = TRUE)
 
 ## ----idd_dl, eval = FALSE------------------------------------------------
-#  path_idd <- download_idd(8.8)
+#  path_idd <- download_idd(8.8, dir = tempdir())
 #  use_idd(path_idd)
 #  
 #  # OR
@@ -205,8 +202,7 @@ model$set(
 )
 
 ## ----set_chain-----------------------------------------------------------
-model$RunPeriod$rp_test_2$End_Day_of_Month <- 2
-model$RunPeriod$rp_test_2$End_Day_of_Month
+(model$RunPeriod$rp_test_2$End_Day_of_Month <- 2)
 
 ## ----set_ref-------------------------------------------------------------
 mat <- model$Material$CC03
@@ -245,6 +241,18 @@ model$load(dt)
 ## ------------------------------------------------------------------------
 model$object_relation("new_const1")
 model$object_relation("new_const2")
+
+## ----update_chr----------------------------------------------------------
+mat_chr <- model$Material$WD10$to_string()
+# change material density
+mat_chr[6] <- "600,"
+model$update(mat_chr)
+
+# extract roof construction data in a data.table
+dt <- model$Construction$`ROOF-1`$to_table()
+# modify value
+dt[1, value := "ROOF"]
+model$update(dt)
 
 ## ----ref_by--------------------------------------------------------------
 model$Material_NoMass$`MAT-CLNG-1`$value_relation()
@@ -305,6 +313,9 @@ power <- job$report_data("transformer 1", "transformer input electric power", ca
 
 str(power)
 
+## ----dict_extract, eval = can_run----------------------------------------
+str(job$report_data(job$report_data_dict()[units == "C"]))
+
 ## ----tab, eval = can_run-------------------------------------------------
 site_energy <- job$tabular_data(column_name = "energy per total building area", row_name = "total site energy")
 site_energy[, value := as.numeric(value)]
@@ -322,7 +333,7 @@ param
 set_infil_rate <- function (idf, infil_rate) {
 
   # validate input value
-  # this is optional, as validations will be made when setting values to `Idf`
+  # this is optional, as validations will be made when setting values
   stopifnot(is.numeric(infil_rate), infil_rate >= 0)
 
   if (!idf$is_valid_class("ZoneInfiltration:DesignFlowRate"))

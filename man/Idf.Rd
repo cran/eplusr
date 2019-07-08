@@ -39,7 +39,7 @@ model <- read_idf(path)
 model$version()
 model$path()
 model$group_name(all = FALSE, sorted = TRUE)
-model$class_name(all = FALSE, sorted = TRUE)
+model$class_name(all = FALSE, sorted = TRUE, by_group = FALSE)
 model$is_valid_group(group, all = FALSE)
 model$is_valid_class(class, all = FALSE)
 model$definition(class)
@@ -53,8 +53,8 @@ model$object_unique(class)
 model$objects(which)
 model$objects_in_class(class)
 model$objects_in_group(group)
-model$object_relation(which, direction = c("all", "ref_to", "ref_by"))
-model$objects_in_relation(which, direction = c("ref_to", "ref_by"), class = NULL, recursive = FALSE)
+model$object_relation(which, direction = c("all", "ref_to", "ref_by", "node"), recursive = FALSE, depth = 1L)
+model$objects_in_relation(which, direction = c("ref_to", "ref_by", "node"), class = NULL, recursive = FALSE, depth = 1L)
 model$search_object(pattern, class = NULL, ignore.case = FALSE, perl = FALSE, fixed = FALSE, useBytes = FALSE)
 model$ClassName
 model[[ClassName]]
@@ -64,6 +64,7 @@ model$set(..., .default = TRUE)
 model$del(..., .ref_by = FALSE, .ref_to = FALSE, .recursive = FALSE, .force = FALSE)
 model$insert(..., .unique = TRUE)
 model$load(..., .unique = TRUE, .default = TRUE)
+model$update(..., .default = TRUE)
 model$rename(...)
 model$paste(in_ip = FALSE, ver = NULL, unique = TRUE)
 model$search_value(pattern, class = NULL, ignore.case = FALSE, perl = FALSE, fixed = FALSE, useBytes = FALSE)
@@ -71,7 +72,7 @@ model$replace_value(pattern, class = NULL, replacement, ignore.case = FALSE, per
 model$is_unsaved()
 model$validate(level = eplusr_option("validate_level"))
 model$is_valid(level = eplusr_option("validate_level"))
-model$to_table(which = NULL, class = NULL, string_value = TRUE, unit = FALSE)
+model$to_table(which = NULL, class = NULL, string_value = TRUE, unit = FALSE, wide = FALSE)
 model$to_string(which = NULL, class = NULL, comment = TRUE, header = TRUE, format = eplusr_option("save_format"), leading = 4L, sep_at = 29L)
 model$save(path = NULL, format = eplusr_option("save_format"), overwrite = FALSE, copy_external = TRUE)
 model$run(weather = NULL, dir = NULL, wait = TRUE, force = FALSE, copy_external = FALSE)
@@ -86,7 +87,7 @@ print(model)
 model$version()
 model$path()
 model$group_name(all = FALSE, sorted = TRUE)
-model$class_name(all = FALSE, sorted = TRUE)
+model$class_name(all = FALSE, sorted = TRUE, by_group = FALSE)
 model$is_valid_group(group, all = FALSE)
 model$is_valid_class(class, all = FALSE)
 }
@@ -126,6 +127,8 @@ underlying \link{Idd} object. Default: \code{FALSE}.
 returned group or class names are removed, and unique names are further
 sorted according to their occurrences in the underlying \link{Idd} object.
 Default: \code{TRUE}.
+\item \code{by_group}: Only applicable when \code{all} or \code{sorted} is \code{TRUE}. If \code{TRUE}, a
+list is returned which separate class names by the group they belong to.
 \item \code{group}: A character vector of valid group names.
 \item \code{class}: A character vector of valid class names.
 }
@@ -184,13 +187,17 @@ with each element being the data per class is returned. If \code{class} is
 }
 
 \section{Object Relation}{
-\preformatted{model$object_relation(which, direction = c("all", "ref_to", "ref_by"))
+\preformatted{model$object_relation(which, direction = c("all", "ref_to", "ref_by", "node"), recursive = TRUE, depth = 1L)
 }
 
 Many fields in \link{Idd} can be referred by others. For example, the \code{Outside Layer} and other fields in \code{Construction} class refer to the \code{Name} field
 in \code{Material} class and other material related classes. Here it means that
 the \code{Outside Layer} field \strong{refers to} the \code{Name} field and the \code{Name} field
-is \strong{referred by} the \code{Outside Layer}.
+is \strong{referred by} the \code{Outside Layer}. In EnergyPlus, there is also a
+special type of field called \code{Node}, which together with \code{Branch} and
+\code{BranchList} define the topography of the HVAC connections. A outlet node of
+a component can be referred by another component as its inlet node, but can
+also exists independently, such as zone air node.
 
 \code{$object_relation()} provides a simple interface to get this kind of
 relation. It takes a single object ID or name and also a relation direction,
@@ -215,6 +222,13 @@ easily extracted using \code{$objects_in_relation()} method described below.
 \item \code{which}: Either a single integer of object ID or a string of object name.
 \item \code{direciton}: The relation direction to extract. Should be either \code{"all"},
 \code{"ref_to"} or "ref_by".
+\item \code{recursive}: If \code{TRUE}, the relation is searched recursively. A simple
+example of recursive reference: one material named \code{mat} is referred by a
+construction named \code{const}, and \code{const} is also referred by a surface named
+\code{surf}.
+\item \code{depth}: Only applicable when \code{recursive} is \code{TRUE}. This is a depth to
+when searching value relations recursively. If \code{NULL}, all recursive
+relations are returned. Default: \code{1}.
 }
 }
 
@@ -227,7 +241,7 @@ model$objects(which)
 model$object_unique(class)
 model$objects_in_class(class)
 model$objects_in_group(group)
-model$objects_in_relation(which, direction = c("ref_to", "ref_by"), class = NULL, recursive = FALSE)
+model$objects_in_relation(which, direction = c("ref_to", "ref_by", "node"), class = NULL, recursive = FALSE, depth = 1L)
 model$search_object(pattern, class = NULL, ignore.case = FALSE, perl = FALSE, fixed = FALSE, useBytes = FALSE)
 model$ClassName
 model[[ClassName]]
@@ -327,6 +341,9 @@ or "ref_by".
 material named \code{mat} is referred by a construction named \code{const}, and
 \code{const} is also referred by a surface named \code{surf}, all \code{mat}, \code{const} and
 \code{surf} are returned.
+\item \code{depth}: Only applicable when \code{recursive} is \code{TRUE}. This is a depth to
+when searching value relations recursively. If \code{NULL}, all recursive
+relations are returned. Default: \code{1}.
 \item \code{ignore.case}, \code{perl}, \code{fixed} and \code{useBytes}: All are directly passed to
 \link[base:grep]{base::grepl}.
 }
@@ -681,6 +698,74 @@ model$load(dt)
 
 }
 
+\subsection{Update Objects from characters or data.frames}{\preformatted{model$update(..., .unique = TRUE, .default = TRUE)
+}
+
+\code{$update()} is similar to \code{$load()} except it update field values.  This
+makes it easy to update object values using the output from \code{$to_string()}
+and \code{$to_table} method from \link{Idd}, \link{IddObject}, also Idf and \link{IdfObject}
+class.
+
+For object definitions in character vector format, object names are used to
+locate which objects to update. Objects that have name attribute should have
+valid names. This means that there is no way to update object names using
+character vector format, but it can be achieved using data.frame format as it
+uses object IDs instead of object names to locate objects.
+
+For object definitions in data.frame format, it is highly recommended to use
+\code{$to_table()} method in \link{Idd}, \link{IddObject}, \code{Idf} and \link{IdfObject} class. A
+valid definition requires four columns described below. Note that
+column order does not matter.
+\itemize{
+\item \code{id}: Integer type. The value in \code{id} should be valid object IDs for current
+\code{Idf}.
+\item \code{class}: Character type. Valid class names for current \code{Idf}.
+\item \code{index}: Integer type. Valid field indexes for each class. If input field
+does not exist in specified object, it will be added on the fly.
+\item \code{value}: Character type or list type. The value of each field
+to be added.
+\itemize{
+\item If \code{value} is a character column, usually when \code{string_value} is \code{TRUE}
+in method \code{$to_table()} in \code{Idf} and \link{IdfObject} class. Each value should
+be given as a string even if the corresponding field is a numeric type.
+\item If \code{value} is a list column, usually when \code{string_value} is set to
+\code{FALSE} in method \code{$to_table()} in \code{Idf} and \link{IdfObject} class. Each value
+should have the right type  as the corresponding field definition.
+Otherwise, errors will be issued during if current validation level
+includes invalid-type checking. For what kind of validation components to
+be performed during modifications, please see \code{\link[=level_checks]{level_checks()}}.
+}
+}
+
+\strong{Note}:
+\itemize{
+\item \code{$update()} assume all definitions are from the same version as current
+\code{Idf} object. If input definition is from different version, parsing error
+may occur.
+}
+
+\strong{Argument}:
+\itemize{
+\item \code{...}: Character vectors or data.frames of object definitions For details,
+see above.
+\item \code{.default}: If \code{TRUE}, default values are used for those blank fields if
+possible. Default: \code{TRUE}.
+}
+
+\strong{Usage}:
+\itemize{
+\item Update objects from string definitions:\preformatted{str <- model$Material[[1]]$to_string()
+str[4] <- "0.8"
+model$update(str)
+}
+\item Update objects from data.frame definitions:\preformatted{dt <- model1$to_table(class = "Material")
+dt[field == "thickness", value := "0.5"]
+model$update(dt)
+}
+}
+
+}
+
 \subsection{Paste Objects from IDF Editor}{\preformatted{model$paste(in_ip = FALSE, ver = NULL, unique = TRUE)
 }
 
@@ -845,7 +930,7 @@ to correct them.
 }
 
 \section{Data Extraction}{
-\preformatted{model$to_table(which = NULL, class = NULL, string_value = TRUE, unit = FALSE)
+\preformatted{model$to_table(which = NULL, class = NULL, string_value = TRUE, unit = FALSE, wide = FALSE)
 model$to_string(which = NULL, class = NULL, comment = TRUE, header = TRUE, format = eplusr_option("save_format"), leading = 4L, sep_at = 29L)
 }
 
@@ -879,6 +964,10 @@ number.  Default: \code{TRUE}.
 \item \code{unit}: Only applicable when \code{string_value} is \code{FALSE}. If \code{TRUE}, values
 of numeric fields are assigned with units using \code{\link[units:set_units]{units::set_units()}} if
 applicable. Default: \code{FALSE}.
+\item \code{wide}: Only applicable if target objects belong to a same class. If
+\code{TRUE}, a wide table will be returned, i.e. first three columns are always
+\code{id}, \code{name} and \code{class}, and then every field in a separate column.
+Default: \code{FALSE}.
 \item \code{comment}: If \code{FALSE}, all comments will not be included. Default: \code{TRUE}.
 \item \code{header}: If \code{FALSE}, the header will not be included. Default: \code{TRUE}.
 \item \code{format}: Specific format used when formatting. For details, please see
@@ -1017,6 +1106,7 @@ grouped and ordered by classes. Default: \code{TRUE}.
 }
 
 \examples{
+\dontrun{
 # ===== CREATE =====
 # read an IDF file
 idf <- read_idf(system.file("extdata/1ZoneUncontrolled.idf", package = "eplusr"),
@@ -1126,7 +1216,6 @@ length(idf$search_object("r\\\\d", ignore.case = TRUE, class = "Construction"))
 names(idf$search_object("r\\\\d", ignore.case = TRUE, class = "Construction"))
 
 # ===== DUPLICATE OBJECTS =====
-\dontrun{
 # duplicate objects in "Construction" class
 names(idf$Construction)
 idf$dup("R13WALL")
@@ -1140,10 +1229,8 @@ idf$dup(My_R13Wall = "R13WALL")
 
 # duplicate an object multiple times
 idf$dup(rep("R13WALL", times = 10))
-}
 
 # ===== ADD OBJECTS =====
-\dontrun{
 # add two new objects in "RunPeriod" class
 idf$add(
     RunPeriod = list("rp_test_1", 1, 1, 2, 1,
@@ -1158,10 +1245,23 @@ idf$add(
         .comment = "Comment for new object 2"
      )
 )
-}
+
+# ===== LOAD OBJECTS =====
+# load objects from character vector
+idf$load("RunPeriod, rp_test_3, 1, 1, 2, 1;")
+
+# load objects from data.frames
+dt <- idf$definition("RunPeriod")$to_table()
+
+## (a) values can be supplied as characters
+dt[1:5, value := c("rp_test_4", "2", "1", "3", "1")]
+idf$load(dt)
+
+## (b) values can be supplied as list
+dt[1:5, value := list("rp_test_5", 3, 1, 4, 1)]
+idf$load(dt)
 
 # ===== INSERT OBJECTS =====
-\dontrun{
 # insert objects from other Idf object
 idf_1 <- read_idf(system.file("extdata/1ZoneUncontrolled.idf", package = "eplusr"),
     idd = use_idd(8.8, download = "auto"))
@@ -1181,10 +1281,8 @@ idf$object_name("Material")
 
 # $insert() is useful when importing design days from a ".ddy" file
 idf$insert(read_idf("foo.ddy"))
-}
 
 # ===== SET OBJECTS =====
-\dontrun{
 # set the thickness of newly inserted material "test" to 0.2 m
 idf$set(test = list(thickness = 0.2))
 idf$Material$test$Thickness
@@ -1204,16 +1302,20 @@ idf$set(val)
 
 # check results
 lapply(idf$Material, function (mat) mat$Thermal_Absorptance)
-}
+
+# ===== UPDATE OBJECTS =====
+# update roughness of new added material "test" to "Smooth"
+idf$update("Material, test, smooth;")
+
+# update solar absorptance of all materials to 0.8
+dt <- idf$to_table(class = "Material", string_value = TRUE)
+idf$update(dt[field == "Solar Absorptance", value := "0.8"])
 
 # ===== RENAME OBJECTS =====
-\dontrun{
 idf$rename(new_test = "test")
 idf$object_name("Material")
-}
 
 # ===== DELELTE OBJECTS =====
-\dontrun{
 # delete the added run period "rp_test_1", "rp_test_2" and "new_test" from above
 idf$del(c("new_test", "rp_test_1", "rp_test_2"))
 names(idf$Material)
@@ -1235,7 +1337,6 @@ idf$del("R13LAYER", .ref_by = TRUE) # will give an error in "final" validate lev
 
 # it is possible to force delete objects
 idf$del("R13LAYER", .ref_by = TRUE, .force = TRUE)
-}
 
 # ===== SEARCH ADN REPLACE OBJECT VALUES =====
 # get objects whose field values contains both "VAV" and "Node"
@@ -1244,10 +1345,9 @@ length(idf$search_value("WALL"))
 names(idf$search_value("WALL"))
 
 # replace values using regular expression
-\dontrun{idf$replace_value("WALL", "A_WALL")}
+idf$replace_value("WALL", "A_WALL")
 
 # ===== VALIDATE MODEL =====
-\dontrun{
 # check if there are errors in current model
 idf$validate()
 idf$is_valid()
@@ -1271,7 +1371,7 @@ idf$validate()$invalid_reference$object_id
 idf$set(..16 = list(outside_layer = idf$Material[[1]]$name()))
 idf$validate()
 idf$is_valid()
-}
+
 # ===== FORMAT MODEL =====
 # get text format of the model
 head(idf$to_string())
@@ -1283,7 +1383,6 @@ head(idf$to_string(comment = FALSE, header = FALSE))
 # check if the model has been modified since read or last saved
 idf$is_unsaved()
 
-\dontrun{
 # save and overwrite current model
 idf$save(overwrite = TRUE)
 
@@ -1299,10 +1398,8 @@ idf$save(path = file.path(tempdir(), "test1.idf"), copy_external = TRUE)
 
 # the path of this model will be changed to the saved path
 idf$path()
-}
 
 # ===== CLONE MODEL =====
-\dontrun{
 # Idf object are modified in place and has reference semantic.
 idf_2 <- idf
 idf_2$object_name("Building")
@@ -1319,10 +1416,8 @@ idf_3$Building$set(name = "Building_Name_Changed_Again")
 idf_3$object_name("Building")
 
 idf$object_name("Building")
-}
 
 # ===== RUN MODEL =====
-\dontrun{
 if (is_avail_eplus(8.8)) {
 
     # save the model to tempdir()
@@ -1360,9 +1455,8 @@ if (is_avail_eplus(8.8)) {
     # get simulation results
     job$report_data()
 }
-}
+
 # ===== PRINT MODEL =====
-\dontrun{
 idf$print("group")
 idf$print("class")
 idf$print("object")

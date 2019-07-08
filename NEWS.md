@@ -1,3 +1,94 @@
+# eplusr 0.10.3
+
+## New features
+
+* Now you can get autocompletion of class names of `Idd` and `Idf` objects, and
+  field names of `IdfObject` class in RStudio.
+* `[[<-.Idf` and `$<-.Idf` now can work with unique-object classes as well.
+* A new method `$update()` is added in `Idf` class which makes it possible to
+  directly modify existing objects using character vectors and data.frames.
+* A new argument `wide` is added in `$to_table()` method in `Idf` class,
+  similar to `$to_table()` method in `IdfObject` class.
+* New function `read_rdd()` and `read_mdd()` are added to help to directly parse
+  `.rdd` and `.mdd` file.
+* Now `$rename()` will not give an error if input name is the same as the old
+  one.
+* Now new method `$version()` is added in `EplusJob` and `ParametricJob` class,
+  which returns the version of IDF it uses.
+* A new argument `by_group` is added in `$class_index()`, `$class_name()` in
+  `Idd` class and `$class_name()` in `Idf` class. If `TRUE`, a list is returned
+  which separate class indexes/names by the group they belong to.
+* Recursive relation support has been added to `$object_relation()` in `Idf`
+  class, and `$value_relation()`, `$ref_to_object()`, `$ref_by_object()` in
+  `IdfObject` class. All type of relations can be searched recursively by
+  setting newly added argument `recursive` to `TRUE`. There is also a new
+  argument called `depth` to control how many recursive searching steps should
+  be performed.
+* Add Node support into `$value_possible()` in `IdfObject` class, i.e. if
+  specified fields are nodes, all nodes are returned in the `source` component.
+* Now component node references support has been added. A new option `"node"`
+  has been added to the `direction` argument in `$object_relation`,
+  `$objects_in_relation()` in `Idf` class and `$value_relation()` in `IdfObject`
+  class. New methods `$ref_to_node()` and `$has_ref_node()` have been added in
+  `IdfObject` class. Now `$has_ref()` in `IdfObject` class will return `FALSE`
+  only when all `$has_ref_to()`, `$has_ref_by()` and `$has_ref_node()` are all
+  `FALSE`.
+
+## Bug fixes
+
+* Now all internal data, specifically all `data.table`s are correctly copied
+  when calling `$clone()` in `Idf` and `Epw` class.
+* `$add()` method and other methods that modify field values can correctly
+  convert field values to numbers if necessary.
+* Fix the error that holiday header got overwritten (#43).
+* Fix EPW date parsing error (#42).
+* Fix warnings in parsing `.err` file when there is no warning nor error.
+* Fix `$errors()` error in `ParametricJob` class.
+* The year of returned date time from `$data()`, `$abnormal_data()` and
+  `$redundant_data()` now have correct values (#44).
+* Reset year after checking datetime in `read_epw()` (#44).
+* Add field name in input before validation in `paste()` (#45).
+* Fix datetime calculation in `$report_data()` in `EplusSql` (#46).
+* Update doc on EnergyPlus time nodation (#47).
+* Fix EPW design condition parsing error when `hours_8_to_4_12.8_20.6` is zero.
+* Now recurring errors in `.err` file are parsed correctly in `ErrFile`.
+* Handle large value references in `get_value_reference_map()` (#50).
+* Fix the error when extract numeric default values using `$value_possible()`
+  (#51).
+* Fix the error that `.ref_to` argument in `$del()` in `Idf` class did not take
+  effect.
+* Fix field deletion in `$update()` in `Idf` class.
+* Fix reference parsing error with mixed source types.
+* External files used in `Schedule:File` class are now only copied once when
+  `copy_external` is `TRUE` in `$save()` in `Idf` class.
+* When `.ref_to` or `.ref_by` is `TRUE` in `$del()` in `Idf` class, objects
+  whose class names are referenced by input will not be deleted, except all
+  objects in referenced class are detected by field value reference or there is
+  only one object in referenced class.
+* Objects detected using `.ref_to` and `.ref_by` in `$del()` in `Idf` class can
+  now be successfully deleted, even if they still have relations with other
+  objects.
+* Now invalid input object name is kept as it is, instead of converted to lower
+  case.
+* Now `$value_possible()` returns correct source values when fields refer to
+  class names rather than field values.
+* Now `$del()` method in `Idf` class works correctly with multiple inputs.
+* Now trailing comments in IDF will be removed in `read_idf()`.
+* Now `$to_table()` in `Idf` class will keep the input object order.
+* Now `$set()` method in `IdfObject` can successfully delete fields when field
+  values are set to `NULL`.
+* Now `$run()` method in `Idf` will use the correct model path to run
+  simulation.
+
+## Minor changes
+
+* Change message types in `$ref_to_object()` and `$ref_by_object()` in `IdfObject`.
+* Now `ErrFile` is stored as a `data.table` with additional attributes instead
+  of a list.
+* Now when argument `.unqiue` is `TRUE` in `$insert()`, `$load()` and `$paste()`
+  in `Idf` class, object comparison are performed case-insensitively.
+* A new default value `"."` of `dir` in `download_idd()` is add.
+
 # eplusr 0.10.2
 
 This is a patch update mainly to fix CRAN check errors on a strict Latin locale,

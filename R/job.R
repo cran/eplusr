@@ -33,6 +33,7 @@ NULL
 #' @section Usage:
 #' ```
 #' job <- eplus_job(idf, epw)
+#' job$version()
 #' job$path(type = c("all", "idf", "epw"))
 #' job$run(wait = TRUE, force = FALSE)
 #' job$kill()
@@ -53,8 +54,11 @@ NULL
 #' @section Basic info:
 #' ```
 #' job <- eplus_job(idf, epw)
+#' job$version()
 #' job$path(type = c("all", "idf", "epw"))
 #' ```
+#'
+#' `$version()` reutrns the version of IDF that current `EplusJob` uses.
 #'
 #' `$path()` returns the path of IDF or EPW of current job.
 #'
@@ -184,6 +188,17 @@ NULL
 #' which is the default behavior, eplusr will calculate a year value (from
 #' current year backwards) for each run period that compliance with the start
 #' day of week restriction.
+#'
+#' It is worth noting that EnergyPlus uses 24-hour clock system where 24 is only
+#' used to denote midnight at the end of a calendar day. In EnergyPlus output,
+#' "00:24:00" with a time interval being 15 mins represents a time period from
+#' "00:23:45" to "00:24:00", and similarly "00:15:00" represents a time period
+#' from "00:24:00" to "00:15:00" of the next day. This means that if current day
+#' is Friday, day of week rule applied in schedule time period "00:23:45" to
+#' "00:24:00" (presented as "00:24:00" in the output) is also Friday, but not
+#' Saturday. However, if you try to get the day of week of time "00:24:00" in R,
+#' you will get Saturday, but not Friday. This introduces inconsistency and may
+#' cause problems when doing data analysis considering day of week value.
 #'
 #' `$tabular_data()` extracts the tabular data in a
 #' [data.table][data.table::data.table()] using report, table, column and row
@@ -484,6 +499,9 @@ EplusJob <- R6::R6Class(classname = "EplusJob", cloneable = FALSE,
         # }}}
 
         # PUBLIC FUNCTIONS {{{
+        version = function ()
+            job_version(self, private),
+
         path = function (type = c("all", "idf", "epw"))
             job_path(self, private, type),
 
@@ -550,6 +568,11 @@ EplusJob <- R6::R6Class(classname = "EplusJob", cloneable = FALSE,
 )
 # }}}
 
+# job_version {{{
+job_version <- function (self, private) {
+    private$m_version
+}
+# }}}
 # job_path {{{
 job_path <- function (self, private, type = c("all", "idf", "epw")) {
     type <- match.arg(type)
@@ -745,9 +768,7 @@ job_output_errors <- function (self, private, info = FALSE) {
 
     err <- parse_err_file(path_err)
 
-    if (!info) err$data <- err$data[!J("Info"), on = "level"]
-
-    err
+    if (!info) err[!J("Info"), on = "level"] else err
 }
 # }}}
 # job_sql_path {{{

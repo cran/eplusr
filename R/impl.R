@@ -11,6 +11,8 @@ NULL
 recognize_input <- function (input, type = "class", underscore = FALSE, lower = FALSE) {
     if (underscore && lower) stop("underscore and lower cannot all be TRUE.")
 
+    # store the original input
+    ori <- input
     if (is.character(input)) {
         if (underscore) {
             input <- underscore_name(input)
@@ -31,11 +33,12 @@ recognize_input <- function (input, type = "class", underscore = FALSE, lower = 
     } else {
         abort_bad_which_type(paste0("error_", type, "_which_type"), type)
     }
-    dt_in <- data.table(input = input, rleid = seq_along(input))
+    dt_in <- data.table(input = input, rleid = seq_along(input), original = ori)
     setnames(dt_in, "input", col_on)
 
     # make sure the first column is the column used for joinning
     setcolorder(dt_in, c(col_on, setdiff(names(dt_in), col_on)))
+    setindexv(dt_in, col_on)
     dt_in
 }
 # }}}
@@ -44,6 +47,7 @@ join_from_input <- function (dt, input, check = "group_id") {
     col_on <- names(input)[[1L]]
     res <- dt[input, on = col_on, allow.cartesian = TRUE]
     check_bad_key(res, check, col_on)
+    if (has_name(res, "original")) on.exit(set(res, NULL, "original", NULL), add = TRUE)
     setcolorder(res, "rleid")
     res
 }
@@ -51,7 +55,11 @@ join_from_input <- function (dt, input, check = "group_id") {
 # check_bad_key {{{
 check_bad_key <- function (res, col_check, col_on) {
     if (anyNA(res[[col_check]])) {
-        invld_cls <- res[is.na(get(col_check))][[col_on]]
+        if (has_name(res, "original")) {
+            invld_cls <- res[is.na(get(col_check))][["original"]]
+        } else {
+            invld_cls <- res[is.na(get(col_check))][[col_on]]
+        }
         if (stri_endswith_fixed(col_on, "id")) {
             if (stri_startswith_fixed(col_on, "object")) {
                 col_key <- "ID"
