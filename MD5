@@ -1,7 +1,7 @@
-9a7096d12ca86697cf65e75e0f1b27e8 *DESCRIPTION
+e366a424743e6b866862d3b5c8e3dea6 *DESCRIPTION
 27d7e2fdc55268f2ab3924aa50f514dc *LICENSE
 ff5334f9ed2f3a67810df03d373e77ac *NAMESPACE
-6888f138af1ce4bb49679a4f29e9bb7d *NEWS.md
+b3f012425cc87fe4e8c7dc64af6a71e6 *NEWS.md
 f21b2d42424ae8fcb25385c62167ec26 *R/assertions.R
 10c198fd7edfa8231a9388ef70f85a42 *R/constants.R
 145090299249c686ae5040caf9195cd6 *R/diagram.R
@@ -11,7 +11,7 @@ d294c8ae61d009b44c73d619e82a1149 *R/epw.R
 2decc5fb39f8ca23caa4776e4b1ec113 *R/format.R
 74e692396c2cbe2e1a2b89583a9895f9 *R/idd.R
 9c6a526792860f1c557cf0ebd51e5d4c *R/idd_object.R
-1724a035c5b4c27d004a1b4adc88cf12 *R/idf.R
+2e39546a5c18a0f8c129137ecf76d284 *R/idf.R
 43fec00313de1bbf097fe9b09a9a81fb *R/idf_object.R
 9b9dd467d15e8cb65d01b7d6dce59653 *R/impl-epw.R
 ed03be9b193def11066b02c0c1522de2 *R/impl-idd.R
@@ -33,11 +33,11 @@ e92fdfb630050a0c4a9dde23b6dc1dcd *R/impl-idfobj.R
 a0eefea69272405da7586960648ca42f *R/validate.R
 932c83c7900ab51c536351b88445d941 *R/zzz.R
 49f2d789c42f32b3f98709d67e23d81e *README.md
-9f13d57fe205a0060a876fbfda98b76a *build/vignette.rds
+2a765b095d5d8ea469ff639837c88576 *build/vignette.rds
 dfca3470e67c8c3e6eba5154552e30ad *inst/CITATION
-2d4b3cc45ee14b0fe0bab2ce5176977e *inst/doc/eplusr.R
+c5cf83977faabfb9c1da0758e1dce9c8 *inst/doc/eplusr.R
 9fcadaa14745eaf4adecb2f3c24fac69 *inst/doc/eplusr.Rmd
-ee3612624de87cbcf43a6bb245d2b72e *inst/doc/eplusr.html
+b7a70492bf746a40ad86ee71429e8b4c *inst/doc/eplusr.html
 3464b5091116411ee9552cd5f674a2d9 *inst/extdata/1ZoneUncontrolled.idf
 bd373e2b867a5c4da4b838b6046e1a5d *man/EplusJob.Rd
 8450f37a760f2a3904a8889355257c94 *man/EplusSql.Rd
