@@ -4,8 +4,7 @@
 \alias{format.IddObject}
 \title{Format an IddObject}
 \usage{
-\method{format}{IddObject}(x, comment = NULL, leading = 4L,
-  sep_at = 29L, all = FALSE, ...)
+\method{format}{IddObject}(x, comment = NULL, leading = 4L, sep_at = 29L, all = FALSE, ...)
 }
 \arguments{
 \item{x}{An \link{IddObject} object.}
@@ -34,4 +33,5 @@ It is formatted exactly the same as in IDF Editor.
 \dontrun{
 cat(format(use_idd(8.8, download = "auto")$Materal, leading = 0))
 }
+
 }

@@ -4,19 +4,29 @@
 #' R, which enables programmatic navigation, modification of EnergyPlus models
 #' and makes it less painful to do parametric simulations and analysis.
 #'
-#' With eplusr, you can do:
+#' @section Features:
 #'
-#' * Read, parse and modify EnergyPlus Weather File (EPW).
-#' * Read and parse EnergyPlus IDF files.
-#' * Query on models, including classes, objects and fields
-#' * Directly add, modify, duplicate, and delete objects of IDF in R.
-#' * Automatically change referred fields when modifying objects.
-#' * Check any possible errors whenever modifications are made.
-#' * Save the changed models into standard formats in the same way as IDFEditor
-#'   distributed along with EnergyPlus.
-#' * Run your models directly and collect the simulation output of EnergyPlus
-#'   in R.
-#' * Run parametric analysis in parallel and collect results in one go.
+#' - Download and install EnergyPlus in R
+#' - Read, parse and modify EnergyPlus:
+#'     - Input Data File (IDF)
+#'     - Weather File (EPW)
+#'     - Report Data Dictionary (RDD) & Meter Data Dictionary (MDD)
+#'     - Error File (ERR)
+#' - Modify multiple versions of IDFs and run corresponding EnergyPlus
+#'   both in the background and in the front
+#' - Rich-featured interfaces to query and modify IDFs
+#' - Automatically handle referenced fields and validate input during
+#'   modification
+#' - Take fully advantage of most common used data structure for data
+#'   science in R – data.frame
+#'     - Extract model, weather data into data.frames
+#'     - Modify multiple objects via data.frames input
+#'     - Query output via SQL in Tidy format which is much better for
+#'       data analysis and visualization
+#' - Provide a simple yet extensible prototype of conducting parametric
+#'   simulations and collect all results in one go
+#' - A pure R-based version updater [transition()] which is much faster than
+#'   VersionUpdater distributed with EnergyPlus
 #'
 #' @name eplusr-package
 #' @author Hongyuan Jia
@@ -43,6 +53,7 @@ check_color <- function () {
 .options$view_in_ip <- FALSE
 .options$save_format <- "asis"
 .options$num_parallel <- parallel::detectCores()
+.options$autocomplete <- interactive()
 
 #' Get and Set eplusr options
 #'
@@ -77,6 +88,14 @@ check_color <- function () {
 #'
 #' * `verbose_info`: Whether to show information messages. Default: `TRUE`.
 #'
+#' * `autocomplete`: Whether to turn on autocompletion on class and field names.
+#'   Underneath, [makeActiveBinding()] is used to add or move active bindings in
+#'   [Idf] and [IdfObject]s to directly return objects in class or field values.
+#'   This will make it possible to dynamically show current class and field
+#'   names in both RStudio and in the terminal. However, this process does have
+#'   a penalty on the performance. It can make adding or modifying large mounts
+#'   of [Idf] and [IdfObject]s extremely slower. Default: `interactive()`.
+#'
 #' @return If called directly, a named list of input option values. If input is
 #'     a single option name, a length-one vector whose type is determined by
 #'     that option. If input is new option values, a named list of newly set
@@ -96,7 +115,7 @@ check_color <- function () {
 eplusr_option <- function (...) {
     opt <- list(...)
 
-    if (is_empty(opt)) return(as.list.environment(.options))
+    if (is_empty(opt)) return(as.list.environment(.options, sorted = TRUE))
 
     nm <- names(opt)
 
@@ -126,7 +145,7 @@ eplusr_option <- function (...) {
         save_format = c("asis", "sorted", "new_top", "new_bot")
     )
 
-    onoff_opt <- c("view_in_ip", "verbose_info")
+    onoff_opt <- c("view_in_ip", "verbose_info", "autocomplete")
 
     count_opt <- c("num_parallel")
 
@@ -177,5 +196,40 @@ eplusr_option <- function (...) {
     }
 
     as.list.environment(.options)[nm]
+}
+# }}}
+# with_option {{{
+with_option <- function (opts, expr) {
+    # get options
+    ori <- eplusr_option()
+
+    if (!is.list(opts) || is.null(names(opts))) {
+        stop("`opts` should be a named list.")
+    }
+
+    if (any(!names(opts) %in% names(ori))) {
+        stop("Invalid eplusr option found: ", sQuote(names(opts)[!names(opts) %in% names(ori)]))
+    }
+
+    # set new option values
+    on.exit(do.call(eplusr_option, ori), add = TRUE)
+    do.call(eplusr_option, opts)
+
+    force(expr)
+}
+# }}}
+# with_silent {{{
+with_silent <- function (expr) {
+    with_option(list(verbose_info = FALSE), expr)
+}
+# }}}
+# with_speed {{{
+with_speed <- function (expr) {
+    with_option(list(validate_level = "none", autocomplete = FALSE), expr)
+}
+# }}}
+# without_checking {{{
+without_checking <- function (expr) {
+    with_option(list(validate_level = "none"), expr)
 }
 # }}}

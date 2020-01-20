@@ -33,7 +33,7 @@ test_that("table", {
             class_name = "Version", num_fields = 1L, rleid = 1L
         )
     )
-    expect_equal(get_idf_object(idd_env, idf_env), add_class_name(idd_env, copy(idf_env$object)))
+    expect_equal(get_idf_object(idd_env, idf_env), add_rleid(add_class_name(idd_env, copy(idf_env$object))))
     expect_equal(get_idf_object(idd_env, idf_env, 55)$object_id, c(1L, 4L))
     expect_equal(get_idf_object(idd_env, idf_env, 55, c("WD02", "WD01"))$object_id, c(4L, 1L))
     expect_equal(get_idf_object(idd_env, idf_env, "Material")$object_id, c(1L, 4L))
@@ -80,10 +80,10 @@ test_that("table", {
     expect_equal(get_idf_object_name(idd_env, idf_env, c("Version", "Material")), list(Version = NA_character_, Material = c("WD01", "WD02")))
     expect_equal(get_idf_object_name(idd_env, idf_env, c("Version", "Material"), simplify = TRUE), c(NA_character_, c("WD01", "WD02")))
     expect_equal(get_idf_object_num(idd_env, idf_env, c("Version", "Material")), c(1L, 2L))
-    expect_equal(get_object_info(add_class_name(idd_env, idf_env$object[1])), " #1| Object ID [1] (name `WD01`) in class `Material`")
-    expect_equal(get_object_info(add_class_name(idd_env, idf_env$object[5])), " #1| Object ID [5] in class `Version`")
-    expect_equal(get_object_info(idf_env$object[1], c("id", "name")), " #1| Object ID [1] (name `WD01`)")
-    expect_equal(get_object_info(idf_env$object[1], c("name")), " #1| Object name `WD01`")
+    expect_equal(get_object_info(add_class_name(idd_env, idf_env$object[1])), " #1| Object ID [1] (name 'WD01') in class 'Material'")
+    expect_equal(get_object_info(add_class_name(idd_env, idf_env$object[5])), " #1| Object ID [5] in class 'Version'")
+    expect_equal(get_object_info(idf_env$object[1], c("id", "name")), " #1| Object ID [1] (name 'WD01')")
+    expect_equal(get_object_info(idf_env$object[1], c("name")), " #1| Object name 'WD01'")
     # }}}
 
     # VALUE {{{
@@ -91,7 +91,7 @@ test_that("table", {
     expect_equivalent(nrow(get_idf_value(idd_env, idf_env)), 44L)
     expect_equivalent(names(get_idf_value(idd_env, idf_env)),
         c("value_id", "value_chr", "value_num", "object_id", "field_id",
-        "class_id", "object_name", "class_name", "field_index", "field_name"
+        "class_id", "object_name", "class_name", "rleid", "field_index", "field_name"
         )
     )
     # }}}
@@ -480,6 +480,7 @@ test_that("VALUE DOTS", {
     expect_error(sep_value_dots(cls = list(NA)), class = "error_dot_invalid_format")
     expect_error(sep_value_dots(cls = list(NULL, NA)), class = "error_dot_invalid_format")
     expect_error(sep_value_dots(list(cls = list(NULL, NA))), class = "error_dot_invalid_format")
+    expect_error(sep_value_dots(cls1 = list(fld1 = c(NA_character_, 1)), .scalar = FALSE), class = "error_dot_invalid_format")
 
     # multiple .comment
     expect_error(sep_value_dots(cls = list(.comment = c("a"), .comment = NULL)), class = "error_dot_multi_comment")
@@ -554,6 +555,56 @@ test_that("VALUE DOTS", {
             )
         )
     )
+
+    # multiple values support
+    expect_silent(
+        l <- sep_value_dots(
+            cls1 = list(fld1 = c(1, 2, 3), fld2 = c("a", "b", "c")),
+            list(cls2 = list(fld3 = c(4, 5), fld4 = c("d", "e"))),
+            .scalar = FALSE
+        )
+    )
+    expect_equivalent(l$object,
+        data.table(rleid = 1L:2L,
+            object_rleid = rep(1L, 2L),
+            name = paste0("cls", 1L:2L),
+            empty = rep(FALSE, 2L),
+            comment = rep(list(NULL), 2L)
+        )
+    )
+    expect_equivalent(l$value,
+        data.table(rleid = c(rep(1L, 2L), rep(2L, 2L)),
+            object_rleid = rep(1L, 4L),
+            field_name = paste0("fld", 1L:4L),
+            value_chr = list(c("1", "2", "3"), c("a", "b", "c"), c("4", "5"), c("d", "e")),
+            value_num = list(c(1, 2, 3), rep(NA_real_, 3L), c(4, 5), rep(NA_real_, 2L)),
+            defaulted = rep(FALSE, 4L)
+        )
+    )
+
+    # whole-class support
+    expect_silent(l <- sep_value_dots(cls1 := list(fld1 = 1, fld2 = 2)))
+    expect_equivalent(l$object,
+        data.table(rleid = 1L, object_rleid = 1L, name = "cls1", empty = FALSE, comment = list())
+    )
+    expect_equivalent(l$value,
+        data.table(rleid = 1L, object_rleid = 1L, field_name = paste0("fld", 1L:2L),
+            value_chr = c("1", "2"), value_num = c(1, 2), defaulted = rep(FALSE, 2L)
+        )
+    )
+
+    # multi-object support
+    expect_silent(l <- sep_value_dots(.(..1, ..2) := list(fld1 = 1, fld2 = 2)))
+    expect_equivalent(l$object,
+        data.table(rleid = 1L, object_rleid = 1L:2L, name = c("..1", "..2"), empty = FALSE, comment = list())
+    )
+    expect_equivalent(l$value,
+        data.table(rleid = 1L, object_rleid = c(1L, 1L, 2L, 2L),
+            field_name = rep(paste0("fld", 1L:2L), 2L),
+            value_chr = rep(c("1", "2"), 2L),
+            value_num = rep(c(1, 2), 2L), defaulted = FALSE
+        )
+    )
 })
 # }}}
 
@@ -591,11 +642,11 @@ test_that("DEFINITION DOTS", {
                 version = numeric_version("8.8.0"),
                 options = list(idf_editor = FALSE, special_format = FALSE, view_in_ip = FALSE, save_format = "sorted"),
                 object = data.table(object_id = 1:2, class_id = 90L, comment = list(NULL),
-                    object_name = NA_character_, object_name_lower = NA_character_, rleid = 1:2
+                    object_name = NA_character_, object_name_lower = NA_character_, rleid = 1L
                 ),
                 value = data.table(value_id = 1:13, value_chr = NA_character_,
                     value_num = NA_real_, object_id = c(rep(1L, 11), rep(2L, 2)),
-                    field_id = c(11006:11016, 11006:11007), rleid = c(rep(1L, 11), rep(2L, 2))
+                    field_id = c(11006:11016, 11006:11007), rleid = 1L
                 ),
                 reference = data.table(object_id = integer(), value_id = integer(),
                     src_object_id = integer(), src_value_id = integer(),
@@ -717,6 +768,28 @@ test_that("Set", {
     expect_equal(nrow(set_idf_object(idd_env, idf_env,
         ..8 = list(name = "name", start_year = NULL), .default = FALSE)$value),
         11L)
+
+    # can set whole class
+    expect_silent({mat <- set_idf_object(idd_env, idf_env,
+        Material_NoMass := list(roughness = "smooth", thermal_absorptance = 0.8))})
+    expect_equivalent(mat$object,
+        data.table(object_id = c(12L, 13L), class_id = 56L, comment = list(),
+            object_name = c("R13LAYER", "R31LAYER"), object_name_lower = c("r13layer", "r31layer")
+        )
+    )
+    expect_equivalent(mat$value[field_id == 7091, value_chr], c("smooth", "smooth"))
+    expect_equivalent(mat$value[field_id == 7093, value_chr], c("0.8", "0.8"))
+
+    # can reset object comments
+    expect_silent(cmt <- set_idf_object(idd_env, idf_env,
+        R13LAYER = list(.comment = c("new", "comment"))))
+    expect_equivalent(cmt$object,
+        data.table(object_id = 12L, class_id = 56L, comment = list(c("new", "comment")),
+            object_name = "R13LAYER", object_name_lower = "r13layer"
+        )
+    )
+    expect_equivalent(cmt$value, data.table())
+    expect_equivalent(cmt$reference, idf_env$reference)
 })
 # }}}
 
@@ -890,11 +963,11 @@ test_that("Update", {
 
     mat <- idf$Material[[1]]$to_table()
     expect_equivalent(upd$value,
-        data.table(value_id = c(108:113, 99:107),
-            value_chr = c(const$value, mat$value),
-            value_num = c(suppressWarnings(as.double(c(const$value, mat$value)))),
-            object_id = c(rep(15:17, each = 2), rep(14L, 9)),
-            field_id = c(rep(11006:11007, 3), 7081:7089)
+        data.table(value_id = c(99:113),
+            value_chr = c(mat$value, const$value),
+            value_num = c(suppressWarnings(as.double(c(mat$value, const$value)))),
+            object_id = c(rep(14L, 9), rep(15:17, each = 2)),
+            field_id = c(7081:7089, rep(11006:11007, 3))
         )
     )
     expect_equivalent(upd$reference, idf_env$reference)

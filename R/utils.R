@@ -1,4 +1,4 @@
-#' @importFrom stringi stri_replace_all_charclass stri_trans_tolower
+#' @importFrom stringi stri_enc_toutf8 stri_replace_all_charclass stri_trans_tolower
 NULL
 
 # `%||%` {{{
@@ -12,7 +12,7 @@ NULL
 # }}}
 
 # collapse {{{
-collapse <- function (x, out = "`", or = FALSE) {
+collapse <- function (x, out = "'", or = FALSE) {
     if (is.null(out)) {
         s <- x
     } else {
@@ -35,7 +35,7 @@ collapse <- function (x, out = "`", or = FALSE) {
 # }}}
 
 # surround {{{
-surround <- function (x, out = "`") {
+surround <- function (x, out = "'") {
     if (is.null(out)) return(x)
     out <- as.character(out)
     if (is_scalar(out)) {
@@ -110,10 +110,26 @@ read_lines <- function(input, trim = TRUE, ...) {
     )
     if (!nrow(dt)) return(data.table(string = character(0L), line = integer(0L)))
     set(dt, j = "line", value = seq_along(dt[["string"]]))
+
     if (trim) {
-        set(dt, j = "string", value = stri_trim_both(dt[["string"]]))
+        tryCatch(set(dt, j = "string", value = stri_trim_both(dt[["string"]])),
+            error = function (e) {
+                if (!grepl("invalid UTF-8 byte sequence detected", conditionMessage(e), fixed = TRUE)) {
+                    signalCondition(e)
+                }
+
+                # fix encoding issue in older versions of IDD files
+                dt[!stringi::stri_enc_isutf8(string), string :=
+                    stringi::stri_encode(string, "windows-1252", "UTF-8")
+                ]
+
+                set(dt, j = "string", value = stri_trim_both(dt[["string"]]))
+            }
+        )
     }
+
     setcolorder(dt, c("line", "string"))
+
     dt
 }
 # }}}
@@ -159,8 +175,9 @@ standardize_ver <- function (ver, strict = FALSE, complete = TRUE) {
 
     ver <- numeric_version(ver, strict = FALSE)
 
-    # only keep major.minor.patch, and convert others to NAs
-    ver[!is.na(ver[, 4L])] <- numeric_version(NA, strict = FALSE)
+    # only keep major.minor.patch, and remove others
+    has_trail <- suppressWarnings(!is.na(ver[, 4L]))
+    ver[has_trail] <- ver[has_trail, 1L:3L]
 
     # complete patch version to 0 if not exist
     if (complete && any(!is.na(ver) & is.na(ver[, 3L]))) {
@@ -200,7 +217,7 @@ match_minor_ver <- function (ver, all_ver, type = c("idd", "eplus"), verbose = T
             type <- match.arg(type)
             key <- switch(type, idd = "IDD", eplus = "EnergyPlus")
 
-            message("Multiple versions found for ", key, " v", ori_ver, ": ",
+            verbose_info("Multiple versions found for ", key, " v", ori_ver, ": ",
                 collapse(paste0("v", ver)), ". ",
                 "The last patched version v", max(ver), " will be used. ",
                 "Please explicitly give the full version if you want to use the other versions."
@@ -270,6 +287,12 @@ apply2_lgl <- function (x, y, fun, more_args = NULL) {
 }
 # }}}
 
+# apply2_chr {{{
+apply2_chr <- function (x, y, fun, more_args = NULL) {
+    as.character(unlist(apply2(x, y, fun, more_args)))
+}
+# }}}
+
 # lower_name {{{
 lower_name <- function (name) {
     stri_trans_tolower(underscore_name(name))
@@ -278,7 +301,36 @@ lower_name <- function (name) {
 
 # underscore_name {{{
 underscore_name <- function (name, merge = TRUE) {
-    stri_replace_all_charclass(name, "[^[:alnum:]]", "_", merge = merge)
+    tryCatch(
+        stri_replace_all_charclass(name, "[^[:alnum:]]", "_", merge = merge),
+        error = function (e) {
+            if (!grepl("invalid UTF-8 byte sequence detected", conditionMessage(e), fixed = TRUE)) {
+                signalCondition(e)
+            }
+
+            # fix encoding issue in older versions of IDD files
+            name[!stringi::stri_enc_isutf8(name)] <-
+                stringi::stri_encode(name[!stringi::stri_enc_isutf8(name)], "windows-1252", "UTF-8")
+
+            stri_replace_all_charclass(name, "[^[:alnum:]]", "_", merge = merge)
+        }
+    )
+}
+# }}}
+
+# make_filename {{{
+make_filename <- function (x, len = 100, unique = TRUE) {
+    # reference: https://stackoverflow.com/questions/6730009/validate-a-file-name-on-windows/6804755#6804755
+    x <- stri_replace_all_charclass(x, "[<>:\"/\\\\|?*\\x00-\\x1F]", "_")
+    # cannot start with "."
+    x <- stri_replace_first_regex(x, "^\\.", "_")
+
+    x[nchar(x) > 100] <- substring(x[nchar(x) > 100], 1L, 100L)
+
+    # make unique
+    if (!unique) return(x)
+
+    make.unique(x, "_")
 }
 # }}}
 
@@ -435,7 +487,7 @@ wday <- function (x, label = FALSE) {
 # }}}
 
 # str_trunc {{{
-str_trunc <- function (x, width = getOption("width")) {
+str_trunc <- function (x, width = getOption("width", 60L)) {
     # in case invalid UTF-8 character in IDF
     x <- stringi::stri_encode(x)
     tr <- nchar(x, "width") > (0.95 * width)

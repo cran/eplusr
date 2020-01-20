@@ -1,13 +1,15 @@
 context("Idd and IddObject")
 
+eplusr_option(verbose_info = FALSE)
+
 # download_idd() {{{
 test_that("can download IDD from EnergyPlus repo", {
     skip_on_cran()
-    expect_message(download_idd(8.8, tempdir()))
+    expect_silent(download_idd(8.8, tempdir()))
     expect_true(file.exists(file.path(tempdir(), "V8-8-0-Energy+.idd")))
 
-    expect_message(download_idd("latest", tempdir()))
-    expect_true(file.exists(file.path(tempdir(), "V9-1-0-Energy+.idd")))
+    expect_silent(download_idd("latest", tempdir()))
+    expect_true(file.exists(file.path(tempdir(), "V9-2-0-Energy+.idd")))
 })
 # }}}
 
@@ -18,10 +20,14 @@ test_that("can read IDD", {
     glo$idd <- list()
     expect_error(is_avail_idd("latest"))
     expect_equal(avail_idd(), NULL)
-    expect_error(use_idd(8.4))
+    if (any(avail_eplus() >= 8.4)) {
+        expect_silent(use_idd(8.4))
+    } else {
+        expect_error(use_idd(8.4))
+    }
 
-    expect_message(use_idd(8.4, download = TRUE))
-    expect_message(use_idd("latest", download = TRUE))
+    expect_silent(use_idd(8.4, download = TRUE))
+    expect_silent(use_idd("latest", download = TRUE))
     expect_true(file.exists(file.path(tempdir(), "V8-4-0-Energy+.idd")))
     expect_is(use_idd("8.4.0"), "Idd")
     expect_true(numeric_version("8.4.0") %in% avail_idd())
@@ -30,16 +36,22 @@ test_that("can read IDD", {
     expect_true(is_avail_idd("8.4.0"))
     expect_error(is_avail_idd("latest"))
 
-    expect_message(use_idd(8.7, download = "auto"))
-    expect_equal(avail_idd(), numeric_version(c("8.4.0", "8.7.0", "9.1.0")))
+    expect_silent(use_idd(8.7, download = "auto"))
+    expect_equal(avail_idd(), numeric_version(c("8.4.0", "8.7.0", "9.2.0")))
 
     expect_silent(use_idd(text("idd", "9.9.9")))
     expect_true(is_avail_idd("9.9.9"))
+
+    # can parse old IDD
+    expect_warning(use_idd(7.2, download = "auto"))
+    expect_warning(use_idd(8.0, download = "auto"))
+    expect_warning(use_idd(8.1, download = "auto"))
 })
 # }}}
 
 # Idd class {{{
 test_that("Idd class", {
+    .options$autocomplete <- TRUE
     # can create an Idd object from string
     expect_silent(idd <- use_idd(text("idd", "9.9.9")))
 

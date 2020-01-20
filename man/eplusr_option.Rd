@@ -33,13 +33,20 @@ components each level contains, see \code{\link[=level_checks]{level_checks()}}.
 IP-units support in eplusr is not fully tested.
 \item \code{save_format}: The default format to use when saving Idf objects to \code{.idf} files.
 Possible values: \code{"asis"}, \code{"sorted"}, \code{"new_top"} and \code{"new_bottom"}.
-The later three have the same effect as \code{Save Options} settings
+The later three have the same effect as \verb{Save Options} settings
 \code{"Sorted"}, \code{"Original with New at Top"} and \code{"Original with New at Bottom"} in IDF Editor, respectively. For \code{"asis"}, the saving format
 will be set according to the header of IDF file. If no header found,
 \code{"sorted"} is used. Default: \code{"asis"}.
 \item \code{num_parallel}: Maximum number of parallel simulations to run. Default:
 \code{parallel::detectCores()}.
 \item \code{verbose_info}: Whether to show information messages. Default: \code{TRUE}.
+\item \code{autocomplete}: Whether to turn on autocompletion on class and field names.
+Underneath, \code{\link[=makeActiveBinding]{makeActiveBinding()}} is used to add or move active bindings in
+\link{Idf} and \link{IdfObject}s to directly return objects in class or field values.
+This will make it possible to dynamically show current class and field
+names in both RStudio and in the terminal. However, this process does have
+a penalty on the performance. It can make adding or modifying large mounts
+of \link{Idf} and \link{IdfObject}s extremely slower. Default: \code{interactive()}.
 }
 }
 \examples{

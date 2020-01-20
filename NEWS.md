@@ -1,3 +1,169 @@
+# eplusr 0.11.0
+
+# eplusr 0.10.4.9000
+
+## New features
+
+* A new method `$models()` has been added in `ParametricJob` class. It returns a
+  list of all parametric models generated after a measure has been applied. If
+  no measure is applied, `NULL` is returned (#59). Thanks @yidan1214 for this
+  feature request.
+* A new method `$save()` has been added in `ParametricJob` class. It saves all
+  generated parametric models and weather file into specified directory. You can
+  use `separate` argument to determine whether each model is to be saved in a
+  separate folder (#58). Thanks @yidan1214 for this feature request.
+* New arguments `align` and `all` have been added to `$to_table()` method in
+  `Idf` class. Setting `align` to `TRUE` will make sure that all returned object
+  data per class have the same field number. The number of fields is the same as
+  the object that have the most fields among those you specified. Setting `all`
+  to `TRUE` will return all available fields in that class definition in IDD.
+* Now the `weather` argument in `$run()` method in `Idf` class can be set to
+  `NULL`. If so, design-day-only simulation is performed. Note that this needs
+  at least one `Sizing:DesignDay` object exists in the `Idf` object (#80).
+* Similar as above, the `epw` argument in `eplus_job()` and `param_job()` can
+  also be `NULL` to force a design-day-only simulation.
+* Now `$status()` in `ParametricJob` class includes a new member named
+  `job_status` which is data.table containing detailed information on each
+  simulation job (#70).
+* Now `$print()` in `ParametricJob` will give you more informative details on
+  each simulation job status, especially when `wait` is set to `FALSE` in
+  `$run()`.
+* A new column `index` is added in the returned `RddFile` and `MddFile`. It
+  contains index of each variable.
+* Two new methods `$read_rdd()` and `$read_mdd()` have been added in `EplusJob`
+  class. `$read_rdd()` and `$read_mdd()` which parse the simulation RDD and MDD
+  file (#84).
+* Two new function `rdd_to_load()` and `mdd_to_load()` have been added, which
+  format `RddFile` and `MddFile` into a data.table in acceptable format for
+  `$load()` method in `Idf` class.
+* Similar as `Output:SQLite`, when `$run()` in `Idf` object is called, an object
+  in class `Output:VariableDictionary` is automatically created with `Key Field`
+  being `IDF` (#85).
+* A new argument `echo` has been added in `$run()` in `Idf`, `EplusJob` and
+  `ParametricJob` class. It is only applicable when `wait` is `TRUE`. If `FALSE`,
+  the simulation will be run silently without echoing any message from
+  EnergyPlus.
+* A new function `transition()` has been added. Basically it is an
+  R implementation of IDFVersionUpdater. Currently the lowest version of IDF is
+  v7.2. It should be much faster than IDFVersionUpdater.
+* Now the way of find IDD file has been changed to take advantage of IDD files
+  distributed along with IDFVersionUpdater. This update makes it possible to
+  directly read IDF of most versions without downloading corresponding IDD.
+* A new option `autocomplete` with default value being `interactive()` has been
+  added. It is used to control whether to turn on autocompletion on class and
+  field names. Underneath, `makeActiveBinding()` is used to add or move active
+  bindings in `Idf` and `IdfObject`s to directly return objects in class or
+  field values. This will make it possible to dynamically show current class
+  and field names in both RStudio and in the terminal. However, this process
+  does come in with a penalty on the performance. It can make adding or
+  modifying large mounts of [Idf] and [IdfObject]s extremely slow. Default value
+  make sure autocompletion works in interactive mode.
+* A new syntax `class := list(field = value)` in `$set()` has been added. Note
+  the use of `:=` instead of `=`. The main difference is that, unlike `=`, the
+  left hand side of `:=` should be a valid class name in current `Idf` object.
+  It will set the field of all objects in specified class to specified value.
+* A new function `dt_to_load()` has been added, which formats a data.table from
+  `Idf$to_table()` and `IdfObject$to_table()` with `wide` being to `TRUE` into a
+  data.table in acceptable format for `Idf$load()` method and `Idf$update()`
+  method.
+* Now `read_epw()` support EPW files with non-integer timezones fail to load
+  (#113). `$location()` in `Epw` class also support setting the timezone to
+  non-integer one.
+* A new method `$parent()` has been added in `IddObject` and `IdfObject` class
+  to get parent `Idd` and `Idf` object, respectively (#76).
+* Simulation status will be updated in the progress message in `run_multi()` and
+  `$run()` method in `ParametricJob` class, instead of only showing `COMPLETED`
+  (#124, #125).
+* `EplusJob` class now will parse and store input IDF and EPW. It will also add
+  `Output:SQLite` and `Output:VariableDictionary` object if necessary. This
+  change makes sure using `EplusJob` can always have the ability to extract
+  simulation results instead of totally relying on the input IDF (#118).
+* As a result of previous change, the `$run()` method in `EplusJob` now takes
+  the same parameters as `$run()` method in `Idf`, i.e. you can also change the
+  EPW file to use and output directory using `epw` and `dir` argument (#118).
+* A new class `EplusGroupJob` is added. It can be created using
+  `group_job()`. `EplusGroupJob` provides a wrapper of `run_multi()` to group
+  multiple EnergyPlus simulations together for running and collecting different
+  EnergyPlus outputs (#117).
+* A new parameter named `.empty` has been added in `$set()`, `$insert()`,
+  `$load()`, `$update()`, `$paste()` methods in `Idf` class and `$set()` method
+  in `IdfObject` class (#133).
+* EnergyPlus v9.2 support has been added (#138).
+* Now required objects and unique objects can be deleted in `$del()` when
+  `.force` is set to `TRUE` (#149).
+* Now for Windows and Linux, `install_eplus()` supports to install EnergyPlus to
+  your home directory or your customized directory without requiring
+  administrator privileges (#167).
+  ```r
+  # install to your home directory
+  install_eplus(8.8, local = TRUE)
+  # install to custom directory
+  install_eplus(8.8, local = TRUE, dir = "~/MyPrograms")
+  ```
+  Please see `?install_eplus` for details.
+* All documentation in R6 classes have been update thanks to roxyten2 R6 support (#156).
+* Deprecated methods in each class have all been remove (#156).
+* New parameter `case` has been added in
+  `EplusSql$tabular_data()`. Similar like `case` parameter in
+  `EplusSql$report_data()`, it lets you to add a `case` column to indicate the
+  case of simulation. This brings some changes in the returned results of
+  `EplusSql$tabular_data()`. Compared to previous version, there will always be
+  a `case` column, unless `case` parameter is set to `NULL` (#182).
+* New parameter `wide` and `string_value` have been added in
+  `EplusSql$tabular_data()` and `EplusGroupJob$tabular_data()`. When `wide` is
+  `TRUE`, each table will be converted into the similar format as it is shown in
+  EnergyPlus HTML output file. And when `string_value` is `FALSE`, values in
+  possible numeric columns are converted into numbers (#182).
+
+## Bug fixes
+
+* Fix the error in `$set()` when `$add_unit()` is performed in Epw class (#56).
+* Now IDF file located in a folder whose name contains spaces can be
+  successfully simulated (#60). Thanks @yidan1214 for reporting this bug.
+* Now `$ref_to_object()` and `$ref_by_object()` can give correct results when
+  `class` argument is specified.
+* Now IDD version lower than 8.3 can successfully be downloaded and parsed.
+* Now `ErrFile` objects returned from `$errors()` in `ParametricJob` can be
+  successfully printed.
+* Now one-line empty objects, e.g. `"Output:Surfaces:List,,;\n"`, can be
+  successfully parsed (#88).
+* Fix the error of `$to_table()` when no arguments were provided (#103).
+* The references of newly added extensible fields are now correctly handled
+  (#109).
+* `$update()` now works for class `Schedule:Compact` with type checking on
+  (#111).
+* Fix the error in `$ref_to_node()` when no objects in specified class is found
+  (#110).
+* Now `leading` and `sep_at` argument work as expected in `Idf$to_string()` (#160).
+* Now `Idf$to_table()` matches object names case-insensitively (#157).
+* One-line-formatted `Version` object with trailing comments can be successfully
+  parsed, e.g. `Version, 8.6; !- ABC` (#170).
+* Better support for old IDD (#183).
+
+## Minor changes
+
+* Describe on how the arguments are matched in `$apply_measure()` (#57). Thanks
+  @yidan1214 for pointing this out.
+* Now the `echo` argument in `run_idf()` and `run_multi()` will only take effect
+  when `wait` is `TRUE`. This makes it possible to remove the dependency on the
+  later package.
+* All messages can be suppressed by setting the `verbose_info` option to
+  `FALSE`.
+* `$delete()` method in `Epw` class has been deprecatd in flavor of `$del()` to
+  provide a similar API as `Idf` class.
+* When `all` is `TRUE` in `$report_data()` in `EplusSql`, `EplusJob` and
+  `ParametricJob` class, an extra column `environment_period_index` is returned
+  which contains the indices of each run period environment. This helps to
+  distinguish different run period environment when no name is assigned.
+* `param_job()` now gives more informative error message if input `Idf` object
+  and `Epw` object is not created from a local file (#112).
+* `param_job()` now preserve parametric model names from argument `.names` in
+  `$apply_measure()` instead of calling `make.name()` to convert them into valid
+  R names (#115).
+* `$save()` works if weather was not given during initialization for
+  `ParametricJob` (#120).
+* Required fields in `IdfObject` are now marked with `*` when printing (#135).
+
 # eplusr 0.10.4
 
 This is a bug fix release which make sure eplusr is compatible with new version
@@ -55,7 +221,7 @@ is included.
 * Reset year after checking datetime in `read_epw()` (#44).
 * Add field name in input before validation in `paste()` (#45).
 * Fix datetime calculation in `$report_data()` in `EplusSql` (#46).
-* Update doc on EnergyPlus time nodation (#47).
+* Update doc on EnergyPlus time notation (#47).
 * Fix EPW design condition parsing error when `hours_8_to_4_12.8_20.6` is zero.
 * Now recurring errors in `.err` file are parsed correctly in `ErrFile`.
 * Handle large value references in `get_value_reference_map()` (#50).

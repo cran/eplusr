@@ -4,8 +4,7 @@
 \alias{format.IdfObject}
 \title{Format an IdfObject}
 \usage{
-\method{format}{IdfObject}(x, comment = TRUE, leading = 4L,
-  sep_at = 29L, all = FALSE, ...)
+\method{format}{IdfObject}(x, comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE, ...)
 }
 \arguments{
 \item{x}{An \link{IdfObject} object.}
@@ -38,4 +37,5 @@ mat <- idf$Material[["C5 - 4 IN HW CONCRETE"]]
 
 cat(format(mat, leading = 0, sep_at = 10))
 }
+
 }

@@ -108,8 +108,6 @@ test_that("Idf class", {
     expect_error(idf$objects(1:6), class = "error_object_id")
 
     # can get all objects in a class
-    expect_warning(obj <- idf$object_in_class("Version"), "deprecated")
-    expect_equal(names(obj), NA_character_)
     expect_error(idf$objects_in_class("version"), class = "error_class_name")
 
     # can get all objects in relation
@@ -266,6 +264,14 @@ test_that("Idf class", {
         ), .default = FALSE)
     )
     expect_equal(length(idf$RunPeriod$rp_test_4$value()), 11)
+    expect_silent(
+        idf$set(rp_test_4 = list(start_year = NULL), .default = FALSE, .empty = TRUE)
+    )
+    expect_equal(length(idf$RunPeriod$rp_test_4$value()), 14)
+    expect_silent(
+        idf$set(rp_test_4 = list(start_year = NULL), .default = FALSE, .empty = FALSE)
+    )
+    expect_equal(length(idf$RunPeriod$rp_test_4$value()), 11)
     # }}}
 
     # INSERT {{{
@@ -341,6 +347,8 @@ test_that("Idf class", {
     # TABLE {{{
     # can get idf in table format
     expect_silent(idf <- read_idf(text("idf", 8.8)))
+    expect_silent(idf$to_table())
+    expect_silent(idf$to_string())
     expect_equal(
         idf$to_table(2, unit = TRUE, string_value = TRUE),
         data.table(id = 2L, name = "WALL-1", class = "Construction", index = 1:5,
@@ -393,6 +401,7 @@ test_that("Idf class", {
     # }}}
 
     # ACTIVE BINDINGS {{{
+    .options$autocomplete <- TRUE
     idf <- read_idf(example())
 
     # UNIQUE-OBJECT CLASS {{{
@@ -477,6 +486,18 @@ test_that("Idf class", {
     expect_equal(idf1$Zone[[1]]$Name, "zone")
     expect_equal(idf2$Zone[[1]]$Name, "ZONE ONE")
     # }}}
+
+    expect_silent(
+        idf <- with_option(
+            list(validate_level = "none", verbose_info = FALSE),
+            {
+                idf <- empty_idf(8.8)
+                idf$add(Building = list(), Building = list())
+                idf
+            }
+        )
+    )
+    expect_error(idf$object_unique("Building"), class = "error_idf_dup_unique_class")
 })
 # }}}
 

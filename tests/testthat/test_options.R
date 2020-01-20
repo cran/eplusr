@@ -14,12 +14,16 @@ test_that("eplusr_option()", {
     expect_equal(eplusr_option(save_format = "asis"), list(save_format = "asis"))
     expect_equal(eplusr_option(num_parallel = 8L), list(num_parallel = 8L))
     expect_equal(eplusr_option(verbose_info = TRUE), list(verbose_info = TRUE))
+    expect_equal(eplusr_option(autocomplete = TRUE), list(autocomplete = TRUE))
 
     expect_equal(eplusr_option(),
-        list(validate_level = "final",
-             view_in_ip = FALSE,
-             save_format = "asis",
+        list(autocomplete = TRUE,
              num_parallel = 8L,
-             verbose_info = TRUE))
+             save_format = "asis",
+             validate_level = "final",
+             verbose_info = TRUE,
+             view_in_ip = FALSE
+        )
+    )
 })
 

@@ -5,11 +5,28 @@
 \alias{run_multi}
 \title{Run simulations of EnergyPlus models.}
 \usage{
-run_idf(model, weather, output_dir, design_day = FALSE, annual = FALSE,
-  expand_obj = TRUE, wait = TRUE, echo = TRUE, eplus = NULL)
+run_idf(
+  model,
+  weather,
+  output_dir,
+  design_day = FALSE,
+  annual = FALSE,
+  expand_obj = TRUE,
+  wait = TRUE,
+  echo = TRUE,
+  eplus = NULL
+)
 
-run_multi(model, weather, output_dir, design_day = FALSE,
-  annual = FALSE, wait = TRUE, echo = TRUE, eplus = NULL)
+run_multi(
+  model,
+  weather,
+  output_dir,
+  design_day = FALSE,
+  annual = FALSE,
+  wait = TRUE,
+  echo = TRUE,
+  eplus = NULL
+)
 }
 \arguments{
 \item{model}{A path (for \code{run_idf()}) or a vector of paths (for
@@ -39,9 +56,9 @@ finish. If \code{FALSE}, all EnergyPlus simulations are run in the background.
 and a \link[processx:process]{processx::process} object is returned. Note that, if \code{FALSE}, R is
 \emph{not blocked} even when \code{echo} is \code{TRUE}. Default: \code{TRUE}.}
 
-\item{echo}{Whether to show standard output and error from EnergyPlus
-command line interface for \code{run_idf()} and simulation status for
-\code{run_multi()}.Default: \code{TRUE}.}
+\item{echo}{Only applicable when \code{wait} is \code{TRUE}. Whether to show standard
+output and error from EnergyPlus command line interface for \code{run_idf()}
+and simulation status for \code{run_multi()}.Default: \code{TRUE}.}
 
 \item{eplus}{An acceptable input (for \code{run_idf()}) or inputs (for
 \code{run_multi()}) of \code{\link[=use_eplus]{use_eplus()}} and \code{\link[=eplus_config]{eplus_config()}}. If
@@ -62,10 +79,9 @@ run EnergyPlus model with different options.
 \code{run_multi()} provides the functionality of running multiple models in
 parallel.
 
-\href{https://cran.r-project.org/package=later}{later} package is used to poll the
-standard output and error of background EnergyPlus process or background
-R process that handles parallel simulations. The print interval is set to
-0.5 sec.
+\code{run_idf()} and \code{run_multi()} currently only support EnergyPlus v8.3 and
+above. This is because eplusr uses EnergyPlus command line interface
+which is a new feature as of EnergyPlus v8.3.
 
 For \code{run_idf()}, a named list will be returned:
 \itemize{
@@ -95,13 +111,11 @@ For \code{run_multi()}, if \code{wait} is \code{TRUE}, a
 \code{process}) with same column names as above, and also another two columns:
 \itemize{
 \item \code{index}: The index of simulation
-\item \code{status}: The status of simulation status. Should be one of below:
+\item \code{status}: The status of simulation. Should be one of below:
 \itemize{
-\item \code{"completed"}: the simulation job is completed. This only indicates
-that the calling of EnergyPlus was successfully and EnergyPlus was
-not terminated during simulation. Even \code{"completed" is }TRUE\code{, the job can still end with error.  Please check }exit_status` to
-determine whether EnergyPlus ran successfully
-\item \code{"terminated"}: the simulation job started but was terminated
+\item \code{"completed"}: the simulation job is completed successfully.
+\item \code{"failed"}: the simulation job ended with error.
+\item \code{"terminated"}: the simulation job started but was terminated.
 \item \code{"cancelled"}: the simulation job was cancelled, i.e. did not start
 at all.
 }
@@ -109,8 +123,8 @@ at all.
 
 For \code{run_multi()}, if \code{wait} is \code{FALSE}, a \link[callr:r_bg]{r_process}
 object of background R process which handles all simulation jobs is
-returned. You can check if the jobs are completed using \code{$is_alive()} and
-get the final data.table using \code{$get_result()}.
+returned. You can check if the jobs are completed using \verb{$is_alive()} and
+get the final data.table using \verb{$get_result()}.
 
 It is suggested to run simulations using \link{EplusJob} class and
 \link{ParametricJob} class, which provide much more detailed controls

@@ -635,10 +635,7 @@ parse_epw_header_location <- function (input, ...) {
             "city", "state_province", "country", "data_source", "wmo_number",
             "latitude", "longitude", "time_zone", "elevation"
         ),
-        type = list(
-            dbl = c("latitude", "longitude", "elevation"),
-            int = c("time_zone")
-        ),
+        type = list(dbl = c("latitude", "longitude", "elevation", "time_zone")),
         range = list(
             latitude = ranger(-90, TRUE, 90, TRUE),
             longitude = ranger(-180, TRUE, 180, TRUE),
@@ -1708,7 +1705,7 @@ match_epw_data_period <- function (epw_data, data_period, interval, leapyear, wa
     abnormal <- find_epw_data_abnormal_line(data, offset = from - 1L, warning,
         period_name = paste0("#", data_period$index, " ", surround(data_period$name),
             " (", 60/interval, " mins interval)"
-        )
+        ), from = from
     )
 
     # update datetime and minute column {{{
@@ -1847,7 +1844,7 @@ match_epw_data_datetime <- function (epw_data, index, name, start, end, interval
 }
 # }}}
 # find_epw_data_abnormal_line {{{
-find_epw_data_abnormal_line <- function (epw_data, offset = 0L, warning = FALSE, period_name = NULL) {
+find_epw_data_abnormal_line <- function (epw_data, offset = 0L, warning = FALSE, period_name = NULL, from = 0L) {
     # data period name for reporting
     nm <- if (is.null(period_name)) "." else paste0(" for data period ", period_name, ".")
 
@@ -1883,8 +1880,9 @@ find_epw_data_abnormal_line <- function (epw_data, offset = 0L, warning = FALSE,
         mes_first <- NULL
 
         for (name in names(miss)) {
-            m <- ln[!in_range(get(name), EPW_RANGE_EXIST[[name]])]
-            r <- setdiff(ln[!in_range(get(name), EPW_RANGE_VALID[[name]])], m)
+            val <- if (inherits(get(name), "units")) units::drop_units(get(name)) else get(name)
+            m <- ln[!in_range(val, EPW_RANGE_EXIST[[name]])]
+            r <- setdiff(ln[!in_range(val, EPW_RANGE_VALID[[name]])], m)
             if (name %in% rpt_miss && length(m)) {
                 mes_miss <- c(mes_miss, paste0(gsub("_", " ", name, fixed = TRUE), " is missing"))
             }
@@ -1977,7 +1975,7 @@ find_epw_data_na_line <- function (epw_data, offset = 0L, warning = FALSE, perio
                 paste0("NA found in data", nm),
                 data = add_epw_raw_string(.SD[ln_na]),
                 num = length(unlist(na, use.names = FALSE)),
-                post = paste0("At ", combine_date(year[ln_na], month[ln_na], day[ln_miss], hour[ln_miss]), ": ", mes_miss),
+                post = paste0("At ", combine_date(year[ln_na], month[ln_na], day[ln_na], hour[ln_na]), ": ", mes_na),
                 stop = FALSE
             )
         }
@@ -2003,8 +2001,7 @@ set_epw_location <- function (epw_header, input) {
     res <- parse_epw_header_basic("location", input,
         type = list(
             chr = c("city", "state_province", "country", "data_source", "wmo_number"),
-            dbl = c("latitude", "longitude", "elevation"),
-            int = c("time_zone")
+            dbl = c("latitude", "longitude", "elevation", "time_zone")
         ),
         range = list(
             latitude = ranger(-90, TRUE, 90, TRUE),
@@ -2328,7 +2325,7 @@ fill_epw_data_abnormal <- function (epw_data, epw_header, period = NULL,
     # get atmospheric pressure at current elevation
     EPW_INIT_MISSING$atmospheric_pressure <- std_atm_press(epw_header$location$elevation)
 
-    # get all abnormal row indice in specific periods
+    # get all abnormal row indices in specific periods
     mr <- merge_data_period_abnormal_index(epw_header, period, missing = TRUE, out_of_range = TRUE)
     m <- mr$missing
     r <- mr$out_of_range
@@ -2621,8 +2618,8 @@ get_epw_data <- function (epw_data, epw_header, period = 1L, start_year = NULL,
     d
 }
 # }}}
-# delete_epw_data {{{
-delete_epw_data <- function (epw_data, epw_header, period) {
+# del_epw_data {{{
+del_epw_data <- function (epw_data, epw_header, period) {
     assert(is_count(period))
     period <- get_epw_data_period(epw_header, period)
 
@@ -2725,8 +2722,8 @@ set_epw_data <- function (epw_data, epw_header, data, realyear = FALSE,
 # }}}
 # check_epw_new_data {{{
 check_epw_new_data <- function (epw_data, epw_header, data, target_period, other_periods,
-                                  reset = FALSE, realyear = FALSE, name = NULL,
-                                  start_day_of_week = NULL, warning = TRUE) {
+                                reset = FALSE, realyear = FALSE, name = NULL,
+                                start_day_of_week = NULL, warning = TRUE) {
     # get current data period and other periods
     p <- epw_header$period$period[target_period]
     p_other <- epw_header$period$period[other_periods]
@@ -2740,7 +2737,7 @@ check_epw_new_data <- function (epw_data, epw_header, data, target_period, other
     # check datetime column type first, then others
     assert(inherits(data$datetime, "POSIXct"),
         msg = paste0("Column `datetime` of input data should be `POSIXct` class, not ",
-            surround(class(data$datetime)[[1L]]), "class."
+            surround(class(data$datetime)[[1L]]), " class."
         )
     )
 
@@ -2843,7 +2840,6 @@ check_epw_new_data <- function (epw_data, epw_header, data, target_period, other
     )
 
     # update datetime components
-    set(data, NULL, "year", as.integer(lubridate::year(data$datetime)))
     set(data, NULL, c("month", "day", "hour", "minute"),
         create_epw_datetime_components(start, end, interval, leapyear = leapyear)[, -"year"]
     )
@@ -2858,7 +2854,7 @@ check_epw_new_data <- function (epw_data, epw_header, data, target_period, other
             }
             if (overlapped) {
                 abort("error_epw_data_overlap",
-                    paste0("Failed to set target data period becase date time in ",
+                    paste0("Failed to set target data period because date time in ",
                         "input data has overlapped with data period ",
                         p_other[i, paste0("#", index, " ", surround(name),
                             " [", start_day, ", ", end_day, "]"
@@ -3149,10 +3145,14 @@ print_epw_header <- function (epw_header) {
     # }}}
     loc <- epw_header$location
     cli::cat_line(sprintf("[Location ]: %s, %s, %s", loc$city, loc$state_province, loc$country))
+    # format time zone into UTC offset
+    tz <- loc$time_zone
+    h <- abs(trunc(tz))
+    m <- round((abs(tz) - h) * 60)
     cli::cat_line(sprintf("             {%s}, {%s}, {UTC%s}",
             lat_lon(loc$latitude),
             lat_lon(loc$longitude, TRUE),
-            paste0(if (loc$time_zone >= 0) "+" else "-", lpad(abs(loc$time_zone), "0", 2L), ":00")
+            paste0(if (tz >= 0) "+" else "-", lpad(h, "0", 2L), ":", lpad(m, "0", 2L))
     ))
     cli::cat_line(sprintf("[Elevation]: %.fm %s see level", abs(loc$elevation), if (loc$elevation >= 0) "above" else "below"))
     cli::cat_line(sprintf("[Data Src ]: %s", loc$data_source))

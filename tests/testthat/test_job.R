@@ -1,6 +1,7 @@
 context("Job methods")
 
 test_that("Job methods", {
+    eplusr_option(verbose_info = FALSE)
     skip_on_cran()
     if (!is_avail_eplus(8.8)) install_eplus(8.8)
 
@@ -16,7 +17,7 @@ test_that("Job methods", {
     )
 
     # can run job in waiting mode
-    expect_output(job$run(wait = TRUE))
+    expect_silent(job$run(wait = TRUE, echo = FALSE))
 
     # can refresh job status
     expect_equal(job$status(),
@@ -25,30 +26,14 @@ test_that("Job methods", {
     )
 
     # can kill job
-    expect_message(job$kill(), "job is not running")
-
-    # # can kill backgroun R process
-    # add a full-year run period to lengthen simulation time
-    # idf <- read_idf(example$idf)
-    # idf$dup_object("WinterDay", "FullYear")
-    # full <- idf$RunPeriod$FullYear
-    # full$End_Month <- 12
-    # idf$save(example$idf, overwrite = TRUE)
-    # job <- eplus_job(example$idf, example$epw)
-    # expect_true({job$run(wait = FALSE);Sys.sleep(0.4);job$kill()})
-    # # can update the status after job was killed
-    # # can stop retreiving data when simulation was killed
-    # expect_true(job$status()$terminated)
-    # expect_message(job$kill(), "job is not running")
-    # expect_error(job$errors(), "Simulation was terminated before")
-    # expect_error(job$locate_output(), "Simulation was terminated before")
+    expect_silent(job$kill())
 
     example <- copy_example()
     job <- eplus_job(example$idf, example$epw)
-    expect_is({job$run();job$errors()}, "ErrFile")
+    expect_is({job$run(echo = FALSE);job$errors()}, "ErrFile")
     expect_is(job$errors(info = TRUE), "ErrFile")
     expect_silent({err <- job$errors()})
-    expect_equal(names(err), c("index", "environment_index", "environment",
+    expect_equal(names(err), c("index", "envir_index", "envir",
         "level_index", "level", "message"
     ))
     expect_equal(attr(err, "eplus_version"), numeric_version("8.8.0"))
@@ -59,7 +44,7 @@ test_that("Job methods", {
 
     # can retrieve simulation data
     idf <- read_idf(example$idf)
-    job <- idf$run(example$epw, dir = NULL)
+    job <- idf$run(example$epw, dir = NULL, echo = FALSE)
     # can get all table names
     expect_equal(length(job$list_table()), 44L)
 
@@ -91,8 +76,9 @@ test_that("Job methods", {
     expect_equal(job$report_data(case = "test")$case, rep("test", 3840))
     expect_equal(names(job$report_data(all = TRUE)),
         c("case", "datetime", "month", "day", "hour", "minute", "dst", "interval",
-          "simulation_days", "day_type", "environment_name", "is_meter", "type",
-          "index_group", "timestep_type", "key_value", "name", "reporting_frequency",
+          "simulation_days", "day_type", "environment_name",
+          "environment_period_index", "is_meter", "type", "index_group",
+          "timestep_type", "key_value", "name", "reporting_frequency",
           "schedule_name", "units", "value"
         )
     )

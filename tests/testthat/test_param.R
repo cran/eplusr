@@ -2,7 +2,11 @@ context("Parametric metiods")
 
 test_that("Parametric methods", {
     skip_on_cran()
+    eplusr_option(verbose_info = FALSE)
+
     if (!is_avail_eplus(8.8)) install_eplus(8.8)
+
+    expect_error(param_job(empty_idf(8.8), NULL), class = "error_idf_not_local")
 
     example <- copy_example()
 
@@ -13,6 +17,7 @@ test_that("Parametric methods", {
     # Seed and Weather {{{
     expect_is(param$seed(), "Idf")
     expect_is(param$weather(), "Epw")
+    expect_null(param$models())
     # }}}
 
     # Measure {{{
@@ -34,27 +39,88 @@ test_that("Parametric methods", {
         idf
     }
     # }}}
+    # names are unique
+    param$apply_measure(set_infil_rate, seq(0, 4, by = 1), .names = rep("A", 5))
+    expect_equal(names(priv$m_idfs), c("A", paste0("A_", 1:4)))
+
+    # auto assign name
     param$apply_measure(set_infil_rate, seq(0, 4, by = 1), .names = NULL)
-    expect_equal(length(priv$m_param), 5)
-    expect_equal(unname(vlapply(priv$m_param, is_idf)), rep(TRUE, times = 5))
+    expect_equal(length(priv$m_idfs), 5)
+    expect_equal(names(priv$m_idfs), paste0("set_infil_rate_", 1:5))
+    expect_equal(unname(vlapply(priv$m_idfs, is_idf)), rep(TRUE, times = 5))
     # }}}
 
-    # # can kill the master background R process
-    # expect_message(param$kill(), "job is not running")
-    # expect_true({param$run(wait = FALSE);Sys.sleep(0.2);param$kill()})
-    # # can update the status after job was killed
-    # expect_true(param$status()$terminated)
-    # expect_message(param$kill(), "job is not running")
-    # expect_error(param$errors(), "job was terminated before")
-    # expect_error(param$locate_output(), "job was terminated before")
+    # Models {{{
+    expect_is(param$models(), "list")
+    expect_equal(length(param$models()), 5)
+    expect_equal(names(param$models()), paste0("set_infil_rate_", 1:5))
+    expect_equal(unname(vlapply(priv$m_idfs, is_idf)), rep(TRUE, times = 5))
+    # }}}
+
+    # Save {{{
+    # can preserve name
+    param$apply_measure(set_infil_rate, seq(0, 4, by = 1), .names = 1:5)
+    expect_equal(names(param$models()), as.character(1:5))
+    expect_silent(paths <- param$save())
+    expect_equal(paths,
+        data.table::data.table(
+            model = normalizePath(file.path(tempdir(), 1:5, paste0(1:5, ".idf"))),
+            weather = normalizePath(file.path(tempdir(), 1:5, basename(param$weather()$path())))
+        )
+    )
+
+    param$apply_measure(set_infil_rate, seq(0, 4, by = 1), .names = NULL)
+    expect_silent(paths <- param$save())
+    expect_equal(paths,
+        data.table::data.table(
+            model = normalizePath(file.path(tempdir(), paste0("set_infil_rate_", 1:5), paste0("set_infil_rate_", 1:5, ".idf"))),
+            weather = normalizePath(file.path(tempdir(), paste0("set_infil_rate_", 1:5), basename(param$weather()$path())))
+        )
+    )
+    expect_silent(paths <- param$save(separate = FALSE))
+    expect_equal(paths,
+        data.table::data.table(
+            model = normalizePath(file.path(tempdir(), paste0("set_infil_rate_", 1:5, ".idf"))),
+            weather = normalizePath(file.path(tempdir(), basename(param$weather()$path())))
+        )
+    )
+    # can save when no weather are provided
+    expect_silent(paths <- {
+        empty <- empty_idf(8.8)
+        empty$save(tempfile(fileext = ".idf"))
+        par <- param_job(empty, NULL)
+        par$apply_measure(function (idf, x) idf, 1:2, .names = 1:2)
+        par$save()
+    })
+    expect_equal(paths,
+        data.table::data.table(
+            model = normalizePath(file.path(tempdir(), 1:2, paste0(1:2, ".idf"))),
+            weather = NA_character_
+        )
+    )
+    # }}}
 
     # Run and Status {{{
+
+    # Can detect if models are modified before running
+    model2 <- param$models()$set_infil_rate_2
+    model2$Output_Variable <- NULL
+    expect_warning(param$run(echo = FALSE), class = "warn_param_modified")
+
     dir_nms <- paste0("set_infil_rate_", 1:5)
+    param$apply_measure(set_infil_rate, seq(0, 4, by = 1), .names = NULL)
     # can run the simulation and get status of simulation
-    expect_equal(
-        {param$run(dir = NULL); param$status()},
+    expect_equal({param$run(dir = NULL, echo = FALSE); status <- param$status(); names(status)},
+        c("run_before", "alive", "terminated", "successful", "changed_after", "job_status")
+    )
+    expect_equal(status[c("run_before", "alive", "terminated", "successful", "changed_after")],
         list(run_before = TRUE, alive = FALSE, terminated = FALSE,
             successful = TRUE, changed_after = FALSE
+        )
+    )
+    expect_equal(names(status$job_status),
+        c("index", "status", "idf", "epw", "exit_status", "start_time", "end_time",
+          "energyplus", "output_dir", "stdout", "stderr"
         )
     )
     # }}}
@@ -123,8 +189,9 @@ test_that("Parametric methods", {
     )
     expect_equal(names(param$report_data(2, all = TRUE)),
         c("case", "datetime", "month", "day", "hour", "minute", "dst", "interval",
-          "simulation_days", "day_type", "environment_name", "is_meter", "type",
-          "index_group", "timestep_type", "key_value", "name", "reporting_frequency",
+          "simulation_days", "day_type", "environment_name",
+          "environment_period_index", "is_meter", "type", "index_group",
+          "timestep_type", "key_value", "name", "reporting_frequency",
           "schedule_name", "units", "value"
         )
     )
@@ -159,8 +226,9 @@ test_that("Parametric methods", {
     )
     expect_equal(names(param$report_data(all = TRUE)),
         c("case", "datetime", "month", "day", "hour", "minute", "dst", "interval",
-          "simulation_days", "day_type", "environment_name", "is_meter", "type",
-          "index_group", "timestep_type", "key_value", "name", "reporting_frequency",
+          "simulation_days", "day_type", "environment_name",
+          "environment_period_index", "is_meter", "type", "index_group",
+          "timestep_type", "key_value", "name", "reporting_frequency",
           "schedule_name", "units", "value"
         )
     )

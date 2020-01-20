@@ -9,7 +9,10 @@ param_job(idf, epw)
 \arguments{
 \item{idf}{A path to EnergyPlus IDF or IMF file or an \code{Idf} object.}
 
-\item{epw}{A path to EnergyPlus EPW file or an \code{Epw} object.}
+\item{epw}{A path to EnergyPlus EPW file or an \code{Epw} object. \code{epw} can also
+be \code{NULL} which will force design-day-only simulation when
+\code{\link[=ParametricJob]{$run()}} method is called. Note this needs at least one
+\code{Sizing:DesignDay} object exists in the \link{Idf}.}
 }
 \value{
 A \code{ParametricJob} object.
@@ -19,6 +22,7 @@ A \code{ParametricJob} object.
 For details on \code{ParametricJob}, please see \link{ParametricJob} class.
 }
 \examples{
+\dontrun{
 if (is_avail_eplus(8.8)) {
     idf_name <- "1ZoneUncontrolled.idf"
     epw_name <-  "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
@@ -32,6 +36,8 @@ if (is_avail_eplus(8.8)) {
     # create from an Idf and an Epw object
     param_job(read_idf(idf_path), read_epw(epw_path))
 }
+}
+
 }
 \seealso{
 \code{\link[=eplus_job]{eplus_job()}} for creating an EnergyPlus single simulation job.
