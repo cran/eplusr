@@ -25,13 +25,15 @@ EplusGroupJob <- R6::R6Class(classname = "EplusGroupJob", cloneable = FALSE,
         #' Create an `EplusGroupJob` object
         #'
         #' @param idfs Paths to EnergyPlus IDF files or a list of IDF files and
-        #'        [Idf] objects.
+        #'        [Idf] objects. If only one IDF supplied, it will be used for
+        #'        simulations with all EPWs.
         #' @param epws Paths to EnergyPlus EPW files or a list of EPW files and
         #'        [Epw] objects. Each element in the list can be `NULL`, which
         #'        will force design-day-only simulation. Note this needs at
         #'        least one `Sizing:DesignDay` object exists in that [Idf]. If
         #'        `epws` is `NULL`, design-day-only simulation will be conducted
-        #'        for all input models.
+        #'        for all input models. If only one EPW supplied, it will be
+        #'        used for simulations with all IDFs.
         #'
         #' @return An `EplusGroupJob` object.
         #'
@@ -819,11 +821,14 @@ epgroup_run_models <- function (self, private, output_dir = NULL, wait = TRUE, f
     }
     output_dir <- normalizePath(output_dir, mustWork = FALSE)
 
-    if (any(!dir.exists(unique(output_dir)))) {
-        create_dir <- dir.create(unique(output_dir), showWarnings = FALSE, recursive = TRUE)
-        abort("error_create_output_dir", paste0("Failed to create output directory: ",
-            collapse(unique(output_dir))[!create_dir])
-        )
+    if (any(!dir.exists(uniq_dir <- unique(output_dir)))) {
+        dir_to_create <- uniq_dir[!dir.exists(uniq_dir)]
+        create_dir <- dir.create(dir_to_create, showWarnings = FALSE, recursive = TRUE)
+        if (any(!create_dir)) {
+            abort("error_create_output_dir", paste0("Failed to create output directory: ",
+                collapse(dir_to_create)[!create_dir])
+            )
+        }
     }
 
     # check if the model is still running
@@ -1103,18 +1108,21 @@ get_epgroup_input <- function (idfs, epws) {
     if (is_idf(idfs)) {
         idfs <- list(get_init_idf(idfs))
     } else {
-        idfs <- tryCatch(lapply(idfs, get_init_idf),
-            error_idf_not_local = function (e) e,
-            error_idf_path_not_exist = function (e) e,
-            error_idf_not_saved = function (e) e
-        )
+        init_idf <- function (...) {
+            tryCatch(get_init_idf(...),
+                error_idf_not_local = function (e) e,
+                error_idf_path_not_exist = function (e) e,
+                error_idf_not_saved = function (e) e
+            )
+        }
+        idfs <- lapply(idfs, init_idf)
     }
 
     if (any(!vlapply(idfs, is_idf))) {
         for (err in c("error_idf_not_local", "error_idf_path_not_exist", "error_idf_not_saved")) {
             if (any(invld <- vlapply(idfs, inherits, err))) {
-                abort(err, paste0(conditionMessage(idfs[[which(invld)[[1L]]]]),
-                    " Invalid input index: ", collapse(which(invld))
+                abort(err, paste0("Invalid input index: ", collapse(which(invld)), " --> ",
+                    conditionMessage(idfs[[which(invld)[[1L]]]])
                 ))
             }
         }
@@ -1156,6 +1164,7 @@ get_epgroup_input <- function (idfs, epws) {
     # check length
     if (!is.null(epws)) {
         if (length(epws) == 1L) epws <- replicate(length(idfs), epws[[1L]]$clone())
+        if (length(idfs) == 1L) idfs <- replicate(length(epws), idfs[[1L]]$clone())
         assert(have_same_len(idfs, epws))
         nm_epw <- tools::file_path_sans_ext(basename(vcapply(epws, function (epw) epw$path())))
         setattr(epws, "names", make.unique(nm_epw, "_"))

@@ -1,6 +1,39 @@
-# eplusr 0.11.0
+# eplusr 0.12.0
 
-# eplusr 0.10.4.9000
+## New features
+
+* Now `group_job()` supports single IDF input with multiple EPW inputs (#185).
+* A new method `Idf$last_job()` has been added to enable getting the last
+  simulation job created using `Idf$run()` (#187).
+* Provide a workaround to fix the issue of EnergyPlus v9.1 and above
+  installation which fails to extract files into correct directory
+  `/usr/local/EnergyPlus-X-Y-0`, but instead extracting all files directly into
+  `/usr/local` ([NREL/EnergyPlus#7256](https://github.com/NREL/EnergyPlus/issues/7256))
+  (#193).
+* A new parameter `group_ext` has been added in `Idf$to_table()` and
+  `IdfObject$to_table()`, with default value being `"none"`.
+  If `"group"`, values from extensible fields will be grouped by the
+  extensible group they belong to. For example, coordinate
+  values of each vertex in class `BuildingSurface:Detailed` will
+  be put into a list. If `"index"`, values from extensible fields
+  will be grouped by the extensible field indices they belong to.
+  For example, coordinate values of all x coordinates will be
+  put into a list (#74).
+
+## Bug fixes
+
+* The algorithm of detecting numeric columns in `EplusSql$tabular_data()` has
+  been improved (#190).
+* Now `EplusSql$tabular_data()` keeps the original column order when `wide` is
+  `TRUE` (#186).
+* Fix EnergyPlus installation on macOS (#193).
+* Fix parallel simulations on macOS (#194).
+* Now `eplus_config()` will always return the expanded EnergyPlus path (#196).
+* Now `group_job()` will return more informative error messages when input
+  contains `Idf` objects that havn't been saved (#204).
+* Fix error in `EplusGroupJob$run()` when custom `dir` is specified (#205).
+
+# eplusr 0.11.0
 
 ## New features
 

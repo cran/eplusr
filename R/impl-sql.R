@@ -354,10 +354,13 @@ get_sql_tabular_data <- function (sql, report_name = NULL, report_for = NULL,
     if (!wide) return(dt)
 
     if (!string_value) {
+        set(dt, NULL, "is_num", FALSE)
         dt[!J(c("", " ")), on = "units", is_num := TRUE]
         # https://stackoverflow.com/questions/638565/parsing-scientific-notation-sensibly
-        dt[, is_num := any(stri_detect_regex(value, "^\\s*-?\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d+)?$")),
-            by = c("report_name", "report_for", "table_name", "column_name")]
+        dt[J(FALSE), on = "is_num",
+            is_num := any(stri_detect_regex(value, "^\\s*-?\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d+)?$")),
+            by = c("report_name", "report_for", "table_name", "column_name")
+        ]
     }
 
     # add row index
@@ -401,7 +404,10 @@ wide_tabular_data <- function (dt, string_value = TRUE) {
     }
 
     # clean
-    data.table::set(dt, NULL, "row_index", NULL)
+    set(dt, NULL, "row_index", NULL)
+
+    # column order
+    setcolorder(dt, c(setdiff(names(dt), cols), cols))
 
     # coerece type
     if (!string_value && length(cols_num)) {

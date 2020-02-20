@@ -660,6 +660,23 @@ idf$to_table(class = "Construction", wide = TRUE)
 
 # get a wide table with actual values
 idf$to_table(class = "OtherEquipment", wide = TRUE, string_value = FALSE)
+
+# group extensible by extensible group number
+idf$to_table(class = "BuildingSurface:Detailed", group_ext = "group")
+
+# group extensible by extensible group number and convert into a wide table
+idf$to_table(class = "BuildingSurface:Detailed", group_ext = "group", wide = TRUE)
+
+# group extensible by extensible field index
+idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index")
+
+# group extensible by extensible field index and convert into a wide table
+idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index", wide = TRUE)
+
+# when grouping extensible, 'string_value' and 'unit' still take effect
+idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index",
+    wide = TRUE, string_value = FALSE, unit = TRUE
+)
 }
 
 
@@ -734,6 +751,15 @@ job$report_data()
 
 
 ## ------------------------------------------------
+## Method `Idf$last_job`
+## ------------------------------------------------
+
+\dontrun{
+idf$last_job()
+}
+
+
+## ------------------------------------------------
 ## Method `Idf$print`
 ## ------------------------------------------------
 
@@ -797,6 +823,7 @@ Hongyuan Jia
 \item \href{#method-is_unsaved}{\code{Idf$is_unsaved()}}
 \item \href{#method-save}{\code{Idf$save()}}
 \item \href{#method-run}{\code{Idf$run()}}
+\item \href{#method-last_job}{\code{Idf$last_job()}}
 \item \href{#method-print}{\code{Idf$print()}}
 \item \href{#method-clone}{\code{Idf$clone()}}
 }
@@ -3208,7 +3235,8 @@ Format \code{Idf} as a data.frame
   unit = FALSE,
   wide = FALSE,
   align = FALSE,
-  all = FALSE
+  all = FALSE,
+  group_ext = c("none", "group", "index")
 )}\if{html}{\out{</div>}}
 }
 
@@ -3249,6 +3277,18 @@ Default: \code{FALSE}.}
 \item{\code{all}}{If \code{TRUE}, all available fields defined in IDD for the
 class that objects belong to will be returned. Default:
 \code{FALSE}.}
+
+\item{\code{group_ext}}{Should be one of \code{"none"}, \code{"group"} or \code{"index"}.
+If not \code{"none"}, \code{value} column in returned
+\code{\link[data.table:data.table]{data.table::data.table()}} will be converted into a list.
+If \code{"group"}, values from extensible fields will be grouped by the
+extensible group they belong to. For example, coordinate
+values of each vertex in class \code{BuildingSurface:Detailed} will
+be put into a list. If \code{"index"}, values from extensible fields
+will be grouped by the extensible field indice they belong to.
+For example, coordinate values of all x coordinates will be
+put into a list. If \code{"none"}, nothing special will be done.
+Default: \code{"none"}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -3263,12 +3303,29 @@ The returned \link[data.table:data.table]{data.table} has 6 columns:
 \item \code{index}: Integer type. Field indexes.
 \item \code{field}: Character type. Field names.
 \item \code{value}: Character type if \code{string_value} is \code{TRUE} or list type if
-\code{string_value} is \code{FALSE}. Field values.
+\code{string_value} is \code{FALSE} or \code{group_ext} is not \code{"none"}. Field values.
+}
+
+Note that when \code{group_ext} is not \code{"none"}, \code{index} and \code{field}
+values will not match the original field indices and names. In this
+case, \code{index} will only indicate the indices of sequences. For
+\code{field} column, specifically:
+\itemize{
+\item When \code{group_ext} is \code{"group"}, each field name in a extensible group
+will be abbreviated using \code{\link[=abbreviate]{abbreviate()}} with \code{minlength} being
+\code{10L} and all abbreviated names will be separated by \code{|} and
+combined together. For example, field names in the extensible group
+(\verb{Vertex 1 X-coordinate}, \verb{Vertex 1 Y-coordinate}, \verb{Vertex 1 Z-coordinate}) in class \code{BuildiBuildingSurface:Detailed} will be
+merged into one name \code{Vrtx1X-crd|Vrtx1Y-crd|Vrtx1Z-crd}.
+\item When \code{group_ext} is \code{"index"}, the extensible group indicator in field
+names will be removed. Take the same example as above, the
+resulting field names will be \verb{Vertex X-coordinate}, \verb{Vertex Y-coordinate}, and \verb{Vertex Z-coordinate}.
 }
 }
 
 \subsection{Returns}{
-A \link[data.table:data.table]{data.table} with 6 columns.
+A \link[data.table:data.table]{data.table} with 6 columns (if
+\code{wide} is \code{FALSE}) or at least 6 columns (if \code{wide} is \code{TRUE}).
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
@@ -3299,6 +3356,23 @@ idf$to_table(class = "Construction", wide = TRUE)
 
 # get a wide table with actual values
 idf$to_table(class = "OtherEquipment", wide = TRUE, string_value = FALSE)
+
+# group extensible by extensible group number
+idf$to_table(class = "BuildingSurface:Detailed", group_ext = "group")
+
+# group extensible by extensible group number and convert into a wide table
+idf$to_table(class = "BuildingSurface:Detailed", group_ext = "group", wide = TRUE)
+
+# group extensible by extensible field index
+idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index")
+
+# group extensible by extensible field index and convert into a wide table
+idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index", wide = TRUE)
+
+# when grouping extensible, 'string_value' and 'unit' still take effect
+idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index",
+    wide = TRUE, string_value = FALSE, unit = TRUE
+)
 }
 
 }
@@ -3530,6 +3604,36 @@ job$run()
 
 # get simulation results
 job$report_data()
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-last_job"></a>}}
+\subsection{Method \code{last_job()}}{
+Get the last simulation job
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Idf$last_job()}\if{html}{\out{</div>}}
+}
+
+\subsection{Details}{
+\verb{$last_job()} returns the last \link{EplusJob} object that was created
+using
+\href{../../eplusr/html/Idf.html#method-run}{\code{$run()}}. If the
+\code{Idf} hasn't been run yet, \code{NULL} is returned.
+}
+
+\subsection{Returns}{
+\code{NULL} or an \link{EplusJob} object.
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+idf$last_job()
 }
 
 }

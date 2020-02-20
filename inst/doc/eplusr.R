@@ -22,6 +22,9 @@ knitr::knit_hooks$set(output = function(x, options) {
     hook_output(x, options)
 })
 
+# copy figures into temporary directory
+file.copy("../man/figures/class_structure.png", tempdir())
+
 knitr::opts_knit$set(root.dir = tempdir())
 
 options(crayon.enabled = FALSE)
@@ -65,7 +68,7 @@ if (!eplusr::is_avail_eplus(8.8)) {
 }
 
 ## ---- echo = FALSE, eval = can_run, include = can_run, figure.width = "400px"----
-knitr::include_graphics("../man/figures/class_structure.png")
+knitr::include_graphics(file.path(tempdir(), "class_structure.png"))
 
 ## ----copy_example, include = FALSE, eval = can_run----------------------------
 library(eplusr)
