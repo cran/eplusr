@@ -334,7 +334,7 @@ idf$object_relation("floor", "ref_by")
 idf$objects_in_relation("floor", "ref_to")
 
 # get a construction named FLOOR and all surfaces that uses it
-idf$objects_in_relation("floor", "ref_by", "BuildingSurface:Detailed")
+idf$objects_in_relation("floor", "ref_by", class = "BuildingSurface:Detailed")
 }
 
 
@@ -468,6 +468,55 @@ idf$del("roof31", .ref_by = TRUE, .recursive = TRUE)
 # delete objects using variable inputs
 ids <- idf$object_id("Output:Variable", simplify = TRUE)
 idf$del(ids)
+}
+
+
+## ------------------------------------------------
+## Method `Idf$purge`
+## ------------------------------------------------
+
+\dontrun{
+# purge unused "Fraction" schedule type
+idf$purge("on/off") # ScheduleTypeLimits
+
+# purge all unused schedule types
+idf$purge(class = "ScheduleTypeLimits")
+
+# purge all unused schedule related objects
+idf$purge(group = "Schedules")
+}
+
+
+## ------------------------------------------------
+## Method `Idf$duplicated`
+## ------------------------------------------------
+
+\dontrun{
+# check if there are any duplications in the Idf
+idf$duplicated(class = "ScheduleTypeLimits")
+
+# check if there are any duplications in the schedule types
+idf$duplicated(class = "ScheduleTypeLimits")
+
+# check if there are any duplications in the schedule groups and
+# material class
+idf$duplicated(class = "Material", group = "Schedules")
+}
+
+
+## ------------------------------------------------
+## Method `Idf$unique`
+## ------------------------------------------------
+
+\dontrun{
+# remove duplications in the Idf
+idf$unique(class = "ScheduleTypeLimits")
+
+# remove duplications in the schedule types
+idf$unique(class = "ScheduleTypeLimits")
+
+# remove duplications in the schedule groups and material class
+idf$unique(class = "Material", group = "Schedules")
 }
 
 
@@ -677,6 +726,9 @@ idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index", wide = TRU
 idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index",
     wide = TRUE, string_value = FALSE, unit = TRUE
 )
+
+# create table for new object input
+idf$to_table(class = "BuildingSurface:Detailed", init = TRUE)
 }
 
 
@@ -760,6 +812,26 @@ idf$last_job()
 
 
 ## ------------------------------------------------
+## Method `Idf$geometry`
+## ------------------------------------------------
+
+\dontrun{
+idf$geometry()
+}
+
+
+## ------------------------------------------------
+## Method `Idf$view`
+## ------------------------------------------------
+
+\dontrun{
+idf$view()
+idf$view(render_by = "zone")
+idf$view(render_by = "construction")
+}
+
+
+## ------------------------------------------------
 ## Method `Idf$print`
 ## ------------------------------------------------
 
@@ -809,6 +881,9 @@ Hongyuan Jia
 \item \href{#method-add}{\code{Idf$add()}}
 \item \href{#method-set}{\code{Idf$set()}}
 \item \href{#method-del}{\code{Idf$del()}}
+\item \href{#method-purge}{\code{Idf$purge()}}
+\item \href{#method-duplicated}{\code{Idf$duplicated()}}
+\item \href{#method-unique}{\code{Idf$unique()}}
 \item \href{#method-rename}{\code{Idf$rename()}}
 \item \href{#method-insert}{\code{Idf$insert()}}
 \item \href{#method-load}{\code{Idf$load()}}
@@ -824,12 +899,15 @@ Hongyuan Jia
 \item \href{#method-save}{\code{Idf$save()}}
 \item \href{#method-run}{\code{Idf$run()}}
 \item \href{#method-last_job}{\code{Idf$last_job()}}
+\item \href{#method-geometry}{\code{Idf$geometry()}}
+\item \href{#method-view}{\code{Idf$view()}}
 \item \href{#method-print}{\code{Idf$print()}}
 \item \href{#method-clone}{\code{Idf$clone()}}
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-new"></a>}}
+\if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
 Create an \code{Idf} object
 \subsection{Usage}{
@@ -903,6 +981,7 @@ Idf$new(string_idf, use_idd(8.8, download = "auto"))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-version"></a>}}
+\if{latex}{\out{\hypertarget{method-version}{}}}
 \subsection{Method \code{version()}}{
 Get the version of current \code{Idf}
 \subsection{Usage}{
@@ -934,6 +1013,7 @@ idf$version()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-path"></a>}}
+\if{latex}{\out{\hypertarget{method-path}{}}}
 \subsection{Method \code{path()}}{
 Get the file path of current \code{Idf}
 \subsection{Usage}{
@@ -967,6 +1047,7 @@ Idf$new("Version, 8.8;\n")$path()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-group_name"></a>}}
+\if{latex}{\out{\hypertarget{method-group_name}{}}}
 \subsection{Method \code{group_name()}}{
 Get names of groups
 \subsection{Usage}{
@@ -1016,6 +1097,7 @@ idf$group_name(all = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-class_name"></a>}}
+\if{latex}{\out{\hypertarget{method-class_name}{}}}
 \subsection{Method \code{class_name()}}{
 Get names of classes
 \subsection{Usage}{
@@ -1077,6 +1159,7 @@ idf$class_name(all = TRUE, by_group = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-is_valid_group"></a>}}
+\if{latex}{\out{\hypertarget{method-is_valid_group}{}}}
 \subsection{Method \code{is_valid_group()}}{
 Check if elements in input character vector are valid group names.
 \subsection{Usage}{
@@ -1125,6 +1208,7 @@ idf$is_valid_group(c("Schedules", "Compliance Objects"), all = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-is_valid_class"></a>}}
+\if{latex}{\out{\hypertarget{method-is_valid_class}{}}}
 \subsection{Method \code{is_valid_class()}}{
 Check if elements in input character vector are valid class names.
 \subsection{Usage}{
@@ -1174,17 +1258,19 @@ idf$is_valid_class(c("Building", "ShadowCalculation"), all = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-definition"></a>}}
+\if{latex}{\out{\hypertarget{method-definition}{}}}
 \subsection{Method \code{definition()}}{
 Get the \link{IddObject} object for specified class.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Idf$definition(class)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Idf$definition(class = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{class}}{A \strong{single} string of valid class name in current
-\link{Idd}.}
+\link{Idd}. If \code{NULL}, the underlying \link{Idd} object is returned.
+Default: \code{NULL}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -1195,7 +1281,8 @@ details, please see \link{IddObject} class.
 }
 
 \subsection{Returns}{
-An \link{IddObject} object.
+An \link{IddObject} object if class is not \code{NULL} or an \link{Idd}
+object if class is \code{NULL}.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
@@ -1212,6 +1299,7 @@ idf$definition("Version")
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-object_id"></a>}}
+\if{latex}{\out{\hypertarget{method-object_id}{}}}
 \subsection{Method \code{object_id()}}{
 Get the unique ID for each object in specified classes in the \code{Idf}.
 \subsection{Usage}{
@@ -1273,6 +1361,7 @@ idf$object_id(c("Version", "Zone"), simplify = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-object_name"></a>}}
+\if{latex}{\out{\hypertarget{method-object_name}{}}}
 \subsection{Method \code{object_name()}}{
 Get names for objects in specified classes in the \code{Idf}.
 \subsection{Usage}{
@@ -1337,6 +1426,7 @@ idf$object_name(c("Version", "Zone"), simplify = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-object_num"></a>}}
+\if{latex}{\out{\hypertarget{method-object_num}{}}}
 \subsection{Method \code{object_num()}}{
 Get number of objects in specified classes in the \link{Idf} object.
 \subsection{Usage}{
@@ -1379,6 +1469,7 @@ idf$object_num(c("Zone", "Schedule:Compact"))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-is_valid_id"></a>}}
+\if{latex}{\out{\hypertarget{method-is_valid_id}{}}}
 \subsection{Method \code{is_valid_id()}}{
 Check if elements in input integer vector are valid object IDs.
 \subsection{Usage}{
@@ -1415,6 +1506,7 @@ idf$is_valid_id(c(51, 1000))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-is_valid_name"></a>}}
+\if{latex}{\out{\hypertarget{method-is_valid_name}{}}}
 \subsection{Method \code{is_valid_name()}}{
 Check if elements in input character vector are valid object names.
 \subsection{Usage}{
@@ -1458,10 +1550,11 @@ idf$is_valid_name(c("simple one zone (wireframe dxf)", "zone one", "a"))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-object"></a>}}
+\if{latex}{\out{\hypertarget{method-object}{}}}
 \subsection{Method \code{object()}}{
 Extract an \link{IdfObject} object using object ID or name.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Idf$object(which)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Idf$object(which, class = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -1469,6 +1562,10 @@ Extract an \link{IdfObject} object using object ID or name.
 \describe{
 \item{\code{which}}{A single integer specifying the object ID or a single
 string specifying the object name.}
+
+\item{\code{class}}{A character vector that contains valid class names for
+current \code{Idf} object used to locate objects. If \code{NULL}, all
+classes in current \code{Idf} object are used. Default: \code{NULL}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -1511,6 +1608,7 @@ idf$object("simple one zone (wireframe dxf)")
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-objects"></a>}}
+\if{latex}{\out{\hypertarget{method-objects}{}}}
 \subsection{Method \code{objects()}}{
 Extract multiple \link{IdfObject} objects using object IDs or names.
 \subsection{Usage}{
@@ -1564,6 +1662,7 @@ idf$objects(c("Simple One Zone (Wireframe DXF)", "zone one"))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-object_unique"></a>}}
+\if{latex}{\out{\hypertarget{method-object_unique}{}}}
 \subsection{Method \code{object_unique()}}{
 Extract the \link{IdfObject} in class with \code{unique-object} attribute.
 \subsection{Usage}{
@@ -1626,6 +1725,7 @@ idf[["SimulationControl"]]
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-objects_in_class"></a>}}
+\if{latex}{\out{\hypertarget{method-objects_in_class}{}}}
 \subsection{Method \code{objects_in_class()}}{
 Extract all \link{IdfObject} objects in one class.
 \subsection{Usage}{
@@ -1684,6 +1784,7 @@ idf[["Zone"]]
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-objects_in_group"></a>}}
+\if{latex}{\out{\hypertarget{method-objects_in_group}{}}}
 \subsection{Method \code{objects_in_group()}}{
 Extract all \link{IdfObject} objects in one group.
 \subsection{Usage}{
@@ -1721,14 +1822,19 @@ idf$objects_in_group("Schedules")
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-object_relation"></a>}}
+\if{latex}{\out{\hypertarget{method-object_relation}{}}}
 \subsection{Method \code{object_relation()}}{
 Extract the relationship between object field values.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Idf$object_relation(
   which,
   direction = c("all", "ref_to", "ref_by", "node"),
-  recursive = FALSE,
-  depth = 1L
+  object = NULL,
+  class = NULL,
+  group = NULL,
+  depth = 0L,
+  keep = FALSE,
+  class_ref = c("both", "none", "all")
 )}\if{html}{\out{</div>}}
 }
 
@@ -1741,15 +1847,47 @@ specifying object name.}
 \item{\code{direction}}{The relation direction to extract. Should be either
 \code{"all"}, \code{"ref_to"}, \code{"ref_by"} and \code{"node"}.}
 
-\item{\code{recursive}}{If \code{TRUE}, the relation is searched recursively. A
+\item{\code{object}}{A character vector of object names or an integer vector
+of object IDs used for searching relations. Default: \code{NULL}.}
+
+\item{\code{class}}{A character vector of class names used for searching
+relations. Default: \code{NULL}.}
+
+\item{\code{group}}{A character vector of group names used for searching
+relations. Default: \code{NULL}.}
+
+\item{\code{depth}}{If > 0, the relation is searched recursively. A
 simple example of recursive reference: one material named
 \code{mat} is referred by a construction named \code{const}, and \code{const}
-is also referred by a surface named \code{surf}. If \code{recursive} is
-\code{TRUE}, all relations above will be extracted.}
+is also referred by a surface named \code{surf}. If \code{NULL},
+all possible recursive relations are returned. Default: \code{0}.}
 
-\item{\code{depth}}{Only applicable when \code{recursive} is \code{TRUE}. This is the
-depth when searching value relations recursively. If \code{NULL},
-all possible recursive relations are returned. Default: \code{1}.}
+\item{\code{keep}}{If \code{TRUE}, all fields of specified object are returned
+regardless they have any relations with other objects or not.
+If \code{FALSE}, only fields in specified object that have
+relations with other objects are returned. Default: \code{FALSE}.}
+
+\item{\code{class_ref}}{Specify how to handle class-name-references. Class
+name references refer to references in like field \verb{Component 1 Object Type} in \code{Branch} objects. Their value refers to other
+many class names of objects, instaed of refering to specific
+field values. There are 3 options in total, i.e. \code{"none"},
+\code{"both"} and \code{"all"}, with \code{"both"} being the default.
+* \code{"none"}: just ignore class-name-references. It is a reasonable
+option, as for most cases, class-name-references always come
+along with field value references. Ignoring
+class-name-references will not impact the most part of the
+relation structure.
+* \code{"both"}: only include class-name-references if this object
+also reference field values of the same one. For example, if the
+value of field \verb{Component 1 Object Type} is
+\code{Coil:Heating:Water}, only the object that is referenced in the
+next field \verb{Component 1 Name} is treated as referenced by
+\verb{Component 1 Object Type}. This is the default option.
+* \code{"all"}: include all class-name-references. For example, if the
+value of field \verb{Component 1 Object Type} is
+\code{Coil:Heating:Water}, all objects in \code{Coil:Heating:Water} will
+be treated as referenced by that field. This is the most
+aggressive option.}
 }
 \if{html}{\out{</div>}}
 }
@@ -1808,15 +1946,18 @@ idf$object_relation("floor", "ref_by")
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-objects_in_relation"></a>}}
+\if{latex}{\out{\hypertarget{method-objects_in_relation}{}}}
 \subsection{Method \code{objects_in_relation()}}{
 Extract multiple \link{IdfObject} objects referencing each others.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Idf$objects_in_relation(
   which,
   direction = c("ref_to", "ref_by", "node"),
+  object = NULL,
   class = NULL,
-  recursive = FALSE,
-  depth = 1L
+  group = NULL,
+  depth = 0L,
+  class_ref = c("both", "none", "all")
 )}\if{html}{\out{</div>}}
 }
 
@@ -1829,21 +1970,48 @@ specifying object name.}
 \item{\code{direction}}{The relation direction to extract. Should be one of
 \code{"ref_to"}, \code{"ref_by"} or \code{"node"}.}
 
+\item{\code{object}}{A character vector of object names or an integer vector
+of object IDs used for searching relations. Default: \code{NULL}.}
+
 \item{\code{class}}{A character vector of valid class names in the
 underlying \link{Idd}. It is used to restrict the classes to be
 returned. If \code{NULL}, all possible classes are considered and
 corresponding \link{IdfObject} objects are returned if
 relationships are found. Default: \code{NULL}.}
 
-\item{\code{recursive}}{If \code{TRUE}, the relation is searched recursively. A
+\item{\code{group}}{A character vector of valid group names in the
+underlying \link{Idd}. It is used to restrict the groups to be
+returned. If \code{NULL}, all possible groups are considered and
+corresponding \link{IdfObject} objects are returned if
+relationships are found. Default: \code{NULL}.}
+
+\item{\code{depth}}{If > 0, the relation is searched recursively. A
 simple example of recursive reference: one material named
 \code{mat} is referred by a construction named \code{const}, and \code{const}
-is also referred by a surface named \code{surf}. If \code{recursive} is
-\code{TRUE}, all relations above will be extracted.}
+is also referred by a surface named \code{surf}. If \code{NULL},
+all possible recursive relations are returned. Default: \code{0}.}
 
-\item{\code{depth}}{Only applicable when \code{recursive} is \code{TRUE}. This is the
-depth when searching value relations recursively. If \code{NULL},
-all possible recursive relations are returned. Default: \code{1}.}
+\item{\code{class_ref}}{Specify how to handle class-name-references. Class
+name references refer to references in like field \verb{Component 1 Object Type} in \code{Branch} objects. Their value refers to other
+many class names of objects, instaed of refering to specific
+field values. There are 3 options in total, i.e. \code{"none"},
+\code{"both"} and \code{"all"}, with \code{"both"} being the default.
+* \code{"none"}: just ignore class-name-references. It is a reasonable
+option, as for most cases, class-name-references always come
+along with field value references. Ignoring
+class-name-references will not impact the most part of the
+relation structure.
+* \code{"both"}: only include class-name-references if this object
+also reference field values of the same one. For example, if the
+value of field \verb{Component 1 Object Type} is
+\code{Coil:Heating:Water}, only the object that is referenced in the
+next field \verb{Component 1 Name} is treated as referenced by
+\verb{Component 1 Object Type}. This is the default option.
+* \code{"all"}: include all class-name-references. For example, if the
+value of field \verb{Component 1 Object Type} is
+\code{Coil:Heating:Water}, all objects in \code{Coil:Heating:Water} will
+be treated as referenced by that field. This is the most
+aggressive option.}
 }
 \if{html}{\out{</div>}}
 }
@@ -1884,7 +2052,7 @@ An named list of \link{IdfObject} objects.
 idf$objects_in_relation("floor", "ref_to")
 
 # get a construction named FLOOR and all surfaces that uses it
-idf$objects_in_relation("floor", "ref_by", "BuildingSurface:Detailed")
+idf$objects_in_relation("floor", "ref_by", class = "BuildingSurface:Detailed")
 }
 
 }
@@ -1895,6 +2063,7 @@ idf$objects_in_relation("floor", "ref_by", "BuildingSurface:Detailed")
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-search_object"></a>}}
+\if{latex}{\out{\hypertarget{method-search_object}{}}}
 \subsection{Method \code{search_object()}}{
 Extract multiple \link{IdfObject} objects using regular expression on
 names.
@@ -1946,6 +2115,7 @@ idf$search_object("floor", ignore.case = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-dup"></a>}}
+\if{latex}{\out{\hypertarget{method-dup}{}}}
 \subsection{Method \code{dup()}}{
 Duplicate existing objects.
 \subsection{Usage}{
@@ -2005,6 +2175,7 @@ idf$dup(floors_1, floors_2)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-add"></a>}}
+\if{latex}{\out{\hypertarget{method-add}{}}}
 \subsection{Method \code{add()}}{
 Add new objects.
 \subsection{Usage}{
@@ -2107,6 +2278,7 @@ empty$add(objs1, rp)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-set"></a>}}
+\if{latex}{\out{\hypertarget{method-set}{}}}
 \subsection{Method \code{set()}}{
 Set values of existing objects.
 \subsection{Usage}{
@@ -2236,6 +2408,7 @@ idf$set(sets)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-del"></a>}}
+\if{latex}{\out{\hypertarget{method-del}{}}}
 \subsection{Method \code{del()}}{
 Delete existing objects
 \subsection{Usage}{
@@ -2344,7 +2517,194 @@ idf$del(ids)
 
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-purge"></a>}}
+\if{latex}{\out{\hypertarget{method-purge}{}}}
+\subsection{Method \code{purge()}}{
+Purge resource objects that are not used
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Idf$purge(object = NULL, class = NULL, group = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{object}}{an integer vector of object IDs or a character vector
+of object names in current \code{Idf} object. Default: \code{NULL}.}
+
+\item{\code{class}}{A character vector of valid class names in current \code{Idf}
+object. Default: \code{NULL}.}
+
+\item{\code{group}}{A character vector of valid group names in current \code{Idf}
+object. Default: \code{NULL}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+\verb{$purge()} takes an integer vector of object IDs or a character
+vectors of object names, and deletes resource objects specified that
+are not used by any objects.
+
+Here resource objects indicate all objects that can be referenced by
+other objects, e.g. all schedules. \verb{$purge()} will ignore any inputs
+that are not resources. If inputs contain objects from multiple
+classes, references among them are also taken into account, which
+means purging is performed hierarchically. If both materials and
+constructions are specified, the latter will be purged first, because
+it is possible that input constructions reference input materials.
+}
+
+\subsection{Returns}{
+The modified \code{Idf} object itself, invisibly.
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+# purge unused "Fraction" schedule type
+idf$purge("on/off") # ScheduleTypeLimits
+
+# purge all unused schedule types
+idf$purge(class = "ScheduleTypeLimits")
+
+# purge all unused schedule related objects
+idf$purge(group = "Schedules")
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-duplicated"></a>}}
+\if{latex}{\out{\hypertarget{method-duplicated}{}}}
+\subsection{Method \code{duplicated()}}{
+Determine duplicated objects
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Idf$duplicated(object = NULL, class = NULL, group = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{object}}{an integer vector of object IDs or a character vector
+of object names in current \code{Idf} object. Default: \code{NULL}.}
+
+\item{\code{class}}{A character vector of valid class names in current \code{Idf}
+object. Default: \code{NULL}.}
+
+\item{\code{group}}{A character vector of valid group names in current \code{Idf}
+object. Default: \code{NULL}.
+
+If all \code{object}, \code{class} and \code{group} are \code{NULL}, duplication checking
+is performed on the whole \code{Idf}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+\verb{$duplicated()} takes an integer vector of object IDs or a character
+vectors of object names, and returns a \code{\link[data.table:data.table]{data.table::data.table()}}
+to show whether input objects contain duplications or not.
+
+Here duplicated objects refer to objects whose field values are the
+same except the names. Object comments are just ignored during
+comparison.
+}
+
+\subsection{Returns}{
+A \code{\link[data.table:data.table]{data.table::data.table()}} of 4 columns:
+\itemize{
+\item \code{class}: Character. Names of classes that input objects belong to
+\item \code{id}: Integer. Input object IDs
+\item \code{name}: Character. Input object names
+\item \code{duplicate}: Integer. The IDs of objects that input objects
+duplicate. If input object is not a duplication, \code{NA} is returned
+}
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+# check if there are any duplications in the Idf
+idf$duplicated(class = "ScheduleTypeLimits")
+
+# check if there are any duplications in the schedule types
+idf$duplicated(class = "ScheduleTypeLimits")
+
+# check if there are any duplications in the schedule groups and
+# material class
+idf$duplicated(class = "Material", group = "Schedules")
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-unique"></a>}}
+\if{latex}{\out{\hypertarget{method-unique}{}}}
+\subsection{Method \code{unique()}}{
+Remove duplicated objects
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Idf$unique(object = NULL, class = NULL, group = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{object}}{an integer vector of object IDs or a character vector
+of object names in current \code{Idf} object. Default: \code{NULL}.}
+
+\item{\code{class}}{A character vector of valid class names in current \code{Idf}
+object. Default: \code{NULL}.}
+
+\item{\code{group}}{A character vector of valid group names in current \code{Idf}
+object. Default: \code{NULL}.
+
+If all \code{object}, \code{class} and \code{group} are \code{NULL}, duplication checking
+is performed on the whole \code{Idf}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+\verb{$unique()} takes an integer vector of object IDs or a character
+vectors of object names, and remove duplicated objects.
+
+Here duplicated objects refer to objects whose field values are the
+same except the names. Object comments are just ignored during
+comparison.
+
+\verb{$unique()} will only keep the first unique object and remove all
+redundant objects. Value referencing the redundant objects will be
+redirected into the unique object.
+}
+
+\subsection{Returns}{
+The modified \code{Idf} object itself, invisibly.
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+# remove duplications in the Idf
+idf$unique(class = "ScheduleTypeLimits")
+
+# remove duplications in the schedule types
+idf$unique(class = "ScheduleTypeLimits")
+
+# remove duplications in the schedule groups and material class
+idf$unique(class = "Material", group = "Schedules")
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-rename"></a>}}
+\if{latex}{\out{\hypertarget{method-rename}{}}}
 \subsection{Method \code{rename()}}{
 Rename existing objects
 \subsection{Usage}{
@@ -2390,6 +2750,7 @@ idf$rename(on_off = "on/off", test_352a = 51)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-insert"></a>}}
+\if{latex}{\out{\hypertarget{method-insert}{}}}
 \subsection{Method \code{insert()}}{
 Insert new objects from \link{IdfObject}s
 \subsection{Usage}{
@@ -2455,6 +2816,7 @@ idf$insert(idf$SizingPeriod_DesignDay)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-load"></a>}}
+\if{latex}{\out{\hypertarget{method-load}{}}}
 \subsection{Method \code{load()}}{
 Load new objects from characters or data.frames
 \subsection{Usage}{
@@ -2613,6 +2975,7 @@ idf$load("Material, mat2, smooth, 0.5, 0.2, 500, 1000,,,;",
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-update"></a>}}
+\if{latex}{\out{\hypertarget{method-update}{}}}
 \subsection{Method \code{update()}}{
 Update existing object values from characters or data.frames
 \subsection{Usage}{
@@ -2740,6 +3103,7 @@ idf$update(dt)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-paste"></a>}}
+\if{latex}{\out{\hypertarget{method-paste}{}}}
 \subsection{Method \code{paste()}}{
 Paste new objects from IDF Editor
 \subsection{Usage}{
@@ -2792,6 +3156,7 @@ A named list of loaded \link{IdfObject} objects.
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-search_value"></a>}}
+\if{latex}{\out{\hypertarget{method-search_value}{}}}
 \subsection{Method \code{search_value()}}{
 Search objects by field values using regular expression
 \subsection{Usage}{
@@ -2849,6 +3214,7 @@ idf$search_value("floor", "Construction", ignore.case = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-replace_value"></a>}}
+\if{latex}{\out{\hypertarget{method-replace_value}{}}}
 \subsection{Method \code{replace_value()}}{
 Replace object field values using regular expression
 \subsection{Usage}{
@@ -2912,6 +3278,7 @@ idf$replace_value("win", "windows")
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-validate"></a>}}
+\if{latex}{\out{\hypertarget{method-validate}{}}}
 \subsection{Method \code{validate()}}{
 Check possible object field value errors
 \subsection{Usage}{
@@ -3094,6 +3461,7 @@ idf$validate(custom_validate(auto_field = TRUE, choice = TRUE))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-is_valid"></a>}}
+\if{latex}{\out{\hypertarget{method-is_valid}{}}}
 \subsection{Method \code{is_valid()}}{
 Check if there is any error in current \code{Idf}
 \subsection{Usage}{
@@ -3141,6 +3509,7 @@ idf$is_valid(custom_validate(auto_field = TRUE, choice = TRUE))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-to_string"></a>}}
+\if{latex}{\out{\hypertarget{method-to_string}{}}}
 \subsection{Method \code{to_string()}}{
 Format \code{Idf} as a character vector
 \subsection{Usage}{
@@ -3225,6 +3594,7 @@ head(idf$to_string("floor", leading = 0, sep_at = 0))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-to_table"></a>}}
+\if{latex}{\out{\hypertarget{method-to_table}{}}}
 \subsection{Method \code{to_table()}}{
 Format \code{Idf} as a data.frame
 \subsection{Usage}{
@@ -3236,7 +3606,9 @@ Format \code{Idf} as a data.frame
   wide = FALSE,
   align = FALSE,
   all = FALSE,
-  group_ext = c("none", "group", "index")
+  group_ext = c("none", "group", "index"),
+  force = FALSE,
+  init = FALSE
 )}\if{html}{\out{</div>}}
 }
 
@@ -3289,13 +3661,24 @@ will be grouped by the extensible field indice they belong to.
 For example, coordinate values of all x coordinates will be
 put into a list. If \code{"none"}, nothing special will be done.
 Default: \code{"none"}.}
+
+\item{\code{force}}{If \code{TRUE}, \code{wide} can be \code{TRUE} even though there are
+multiple classes in input. This can result in a data.table
+with lots of columns. But may be useful when you know that
+target classes have the exact same fields, e.g.
+\code{Ceiling:Adiabatic} and \code{Floor:Adiabatic}. Default: \code{FALSE}.}
+
+\item{\code{init}}{If \code{TRUE}, a table for new object input will be returned
+with all values filled with defaults. In this case, \code{object}
+input will be ignored. The \code{id} column will be filled with
+possible new object IDs. Default: \code{FALSE}.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Details}{
 \verb{$to_table()} returns a \link[data.table:data.table]{data.table} that
 contains core data of specified objects.
-The returned \link[data.table:data.table]{data.table} has 6 columns:
+The returned \link[data.table:data.table]{data.table} has 5 columns:
 \itemize{
 \item \code{id}: Integer type. Object IDs.
 \item \code{name}: Character type. Object names.
@@ -3373,6 +3756,9 @@ idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index", wide = TRU
 idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index",
     wide = TRUE, string_value = FALSE, unit = TRUE
 )
+
+# create table for new object input
+idf$to_table(class = "BuildingSurface:Detailed", init = TRUE)
 }
 
 }
@@ -3383,6 +3769,7 @@ idf$to_table(class = "BuildingSurface:Detailed", group_ext = "index",
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-is_unsaved"></a>}}
+\if{latex}{\out{\hypertarget{method-is_unsaved}{}}}
 \subsection{Method \code{is_unsaved()}}{
 Check if there are unsaved changes in current \code{Idf}
 \subsection{Usage}{
@@ -3412,6 +3799,7 @@ idf$is_unsaved()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-save"></a>}}
+\if{latex}{\out{\hypertarget{method-save}{}}}
 \subsection{Method \code{save()}}{
 Save \code{Idf} object as an IDF file
 \subsection{Usage}{
@@ -3490,6 +3878,7 @@ idf$save(path = file.path(tempdir(), "test1.idf"), copy_external = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-run"></a>}}
+\if{latex}{\out{\hypertarget{method-run}{}}}
 \subsection{Method \code{run()}}{
 Run simulation using EnergyPlus
 \subsection{Usage}{
@@ -3614,6 +4003,7 @@ job$report_data()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-last_job"></a>}}
+\if{latex}{\out{\hypertarget{method-last_job}{}}}
 \subsection{Method \code{last_job()}}{
 Get the last simulation job
 \subsection{Usage}{
@@ -3643,7 +4033,124 @@ idf$last_job()
 
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-geometry"></a>}}
+\if{latex}{\out{\hypertarget{method-geometry}{}}}
+\subsection{Method \code{geometry()}}{
+Extract \code{Idf} geometries
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Idf$geometry()}\if{html}{\out{</div>}}
+}
+
+\subsection{Details}{
+\verb{$geometry()} extracts all geometry objects into an \link{IdfGeometry}
+object. \code{IdfGeometry} is an abstraction of a collection of geometry
+in an \link{Idf}. It provides more detail methods to query geometry
+properties, update geometry vertices and visualize geometry in 3D
+using the \href{https://cran.r-project.org/package=rgl}{rgl} package.
+}
+
+\subsection{Returns}{
+An \link{IdfGeometry} object.
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+idf$geometry()
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-view"></a>}}
+\if{latex}{\out{\hypertarget{method-view}{}}}
+\subsection{Method \code{view()}}{
+View 3D \code{Idf} geometry
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Idf$view(
+  new = FALSE,
+  render_by = "surface_type",
+  wireframe = TRUE,
+  x_ray = FALSE,
+  axis = TRUE
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{new}}{If \code{TRUE}, a new rgl window will be open using
+\code{\link[rgl:rgl.open]{rgl::rgl.open()}}. If \code{FALSE}, existing rgl window will be
+reused if possible. Default: \code{FALSE}.}
+
+\item{\code{render_by}}{A single string specifying the way of rendering the
+geometry. Possible values are:
+\itemize{
+\item \code{"surface_type"}: Default. Render the model by surface type
+model. Walls, roofs, windows, doors, floors, and shading
+surfaces will have unqiue colors.
+\item \code{"boundary"}: Render the model by outside boundary condition.
+Only surfaces that have boundary conditions will be rendered
+with a color. All other surfaces will be white.
+\item \code{"construction"}: Render the model by surface constructions.
+\item \code{"zone"}: Render the model by zones assigned.
+\item \code{"normal"}: Render the model by surface normal. The outside
+face of a heat transfer face will be rendered as white and the
+inside face will be rendered as red.
+}}
+
+\item{\code{wireframe}}{If \code{TRUE}, the wireframe of each surface will be
+shown. Default: \code{TRUE}.}
+
+\item{\code{x_ray}}{If \code{TRUE}, all surfaces wll be rendered translucently.
+Default: \code{FALSE}.}
+
+\item{\code{axis}}{If \code{TRUE}, the X, Y and Z axes will be drawn at the
+global origin. Default: \code{TRUE}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+\verb{$view()} uses the \href{https://cran.r-project.org/package=rgl}{rgl}
+package to visualize the IDF geometry in 3D in a similar way as
+\href{https://www.openstudio.net}{OpenStudio}.
+
+\verb{$view()} returns an \link{IdfViewer} object which can be used to further
+tweak the viewer scene.
+
+In the rgl window, you can control the view using your mouse:
+\itemize{
+\item Left button: Trackball
+\item Right button: Pan
+\item Middle button: Field-of-view (FOV). '0' means orthographic
+projection.
+\item Wheel: Zoom
+}
+}
+
+\subsection{Returns}{
+An \link{IdfViewer} object
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+idf$view()
+idf$view(render_by = "zone")
+idf$view(render_by = "construction")
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-print"></a>}}
+\if{latex}{\out{\hypertarget{method-print}{}}}
 \subsection{Method \code{print()}}{
 Print \code{Idf} object
 \subsection{Usage}{
@@ -3710,6 +4217,7 @@ idf$print("field", order = FALSE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-clone"></a>}}
+\if{latex}{\out{\hypertarget{method-clone}{}}}
 \subsection{Method \code{clone()}}{
 The objects of this class are cloneable with this method.
 \subsection{Usage}{

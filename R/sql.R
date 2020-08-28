@@ -66,13 +66,14 @@ EplusSql <- R6::R6Class(classname = "EplusSql", cloneable = FALSE,
         #' }
         #' }
         #'
+        #' @importFrom checkmate assert_file_exists
         initialize = function (sql) {
-            assert(is_string(sql), has_ext(sql, "sql"))
+            assert_file_exists(sql, "r", "sql")
             private$m_path_sql <- normalizePath(sql, mustWork = TRUE)
             private$m_path_idf <- paste0(tools::file_path_sans_ext(private$m_path_sql), ".idf")
-            if (!file.exists(private$m_path_idf)) {
+            if (!checkmate::test_file_exists(private$m_path_idf)) {
                 private$m_path_idf <- file.path(dirname(private$m_path_sql), "in.idf")
-                if (!file.exists(private$m_path_idf)) {
+                if (!checkmate::test_file_exists(private$m_path_idf)) {
                     private$m_path_idf <- NULL
                 }
             }
@@ -346,6 +347,14 @@ EplusSql <- R6::R6Class(classname = "EplusSql", cloneable = FALSE,
         #'        and `CustomDay2`. All possible values for current simulation
         #'        output can be obtained using
         #'        \href{../../eplusr/html/EplusSql.html#method-read_table}{\code{$read_table("Time")}}.
+        #'        A few grouped options are also provided:
+        #'
+        #' - `"Weekday"`: All working days, i.e. from Monday to Friday
+        #' - `"Weekend"`: Saturday and Sunday
+        #' - `"DesignDay"`: Equivalent to `"SummerDesignDay"` plus `"WinterDesignDay"`
+        #' - `"CustomDay"`: CustomDay1 and CustomDay2
+        #' - `"SpecialDay"`: Equivalent to `"DesignDay"` plus `"CustomDay"`
+        #' - `"NormalDay"`: Equivalent to `"Weekday"` and `"Weekend"` plus `"Holiday"`
         #'
         #' @param environment_name A character vector to specify which
         #'        environment data to extract. If `NULL`, all environment data
@@ -582,7 +591,7 @@ sql_report_data <- function (self, private, key_value = NULL, name = NULL, year 
                              interval = NULL, simulation_days = NULL, day_type = NULL,
                              environment_name = NULL) {
     if (identical(case, "auto")) case <- tools::file_path_sans_ext(basename(private$m_path_sql))
-    get_sql_report_data(private$m_path_sql,
+    get_sql_report_data(private$m_path_sql, NULL,
         key_value = key_value, name = name, year = year,
         tz = tz, case = case, all = all, wide = wide,
         period = period, month = month, day = day, hour = hour, minute = minute,

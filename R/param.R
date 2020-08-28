@@ -47,24 +47,30 @@ ParametricJob <- R6::R6Class(classname = "ParametricJob", cloneable = FALSE,
         #'     idf_path <- file.path(eplus_config(8.8)$dir, "ExampleFiles", idf_name)
         #'     epw_path <- file.path(eplus_config(8.8)$dir, "WeatherData", epw_name)
         #'
-        #'     # create from an Idf and an Epw object
+        #'     # create from an IDF and an EPW
+        #'     param <- param_job(idf_path, epw_path)
         #'     param <- ParametricJob$new(idf_path, epw_path)
+        #'
+        #'     # create from an Idf and an Epw object
+        #'     param_job(read_idf(idf_path), read_epw(epw_path))
         #' }
         #' }
         #'
         initialize = function (idf, epw) {
-            private$m_seed <- get_init_idf(idf)
-            if (!is.null(epw)) private$m_epws <- list(get_init_epw(epw))
+            # add Output:SQLite and Output:VariableDictionary if necessary
+            idf <- get_init_idf(idf, sql = TRUE, dict = TRUE, csv = TRUE)
 
-            # add Output:SQLite if necessary
-            add_sql <- idf_add_output_sqlite(private$m_seed)
-            # add Output:VariableDictionary if necessary
-            add_dict <- idf_add_output_vardict(private$m_seed)
+            private$m_seed <- idf
+
             # log if the input idf has been changed
-            private$m_log$unsaved <- add_sql || add_dict
+            private$m_log <- new.env(hash = FALSE, parent = emptyenv())
+            private$m_log$unsaved <- attr(idf, "sql") || attr(idf, "dict") || attr(idf, "csv")
+
+            if (!is.null(epw)) private$m_epws_path <- get_init_epw(epw)
 
             # save uuid
-            private$m_log$seed_uuid <- ._get_private(private$m_seed)$m_log$uuid
+            private$log_seed_uuid()
+            private$log_new_uuid()
         },
         # }}}
 
@@ -338,10 +344,11 @@ ParametricJob <- R6::R6Class(classname = "ParametricJob", cloneable = FALSE,
     private = list(
         # PRIVATE FIELDS {{{
         m_seed = NULL,
-        m_idfs = NULL,
-        m_epws = NULL,
-        m_job = NULL,
-        m_log = NULL
+        # }}}
+        # PRIVATE FUNCTIONS {{{
+        seed_uuid = function () get_priv_env(private$m_seed)$m_log$uuid,
+        log_seed_uuid = function () private$m_log$seed_uuid <- private$seed_uuid(),
+        cached_seed_uuid = function () private$m_log$seed_uuid
         # }}}
     )
 )
@@ -354,30 +361,13 @@ ParametricJob <- R6::R6Class(classname = "ParametricJob", cloneable = FALSE,
 #'
 #' @param idf A path to EnergyPlus IDF or IMF file or an `Idf` object.
 #' @param epw A path to EnergyPlus EPW file or an `Epw` object. `epw` can also
-#' be `NULL` which will force design-day-only simulation when
-#' [`$run()`][ParametricJob] method is called. Note this needs at least one
-#' `Sizing:DesignDay` object exists in the [Idf].
+#'        be `NULL` which will force design-day-only simulation when
+#'        [`$run()`][ParametricJob] method is called. Note this needs at least
+#'        one `Sizing:DesignDay` object exists in the [Idf].
 #' @return A `ParametricJob` object.
-#' @examples
-#' \dontrun{
-#' if (is_avail_eplus(8.8)) {
-#'     idf_name <- "1ZoneUncontrolled.idf"
-#'     epw_name <-  "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
-#'
-#'     idf_path <- file.path(eplus_config(8.8)$dir, "ExampleFiles", idf_name)
-#'     epw_path <- file.path(eplus_config(8.8)$dir, "WeatherData", epw_name)
-#'
-#'     # create from local files
-#'     param_job(idf_path, epw_path)
-#'
-#'     # create from an Idf and an Epw object
-#'     param_job(read_idf(idf_path), read_epw(epw_path))
-#' }
-#' }
-#'
 #' @seealso [eplus_job()] for creating an EnergyPlus single simulation job.
+#' @name ParametricJob
 #' @export
-#' @author Hongyuan Jia
 # param_job {{{
 param_job <- function (idf, epw) {
     ParametricJob$new(idf, epw)
@@ -401,38 +391,48 @@ param_models <- function (self, private) {
 # }}}
 # param_weather {{{
 param_weather <- function (self, private) {
-    private$m_epws[[1L]]
+    if (is.null(private$m_epws_path)) NULL else read_epw(private$m_epws_path)
 }
 # }}}
 # param_apply_measure {{{
-param_apply_measure <- function (self, private, measure, ..., .names = NULL) {
-    assert(is.function(measure))
+#' @importFrom checkmate assert_function
+param_apply_measure <- function (self, private, measure, ..., .names = NULL, .env = parent.frame()) {
+    checkmate::assert_function(measure)
 
     if (length(formals(measure)) < 2L) {
-        abort("error_measure_no_arg", "`measure` function must have at least two argument.")
+        stop("'measure' function must have at least two argument")
     }
 
     measure_wrapper <- function (idf, ...) {
-        assert(is_idf(idf), msg = paste0("Measure should take an `Idf` object as input, not `", class(idf)[[1]], "`."))
+        if (!is_idf(idf)) {
+            stop("Measure should take an 'Idf' object as input, not '", class(idf)[[1]], "'")
+        }
         idf <- idf$clone(deep = TRUE)
         idf <- measure(idf, ...)
-        assert(is_idf(idf), msg = paste0("Measure should return an `Idf` object, not `", class(idf)[[1]], "`."))
+        if (!is_idf(idf)) {
+            stop("Measure should return an 'Idf' object, not '", class(idf)[[1]], "'")
+        }
         idf
     }
 
-    mea_nm <- deparse(substitute(measure, parent.frame()))
+    if (is.name(substitute(measure, .env))) {
+        bare <- FALSE
+        mea_nm <- deparse(substitute(measure, .env))
+    } else {
+        bare <- TRUE
+        mea_nm <- "case"
+    }
     private$m_log$measure_name <- mea_nm
 
     out <- mapply(measure_wrapper, ...,
         MoreArgs = list(idf = private$m_seed), SIMPLIFY = FALSE, USE.NAMES = FALSE)
 
     if (is.null(.names)) {
-        if (length(mea_nm) > 1L) mea_nm <- "case"
         nms <- paste0(mea_nm, "_", seq_along(out))
     } else {
-        assert(have_same_len(out, .names),
-            msg = paste0(length(out), " models created with only ", length(.names), " names given.")
-        )
+        if (length(out) != length(.names)) {
+            stop(paste0(length(out), " models created with only ", length(.names), " names given"))
+        }
         nms <- make.unique(as.character(.names), sep = "_")
     }
 
@@ -441,10 +441,12 @@ param_apply_measure <- function (self, private, measure, ..., .names = NULL) {
     private$m_idfs <- out
 
     # log unique ids
-    private$m_log$uuid <- vcapply(private$m_idfs, function (idf) ._get_private(idf)$m_log$uuid)
+    private$log_idf_uuid()
+    private$log_new_uuid()
+    private$m_log$unsaved <- rep(TRUE, length(out))
 
     if (eplusr_option("verbose_info")) {
-        if (length(private$m_log$measure_name) > 1L) {
+        if (bare) {
             mea_nm <- "function"
         } else {
             mea_nm <- surround(mea_nm)
@@ -461,51 +463,44 @@ param_apply_measure <- function (self, private, measure, ..., .names = NULL) {
 # param_run {{{
 param_run <- function (self, private, output_dir = NULL, wait = TRUE, force = FALSE, copy_external = FALSE, echo = wait) {
     if (is.null(private$m_idfs)) {
-        abort("error_no_measured_applied", "No measure has been applied.")
+        abort("No measure has been applied.")
     }
 
     # check if generated models have been modified outside
-    uuid <- vapply(private$m_idfs, function (idf) ._get_private(idf)$m_log$uuid, character(1))
-    if (any(uuid != private$m_log$uuid)) {
-        warn("warning_param_modified",
-            paste0(
+    uuid <- private$idf_uuid()
+    if (any(i <- uuid != private$cached_idf_uuid())) {
+        warn(paste0(
                 "Some of the parametric models have been modified after created using `$apply_measure()`. ",
                 "Running these models will result in simulation outputs that may be not reproducible. ",
                 "It is recommended to re-apply your original measure using `$apply_measure()` and call `$run()` again. ",
                 "Models that have been modified are listed below:\n",
-                paste0(" # ", seq_along(uuid)[uuid != private$m_log$uuid]," | ",
-                    names(uuid)[uuid != private$m_log$uuid], collapse = "\n"
-                )
-            )
+                paste0(" # ", seq_along(uuid)[i], " | ", names(uuid)[i], collapse = "\n")
+            ),
+            "param_model_modified"
         )
+        private$log_unsaved(which(i))
     }
 
+    private$log_new_uuid()
     epgroup_run_models(self, private, output_dir, wait, force, copy_external, echo)
 }
 # }}}
 # param_save {{{
+#' @importFrom checkmate assert_string
 param_save <- function (self, private, dir = NULL, separate = TRUE, copy_external = FALSE) {
     if (is.null(private$m_idfs)) {
-        abort("error_no_measured_applied",
-            "No parametric models found since no measure has been applied."
-        )
+        abort("No parametric models found since no measure has been applied.")
     }
 
     # restore uuid
-    uuid <- vcapply(private$m_idfs, function (idf) ._get_private(idf)$m_log$uuid)
+    uuid <- private$idf_uuid()
 
     path_idf <- normalizePath(private$m_seed$path(), mustWork = TRUE)
-
-    if (is.null(private$m_epws)) {
-        path_epw <- NULL
-    } else {
-        path_epw <- vcapply(private$m_epws, function (epw) epw$path())
-    }
 
     if (is.null(dir))
         dir <- dirname(path_idf)
     else {
-        assert(is_string(dir))
+        assert_string(dir)
     }
 
     if (!dir.exists(dir)) {
@@ -531,6 +526,7 @@ param_save <- function (self, private, dir = NULL, separate = TRUE, copy_externa
         function (x, y) x$save(y, overwrite = TRUE, copy_external = copy_external)
     )
     # copy weather
+    path_epw <- private$m_epws_path
     if (!is.null(path_epw)) {
         path_epw <- copy_run_files(path_epw, unique(dirname(path_param)))
     } else {
@@ -541,7 +537,7 @@ param_save <- function (self, private, dir = NULL, separate = TRUE, copy_externa
     # if not assign original here, the model modification checkings in `$run()`
     # may be incorrect.
     for (i in seq_along(uuid)) {
-        log <- ._get_private(private$m_idfs[[i]])$m_log
+        log <- get_priv_env(private$m_idfs[[i]])$m_log
         log$uuid <- uuid[[i]]
     }
 
@@ -550,10 +546,9 @@ param_save <- function (self, private, dir = NULL, separate = TRUE, copy_externa
 # }}}
 # param_print {{{
 param_print <- function (self, private) {
-    path_epw <- if (is.null(private$m_epws)) NULL else vcapply(private$m_epws, function (epw) epw$path())
     print_job_header(title = "EnergPlus Parametric Simulation Job",
         path_idf = private$m_seed$path(),
-        path_epw = path_epw,
+        path_epw = private$m_epws_path,
         eplus_ver = private$m_seed$version(),
         name_idf = "Seed", name_epw = "Weather"
     )
@@ -572,3 +567,14 @@ param_print <- function (self, private) {
     epgroup_print_status(self, private, epw = FALSE)
 }
 # }}}
+
+#' @export
+`==.ParametricJob` <- function (e1, e2) {
+    if (!inherits(e2, "ParametricJob")) return(FALSE)
+    identical(get_priv_env(e1)$uuid(), get_priv_env(e2)$uuid())
+}
+
+#' @export
+`!=.ParametricJob` <- function (e1, e2) {
+    Negate(`==.ParametricJob`)(e1, e2)
+}

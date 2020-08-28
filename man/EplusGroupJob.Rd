@@ -3,11 +3,31 @@
 \docType{class}
 \name{EplusGroupJob}
 \alias{EplusGroupJob}
+\alias{group_job}
 \title{Create and Run Parametric Analysis, and Collect Results}
+\usage{
+group_job(idfs, epws)
+}
+\arguments{
+\item{idfs}{Paths to EnergyPlus IDF files or a list of IDF files and \link{Idf}
+objects.}
+
+\item{epws}{Paths to EnergyPlus EPW files or a list of EPW files and \link{Epw}
+objects. Each element in the list can be \code{NULL}, which will force
+design-day-only simulation when \code{\link[=EplusGroupJob]{$run()}} method is
+called. Note this needs at least one \code{Sizing:DesignDay} object exists
+in that \link{Idf}. If \code{epws} is \code{NULL}, design-day-only simulation will be
+conducted for all input models.}
+}
+\value{
+A \code{EplusGroupJob} object.
+}
 \description{
 \code{EplusGroupJob} class is a wrapper of \code{\link[=run_multi]{run_multi()}} and provides an interface
 to group multiple EnergyPlus simulations together for running and collecting
 outputs.
+
+\code{group_job()} takes IDFs and EPWs as input and returns a \code{EplusGroupJob}.
 }
 \examples{
 
@@ -23,7 +43,11 @@ if (is_avail_eplus(8.8)) {
     path_epws <- list.files(file.path(dir, "WeatherData"), "\\\\.epw",
         full.names = TRUE)[1:5]
 
-    group <- EplusGroupJob$new(path_idfs, path_epws)
+    # create from local files
+    group <- group_job(path_idfs, path_epws)
+
+    # create from Idfs and Epws object
+    group_job(lapply(path_idfs, read_idf), lapply(path_epws, read_epw))
 }
 }
 
@@ -106,7 +130,7 @@ group$output_dir(c(1, 4))
 # get the file path of the error file
 group$locate_output(c(1, 4), ".err", strict = FALSE)
 
-# can use to detect if certain output file exists
+# can detect if certain output file exists
 group$locate_output(c(1, 4), ".expidf", strict = TRUE)
 }
 
@@ -226,6 +250,9 @@ group$print()
 }
 
 }
+\seealso{
+\code{\link[=eplus_job]{eplus_job()}} for creating an EnergyPlus single simulation job.
+}
 \author{
 Hongyuan Jia
 }
@@ -251,6 +278,7 @@ Hongyuan Jia
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-new"></a>}}
+\if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
 Create an \code{EplusGroupJob} object
 \subsection{Usage}{
@@ -287,7 +315,11 @@ if (is_avail_eplus(8.8)) {
     path_epws <- list.files(file.path(dir, "WeatherData"), "\\\\.epw",
         full.names = TRUE)[1:5]
 
-    group <- EplusGroupJob$new(path_idfs, path_epws)
+    # create from local files
+    group <- group_job(path_idfs, path_epws)
+
+    # create from Idfs and Epws object
+    group_job(lapply(path_idfs, read_idf), lapply(path_epws, read_epw))
 }
 }
 
@@ -299,6 +331,7 @@ if (is_avail_eplus(8.8)) {
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-run"></a>}}
+\if{latex}{\out{\hypertarget{method-run}{}}}
 \subsection{Method \code{run()}}{
 Run grouped simulations
 \subsection{Usage}{
@@ -383,6 +416,7 @@ group$run(copy_external = TRUE, echo = FALSE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-kill"></a>}}
+\if{latex}{\out{\hypertarget{method-kill}{}}}
 \subsection{Method \code{kill()}}{
 Kill current running jobs
 \subsection{Usage}{
@@ -412,6 +446,7 @@ group$kill()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-status"></a>}}
+\if{latex}{\out{\hypertarget{method-status}{}}}
 \subsection{Method \code{status()}}{
 Get the group job status
 \subsection{Usage}{
@@ -428,7 +463,7 @@ otherwise.
 simulation. \code{FALSE} otherwise. \code{NA} if the job has not been run yet.
 \item \code{successful}: \code{TRUE} if all simulations ended successfully. \code{FALSE} if
 there is any simulation failed. \code{NA} if the job has not been run yet.
-\item \code{changed_after}: \code{TRUE} if the \emph{seed model} has been modified since last
+\item \code{changed_after}: \code{TRUE} if the models has been modified since last
 simulation. \code{FALSE} otherwise.
 \item \code{job_status}: A \code{\link[data.table:data.table]{data.table::data.table()}} contains meta data
 for each simulation job. For details, please see \code{\link[=run_multi]{run_multi()}}. If the
@@ -462,6 +497,7 @@ group$status()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-errors"></a>}}
+\if{latex}{\out{\hypertarget{method-errors}{}}}
 \subsection{Method \code{errors()}}{
 Read group simulation errors
 \subsection{Usage}{
@@ -506,6 +542,7 @@ group$errors(info = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-output_dir"></a>}}
+\if{latex}{\out{\hypertarget{method-output_dir}{}}}
 \subsection{Method \code{output_dir()}}{
 Get simulation output directory
 \subsection{Usage}{
@@ -546,6 +583,7 @@ group$output_dir(c(1, 4))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-locate_output"></a>}}
+\if{latex}{\out{\hypertarget{method-locate_output}{}}}
 \subsection{Method \code{locate_output()}}{
 Get paths of output file
 \subsection{Usage}{
@@ -582,7 +620,7 @@ A character vector.
 # get the file path of the error file
 group$locate_output(c(1, 4), ".err", strict = FALSE)
 
-# can use to detect if certain output file exists
+# can detect if certain output file exists
 group$locate_output(c(1, 4), ".expidf", strict = TRUE)
 }
 
@@ -594,6 +632,7 @@ group$locate_output(c(1, 4), ".expidf", strict = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-list_table"></a>}}
+\if{latex}{\out{\hypertarget{method-list_table}{}}}
 \subsection{Method \code{list_table()}}{
 List all table names in EnergyPlus SQL outputs
 \subsection{Usage}{
@@ -632,6 +671,7 @@ group$list_table(c(1, 4))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-read_table"></a>}}
+\if{latex}{\out{\hypertarget{method-read_table}{}}}
 \subsection{Method \code{read_table()}}{
 Read the same table from EnergyPlus SQL outputs
 \subsection{Usage}{
@@ -676,6 +716,7 @@ group$read_table(c(1, 4), "Zones")
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-read_rdd"></a>}}
+\if{latex}{\out{\hypertarget{method-read_rdd}{}}}
 \subsection{Method \code{read_rdd()}}{
 Read Report Data Dictionary (RDD) files
 \subsection{Usage}{
@@ -715,6 +756,7 @@ group$read_rdd(c(1, 4))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-read_mdd"></a>}}
+\if{latex}{\out{\hypertarget{method-read_mdd}{}}}
 \subsection{Method \code{read_mdd()}}{
 Read Meter Data Dictionary (MDD) files
 \subsection{Usage}{
@@ -754,6 +796,7 @@ group$read_mdd(c(1, 4))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-report_data_dict"></a>}}
+\if{latex}{\out{\hypertarget{method-report_data_dict}{}}}
 \subsection{Method \code{report_data_dict()}}{
 Read report data dictionary from EnergyPlus SQL outputs
 \subsection{Usage}{
@@ -812,6 +855,7 @@ group$report_data_dict(c(1, 4))
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-report_data"></a>}}
+\if{latex}{\out{\hypertarget{method-report_data}{}}}
 \subsection{Method \code{report_data()}}{
 Read report data
 \subsection{Usage}{
@@ -902,7 +946,16 @@ to extract. All possible day types are: \code{Sunday}, \code{Monday},
 \code{Holiday}, \code{SummerDesignDay}, \code{WinterDesignDay}, \code{CustomDay1},
 and \code{CustomDay2}. All possible values for current simulation
 output can be obtained using
-\href{../../eplusr/html/EplusGroupJob.html#method-read_table}{\code{$read_table(NULL, "Time")}}.}
+\href{../../eplusr/html/EplusGroupJob.html#method-read_table}{\code{$read_table(NULL, "Time")}}.
+A few grouped options are also provided:
+\itemize{
+\item \code{"Weekday"}: All working days, i.e. from Monday to Friday
+\item \code{"Weekend"}: Saturday and Sunday
+\item \code{"DesignDay"}: Equivalent to \code{"SummerDesignDay"} plus \code{"WinterDesignDay"}
+\item \code{"CustomDay"}: CustomDay1 and CustomDay2
+\item \code{"SpecialDay"}: Equivalent to \code{"DesignDay"} plus \code{"CustomDay"}
+\item \code{"NormalDay"}: Equivalent to \code{"Weekday"} and \code{"Weekend"} plus \code{"Holiday"}
+}}
 
 \item{\code{environment_name}}{A character vector to specify which
 environment data to extract. If \code{NULL}, all environment data
@@ -1038,6 +1091,7 @@ group$report_data(c(1, 4), dict[1], hour = 8:18, day_type = "monday", simulation
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-tabular_data"></a>}}
+\if{latex}{\out{\hypertarget{method-tabular_data}{}}}
 \subsection{Method \code{tabular_data()}}{
 Read tabular data
 \subsection{Usage}{
@@ -1141,6 +1195,7 @@ str(group$tabular_data(c(1, 4),
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-print"></a>}}
+\if{latex}{\out{\hypertarget{method-print}{}}}
 \subsection{Method \code{print()}}{
 Print \code{EplusGroupJob} object
 \subsection{Usage}{

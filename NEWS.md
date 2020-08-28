@@ -1,3 +1,187 @@
+# eplusr 0.13.0
+
+## New features
+
+* `Idf$add()` and `Idf$set()` have new features:
+
+  ```r
+  # refer to field using '..'
+  idf$add(Material = list(..1 = "mat", ..7 = 0.95))
+  idf$set(mat = list(..6 = 0.5))
+
+  # using vector field values
+  idf$add(Material := list(..1 = sprintf("mat%i", 1:10)))
+  idf$set(c(sprintf("mat%i", 1:10)) := list(..6 = runif(10)))
+  ```
+* `Idf$to_table()` gains a new parameter `force`. The default value is `FALSE`. If
+  `TRUE`, you can convert object data from any classes into a wide data.table.
+  This may be useful when you know that target classes have the exact same
+  fields, e.g.  `Ceiling:Adiabatic` and `Floor:Adiabatic` (#202).
+* A new method `Idf$purge()` has been added (#223). It can be used to delete any
+  resource objects that are not referenced by other objects. Here resource
+  objects indicate all objects that can be referenced by other objects, e.g. all
+  schedules. `$purge()` will ignore any inputs that are not resources. If inputs
+  contain objects from multiple classes, references among them are also taken
+  into account, which means purging is performed hierarchically. If both
+  materials and constructions are specified, the latter will be purged first,
+  because it is possible that input constructions reference input materials.
+  `Idf$purge()` makes it quite straightforward to perform IDF cleaning. Actions
+  like removing all materials, constructions and schedules can be easily
+  achieved via
+  ```r
+  Idf$purge(class = c("Material", "Construction"), group = "Schedules")
+  ```
+* New methods `Idf$duplicatd()` and `Idf$unique()` have been added. They can be
+  used to detect and remove duplicated objects, respectively. Here duplicated
+  objects refer to objects whose field values are the same except the names.
+  Object comments are ignored during comparison. These two methods can be
+  useful when doing model cleaning (#227).
+* Now if `class` is set to `NULL` in `Idf$definition()`, the underlying `Idd`
+  object is returned (#237).
+* Internal helper functions `with_option()`, `with_silent()`, `with_verbose()`,
+  `with_speed()` and `without_checking()` have been exported. They can be used
+  to evaluate an expression with temporary eplusr options (#240).
+* Now `Idf$insert()` can directly take an `Idf` object or a list of `Idf`
+  objects as input. And also `Version` objects in input will be directly
+  skipped instead of giving an error (#245).
+* A new option `all` has been added in `IdfObject$print()` with default being
+  `FALSE`. If `TRUE`, all fields defined in [Idd] are printed even they do not
+  exist in current object (#247).
+* New S3 methods of `==` for all classes are added, i.e. `==.Idf`,
+  `==.IdfObject`, `==.Idd`, `==.IddObject`, `==.Epw`, `==.EplusJob`,
+  `==.EplusSql`, `==.EplusGroupJob`, `==.ParametricJob`. The negate methods are
+  also added. This makes it quite easy to check the equality of R6 objects of
+  these types (#250).
+* A new Generic function `reload()` is added. eplusr relies heavily on the
+  `data.table` package. The core data of all main
+  classes in eplusr are saved as `data.table`s. This introduces
+  a problem when loading saved `Idf` objects or other class objects via an
+  `*.RDS` and `*.RData` file on disk: the stored `data.table`s lose
+  their column over-allocation. `reload()` is a helper function that calls
+  `data.table::setDT()` on all internal `data.table`s to make
+  sure they are initialized properly. It is recommended to call `reload()` on
+  each `Idd`, `Idf` and other class object in eplusr loaded with `readRDS()` or
+  `load()`, to make sure all eplusr's functionaries works properly (#251).
+* The implementation of `EplusSql$report_data()` has been refactored, resulting
+  in a ~200% speed-up (#259).
+* Now `day_type` in `EplusSql$report_data()` has a few new options (#259):
+  - `"Weekday"`: All working days, i.e. from Monday to Friday
+  - `"Weekend"`: Saturday and Sunday
+  - `"DesignDay"`: Equivalent to `"SummerDesignDay"` plus `"WinterDesignDay"`
+  - `"CustomDay"`: CustomDay1 and CustomDay2
+  - `"SpecialDay"`: Equivalent to `"DesignDay"` plus `"CustomDay"`
+  - `"NormalDay"`: Equivalent to `"Weekday"` and `"Weekend"` plus `"Holiday"`
+* Some internal functions have been exported. They are mainly useful for
+  developers to handle internal IDD and IDF data more efficiently (#260).
+* A new `IdfScheduleCompact` class is introduced. A constructor function
+  `schedule_compact()` is added. `IdfScheduleCompact` class provides more
+  detailed methods to add, modify and extract schedule values. For more details,
+  see `vignette("schedule")` (#256).
+* New `IdfGeometry` and `IdfViewer` classes are introduced. `IdfGeometry` is
+  designed to extract data for all geometry objects and perform geometric
+  operations on them, while `IdfViewer` is to view IDF geoemtry in 3D using the
+  rgl package in a similar way as OpenStudio SketchUp Plugin. `Idf$geometry()`
+  and `Idf$view()` methods are added to directly create an `IdfGeometry` and
+  `IdfViewer` object based on current `Idf` object, respectively (#296).
+* A `plot.Idf` method is added which is basically a wrappper of `Idf$view()`
+  (#296).
+* Now eplusr can utilize the CSV output for report data extraction. Benifiting
+  from the fantastic `data.table::fread`, this approach can be as 3~10X faster
+  compared to the SQLite approach. eplusr will still use the SQLite if the CSV
+  output is not available.
+
+## Major changes
+
+* The algorithm of object/field/value relation extraction has been completed
+  refactored. Now it can correctly detect object recursive-reference and it's
+  faster (#222, #223).
+
+  All relation-related methods now have an unified interface:
+
+  ```r
+  X$method(which, direction, object = NULL, class = NULL, group = NULL, depth = NULL, keep = FALSE)
+  ```
+
+  Where `which` is a class index or object ID, `direction` is the target
+  relation direction to extract. All results can be further constrained via
+  3 extra arguments, i.e. `object`, `class` and `object`. `object` only
+  applicable to `Idf` and `IdfObject`. The `depth` argument is used to control
+  the depth for searching recursive relations. Default value is `0L`, which
+  means no recursive relations will be detected, while `NULL` means to search
+  all possible recursive relations.
+
+  A new `keep` parameter with default value `FALSE` has been added. If `TRUE`,
+  all input fields will be returned, even they may not have any relations. This
+  is the default behavior of v0.12.0 and before. In this version, only fields
+  that have relation with other objects will be returned.
+
+  With this update, it is possible, for example, to directly know the structure
+  of an air loop by using `idf$object_relation("AnAirLoop", depth = NULL)`
+
+  Moreover, a new argument `class_ref` can be specified in methods of
+  value-relation extraction. It can be used to specify how to handle
+  class-name-references. Class name references refer to references in like
+  field `Component 1 Object Type` in `Branch` objects. Their value refers to
+  other many class names of objects, instaed of refering to specific field
+  values. There are 3 options in total, i.e. `"none"`, `"both"` and `"all"`,
+  with `"both"` being the default.
+
+  * `"none"`: just ignore class-name-references. It is a reasonable
+    option, as for most cases, class-name-references always come along with
+    field value references. Ignoring class-name-references will not impact the
+    most part of the relation structure.
+  * `"both"`: only include class-name-references if this object
+    also reference field values of the same one. For example, if the value of
+    field `Component 1 Object Type` is `Coil:Heating:Water`, only the object
+    that is referenced in the next field `Component 1 Name` is treated as
+    referenced by `Component 1 Object Type`. This is the default option.
+  * `"all"`: include all class-name-references. For example, if the
+    value of field `Component 1 Object Type` is `Coil:Heating:Water`, all
+    objects in `Coil:Heating:Water` will be treated as referenced by that
+    field. This is the most aggressive option.
+* `read_epw()` will proceed parsing for non-standard EPW header format (#236).
+* Now `EplusSql$report_data()` will set the year values of day type
+  `SummerDesignDay` and `WinterDesignDay` to current year and the `day_type`
+  value will be left unchanged (#258).
+* Now `read_idf()` will always make sure all necessary fields are added during
+  parsing (#267).
+* `[[.IdfObject` now only accept standard field names. No underscore-style
+  names are allowed.
+* The suffix of automatcially created names in `Idf$dup()` has been changed
+  from `_X` to ` X`.
+* The `warning` parameter in `read_epw()`, `Epw$add()` and `Epw$set()` has been
+  deprecated (#298).
+
+## Minor changes
+
+* `EplusJob`, `EplusGroupJob` and `ParametricJob` will not parse input EPW
+  files, but only validate their existences and store the paths (#215)
+* `period` parameter in  `EplusSql$report_data()` now works as expected (#259).
+* `run_idf()` and `run_multi()` now return additional element/column called
+* `version` which contain the versions of EnergyPlus that are called during
+  simulations
+* `format.Idd()` now returns a single line string in format
+  `<EnergyPlus IDD v[Version] (Build) with X classes`.
+* The column `datasource` returned in `Epw$data()` has been renamed to
+  `data_source`.
+
+## Bug fixes
+
+* Fix the bug caused by `ExpandObjects` exectuable that causes `run_idf` fails
+  when running in parallel (#130)
+* `Idf$insert()` now will remove all duplicated objects in input (#219).
+* Fix the bug in `install_eplus()` on Windows (#230)
+* Fix the error in `$<-.Idf` when input list of `IdfObject`s are all from the
+  same `Idf` on the LHS (#238).
+* Now `Idf$insert()` and `Idf$load()` can now successfully remove duplicated
+  objects by comparing field values case-insensitively (#243)
+* Now `Epw$save()` can work with empty `DESIGN CONDITIONS`, `TYPICAL/EXTREME
+  PERIODS` and `GROUND TEMPERATURES` headers. Thanks @lukas-rokka for the
+  bug report (#263).
+* Fix output directory creation error in `EplusGroupJob`(#270).
+* Fix IDF header option parsing (#278).
+* Trailing spaces after class names in IDF can be handled correctly (#294).
+
 # eplusr 0.12.0
 
 ## New features

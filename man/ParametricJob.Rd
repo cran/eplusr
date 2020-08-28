@@ -3,10 +3,28 @@
 \docType{class}
 \name{ParametricJob}
 \alias{ParametricJob}
+\alias{param_job}
 \title{Create and Run Parametric Analysis, and Collect Results}
+\usage{
+param_job(idf, epw)
+}
+\arguments{
+\item{idf}{A path to EnergyPlus IDF or IMF file or an \code{Idf} object.}
+
+\item{epw}{A path to EnergyPlus EPW file or an \code{Epw} object. \code{epw} can also
+be \code{NULL} which will force design-day-only simulation when
+\code{\link[=ParametricJob]{$run()}} method is called. Note this needs at least
+one \code{Sizing:DesignDay} object exists in the \link{Idf}.}
+}
+\value{
+A \code{ParametricJob} object.
+}
 \description{
 \code{ParametricJob} class provides a prototype of conducting parametric analysis
 of EnergyPlus simulations.
+
+\code{param_job()} takes an IDF and EPW as input and returns a \code{ParametricJob}.
+For details on \code{ParametricJob}, please see \link{ParametricJob} class.
 }
 \details{
 Basically, it is a collection of multiple \code{EplusJob} objects. However, the
@@ -29,8 +47,12 @@ if (is_avail_eplus(8.8)) {
     idf_path <- file.path(eplus_config(8.8)$dir, "ExampleFiles", idf_name)
     epw_path <- file.path(eplus_config(8.8)$dir, "WeatherData", epw_name)
 
-    # create from an Idf and an Epw object
+    # create from an IDF and an EPW
+    param <- param_job(idf_path, epw_path)
     param <- ParametricJob$new(idf_path, epw_path)
+
+    # create from an Idf and an Epw object
+    param_job(read_idf(idf_path), read_epw(epw_path))
 }
 }
 
@@ -158,6 +180,9 @@ param$print()
 }
 
 }
+\seealso{
+\code{\link[=eplus_job]{eplus_job()}} for creating an EnergyPlus single simulation job.
+}
 \author{
 Hongyuan Jia
 }
@@ -198,6 +223,7 @@ Hongyuan Jia
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-new"></a>}}
+\if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
 Create a \code{ParametricJob} object
 \subsection{Usage}{
@@ -229,8 +255,12 @@ if (is_avail_eplus(8.8)) {
     idf_path <- file.path(eplus_config(8.8)$dir, "ExampleFiles", idf_name)
     epw_path <- file.path(eplus_config(8.8)$dir, "WeatherData", epw_name)
 
-    # create from an Idf and an Epw object
+    # create from an IDF and an EPW
+    param <- param_job(idf_path, epw_path)
     param <- ParametricJob$new(idf_path, epw_path)
+
+    # create from an Idf and an Epw object
+    param_job(read_idf(idf_path), read_epw(epw_path))
 }
 }
 
@@ -242,6 +272,7 @@ if (is_avail_eplus(8.8)) {
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-version"></a>}}
+\if{latex}{\out{\hypertarget{method-version}{}}}
 \subsection{Method \code{version()}}{
 Get the version of seed IDF
 \subsection{Usage}{
@@ -269,6 +300,7 @@ param$version()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-seed"></a>}}
+\if{latex}{\out{\hypertarget{method-seed}{}}}
 \subsection{Method \code{seed()}}{
 Get the seed \link{Idf} object
 \subsection{Usage}{
@@ -293,6 +325,7 @@ param$seed()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-weather"></a>}}
+\if{latex}{\out{\hypertarget{method-weather}{}}}
 \subsection{Method \code{weather()}}{
 Get the \link{Epw} object
 \subsection{Usage}{
@@ -318,6 +351,7 @@ param$weather()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-models"></a>}}
+\if{latex}{\out{\hypertarget{method-models}{}}}
 \subsection{Method \code{models()}}{
 Get created parametric \link{Idf} objects
 \subsection{Usage}{
@@ -354,6 +388,7 @@ param$models()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-apply_measure"></a>}}
+\if{latex}{\out{\hypertarget{method-apply_measure}{}}}
 \subsection{Method \code{apply_measure()}}{
 Create parametric models
 \subsection{Usage}{
@@ -440,6 +475,7 @@ param$apply_measure(rotate_building, degree = seq(30, 360, 30),
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-save"></a>}}
+\if{latex}{\out{\hypertarget{method-save}{}}}
 \subsection{Method \code{save()}}{
 Save parametric models
 \subsection{Usage}{
@@ -498,6 +534,7 @@ param$save(tempdir(), separate = FALSE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-run"></a>}}
+\if{latex}{\out{\hypertarget{method-run}{}}}
 \subsection{Method \code{run()}}{
 Run parametric simulations
 \subsection{Usage}{
@@ -570,6 +607,7 @@ print(param)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-print"></a>}}
+\if{latex}{\out{\hypertarget{method-print}{}}}
 \subsection{Method \code{print()}}{
 Print \code{ParametricJob} object
 \subsection{Usage}{

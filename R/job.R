@@ -8,7 +8,11 @@ NULL
 #' `EplusJob` class wraps the EnergyPlus command line interface and provides
 #' methods to extract simulation outputs.
 #'
-#' eplusr uses the EnergyPlus SQL output for extracting simulation outputs.
+#' eplusr uses the EnergyPlus SQL output and the CSV output for extracting
+#' simulation outputs. It will use the CSV output if possible, and will fall
+#' back to the SQL output when CSV output does not exist. Underneath,
+#' [data.table::fread()] is used to speed up the process when using CSV output.
+#'
 #' `EplusJob` has provide some wrappers that do SQL query to get report data
 #' results, i.e. results from `Output:Variable` and `Output:Meter*`. But for
 #' `Output:Table` results, you have to be familiar with the structure of the
@@ -23,6 +27,11 @@ NULL
 #' Dictionary) files are created during simulation, an object in
 #' `Output:VariableDictionary` class with `Key Field` value being `IDF` will be
 #' automatically created if it does not exists.
+#'
+#' In order to make sure all output variables and meters are placed in one CSV
+#' output, all objects in class `Output:Meter:MeterFileOnly`and
+#' `Output:Meter:Cumulative:MeterFileOnly` will be converted into `Output:Meter`
+#' and `Output:Meter:Cumulative`, respectively.
 #'
 #' @docType class
 #' @name EplusJob
@@ -45,6 +54,7 @@ EplusJob <- R6::R6Class(classname = "EplusJob", cloneable = FALSE,
         #' @return An `EplusJob` object.
         #'
         #' @examples
+        #' \dontrun{
         #' if (is_avail_eplus(8.8)) {
         #'     idf_name <- "1ZoneUncontrolled.idf"
         #'     epw_name <-  "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
@@ -52,7 +62,12 @@ EplusJob <- R6::R6Class(classname = "EplusJob", cloneable = FALSE,
         #'     idf_path <- file.path(eplus_config(8.8)$dir, "ExampleFiles", idf_name)
         #'     epw_path <- file.path(eplus_config(8.8)$dir, "WeatherData", epw_name)
         #'
-        #'     job <- EplusJob$new(idf_path, epw_path)
+        #'     # create from local files
+        #'     job <- eplus_job(idf_path, epw_path)
+        #'
+        #'     # create from an Idf and an Epw object
+        #'     job <- eplus_job(read_idf(idf_path), read_epw(epw_path))
+        #' }
         #' }
         initialize = function (idf, epw) {
             job_initialize(self, private, idf, epw)
@@ -260,8 +275,8 @@ EplusJob <- R6::R6Class(classname = "EplusJob", cloneable = FALSE,
         #' \dontrun{
         #' job$output_dir()
         #'
-        #' # open output directory
-        #' job$output_dir(open = TRUE)
+        #' # Below will open output directory
+        #' # job$output_dir(open = TRUE)
         #' }
         #'
         output_dir = function (open = FALSE)
@@ -398,8 +413,8 @@ EplusJob <- R6::R6Class(classname = "EplusJob", cloneable = FALSE,
         #'   `HVAC System`
         #' * `key_value`: Key name of the data
         #' * `name`: Actual report data name
-        #' * `reporting_frequency`:
-        #' * `schedule_name`: Name of the the schedule that controls reporting
+        #' * `reporting_frequency`: Data reporting frequency
+        #' * `schedule_name`: Name the the schedule that controls reporting
         #'     frequency.
         #' * `units`: The data units
         #'
@@ -721,9 +736,22 @@ EplusJob <- R6::R6Class(classname = "EplusJob", cloneable = FALSE,
     private = list(
         # PRIVATE FIELDS {{{
         m_idf = NULL,
-        m_epw = NULL,
+        m_epw_path = NULL,
         m_job = NULL,
-        m_log = NULL
+        m_log = NULL,
+        # }}}
+
+        # PRIVATE FUNCTIONS {{{
+        uuid = function () private$m_log$uuid,
+        log_new_uuid = function () log_new_uuid(private$m_log),
+
+        seed_uuid = function () get_priv_env(private$m_idf)$m_log$uuid,
+        log_seed_uuid = function () private$m_log$seed_uuid <- get_priv_env(private$m_idf)$m_log$uuid,
+        cached_seed_uuid = function () private$m_log$seed_uuid,
+
+        is_unsaved = function () private$m_log$unsaved,
+        log_saved = function () log_saved(private$m_log),
+        log_unsaved = function () log_unsaved(private$m_log)
         # }}}
     )
 )
@@ -732,34 +760,16 @@ EplusJob <- R6::R6Class(classname = "EplusJob", cloneable = FALSE,
 #' Create an EnergyPlus Simulation Job
 #'
 #' `eplus_job()` takes an IDF and EPW as input, and returns an `EplusJob` object
-#' for running EnergyPlus simulation and collecting outputs. For more details,
-#' please see [EplusJob].
+#' for running EnergyPlus simulation and collecting outputs.
 #'
 #' @param idf A path to an local EnergyPlus IDF file or an `Idf` object.
 #' @param epw A path to an local EnergyPlus EPW file or an `Epw` object. `epw`
-#' can also be `NULL` which will force design-day-only simulation when
-#' [`$run()`][EplusJob] method is called. Note this needs at least one
-#' `Sizing:DesignDay` object exists in the [Idf].
+#'        can also be `NULL` which will force design-day-only simulation when
+#'        [`$run()`][EplusJob] method is called. Note this needs at least one
+#'        `Sizing:DesignDay` object exists in the [Idf].
 #' @return An `EplusJob` object.
-#' @examples
-#' \dontrun{
-#' if (is_avail_eplus(8.8)) {
-#'     idf_name <- "1ZoneUncontrolled.idf"
-#'     epw_name <-  "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
-#'
-#'     idf_path <- file.path(eplus_config(8.8)$dir, "ExampleFiles", idf_name)
-#'     epw_path <- file.path(eplus_config(8.8)$dir, "WeatherData", epw_name)
-#'
-#'     # create from local files
-#'     eplus_job(idf_path, epw_path)
-#'
-#'     # create from an Idf and an Epw object
-#'     eplus_job(read_idf(idf_path), read_epw(epw_path))
-#' }
-#' }
-#'
 #' @seealso [param_job()] for creating an EnergyPlus parametric job.
-#' @author Hongyuan Jia
+#' @name EplusJob
 #' @export
 # eplus_job {{{
 eplus_job <- function (idf, epw) {
@@ -769,18 +779,17 @@ eplus_job <- function (idf, epw) {
 
 # job_initialize {{{
 job_initialize <- function (self, private, idf, epw) {
+    # add Output:SQLite and Output:VariableDictionary if necessary
     private$m_idf <- get_init_idf(idf)
-    if (!is.null(epw)) private$m_epw <- get_init_epw(epw)
+    if (!is.null(epw)) private$m_epw_path <- get_init_epw(epw)
 
-    # add Output:SQLite if necessary
-    add_sql <- idf_add_output_sqlite(private$m_idf)
-    # add Output:VariableDictionary if necessary
-    add_dict <- idf_add_output_vardict(private$m_idf)
     # log if the input idf has been changed
-    private$m_log$unsaved <- add_sql || add_dict
+    private$m_log <- new.env(hash = FALSE, parent = emptyenv())
+    private$m_log$unsaved <- attr(private$m_idf, "sql") || attr(private$m_idf, "dict") || attr(private$m_idf, "csv")
 
     # save uuid
-    private$m_log$seed_uuid <- ._get_private(private$m_idf)$m_log$uuid
+    private$log_seed_uuid()
+    private$log_new_uuid()
 }
 # }}}
 # job_version {{{
@@ -792,7 +801,7 @@ job_version <- function (self, private) {
 job_path <- function (self, private, type = c("all", "idf", "epw")) {
     type <- match.arg(type)
 
-    path_epw <- if (is.null(private$m_epw)) NA_character_ else private$m_epw$path()
+    path_epw <- if (is.null(private$m_epw_path)) NA_character_ else private$m_epw_path
     switch(type,
         all = c(idf = private$m_idf$path(), epw = path_epw),
         idf = private$m_idf$path(), epw = path_epw
@@ -803,22 +812,21 @@ job_path <- function (self, private, type = c("all", "idf", "epw")) {
 job_run <- function (self, private, epw, dir = NULL, wait = TRUE, force = FALSE,
                      echo = wait, copy_external = FALSE) {
     # stop if idf object has been changed accidentally
-    if (!identical(._get_private(private$m_idf)$m_log$uuid, private$m_log$seed_uuid)) {
-        abort("error_job_idf_modified", paste0(
-            "The idf has been modified after job was created. ",
-            "Running this idf will result in simulation outputs that may be not reproducible.",
-            "Please recreate the job using new idf and then run it."
+    if (!identical(private$seed_uuid(), private$cached_seed_uuid())) {
+        abort(paste0("The Idf has been modified after job was created. ",
+            "Running this Idf will result in simulation outputs that may be not reproducible.",
+            "Please recreate the job using new Idf and then run it."
         ))
     }
 
-    if (missing(epw)) epw <- private$m_epw
+    if (missing(epw)) epw <- private$m_epw_path
 
     if (is.null(epw)) {
-        private$m_epw <- epw
+        private$m_epw_path <- NULL
         path_epw <- NULL
     } else {
-        private$m_epw <- get_init_epw(epw)
-        path_epw <- private$m_epw$path()
+        private$m_epw_path <- get_init_epw(epw)
+        path_epw <- private$m_epw_path
     }
 
     path_idf <- private$m_idf$path()
@@ -830,19 +838,18 @@ job_run <- function (self, private, epw, dir = NULL, wait = TRUE, force = FALSE,
     }
 
     # if necessary, resave the model
-    if (private$m_log$unsaved || !is.null(dir)) {
+    if (private$is_unsaved() || !is.null(dir)) {
         path_idf <- private$m_idf$save(path_idf, overwrite = TRUE, copy_external = copy_external)
+        private$log_saved()
     }
 
     # when no epw is given, at least one design day object should exists
-    if (is.null(private$m_epw)) {
+    if (is.null(private$m_epw_path)) {
         if (!private$m_idf$is_valid_class("SizingPeriod:DesignDay")) {
-            assert("error_run_no_ddy",
-                paste0("When no weather file is given, input IDF should contain ",
-                    "`SizingPeriod:DesignDay` object to enable Design-Day-only ",
-                    "simulation."
-                )
-            )
+            abort(paste0("When no weather file is given, input IDF should contain ",
+                "at least one 'SizingPeriod:DesignDay' object to enable ",
+                "Design-Day-only simulation."
+            ))
         }
     }
 
@@ -857,8 +864,7 @@ job_run <- function (self, private, epw, dir = NULL, wait = TRUE, force = FALSE,
                     ") and start a new simulation...")
                 suppressMessages(self$kill())
             } else {
-                abort("error_job_still_alive", paste0(
-                    "The simulation of current Idf is still running (PID: ",
+                abort(paste0("The simulation of current Idf is still running (PID: ",
                     pid, "). Please set `force` to TRUE if you want ",
                     "to kill the running process and start a new simulation."
                 ))
@@ -870,11 +876,13 @@ job_run <- function (self, private, epw, dir = NULL, wait = TRUE, force = FALSE,
     private$m_log$killed <- NULL
 
     private$m_job <- run_idf(path_idf, path_epw,
-        output_dir = NULL, echo = echo, wait = wait, eplus = private$m_version,
-        design_day = is.null(private$m_epw)
+        output_dir = NULL, echo = echo, wait = wait, eplus = private$m_idf$version(),
+        design_day = is.null(private$m_epw_path)
     )
 
     if (wait) private$m_log$end_time <- Sys.time()
+
+    private$log_new_uuid()
     self
 }
 # }}}
@@ -939,8 +947,16 @@ job_status <- function (self, private) {
         status$alive <- TRUE
     } else {
         status$alive <- FALSE
-        proc$process$wait()
-        exit_status <- proc$process$get_exit_status()
+
+        # in waiting mode
+        if (!is.null(proc$exit_status)) {
+            exit_status <- proc$exit_status
+        # in non-waiting mode
+        } else {
+            proc$process$wait()
+            exit_status <- proc$process$get_exit_status()
+        }
+
         if (!is.na(exit_status) && exit_status == 0L) {
             status$successful <- TRUE
         } else {
@@ -949,7 +965,7 @@ job_status <- function (self, private) {
     }
 
     status$changed_after <- FALSE
-    if (!identical(private$m_log$seed_uuid, ._get_private(private$m_idf)$m_log$uuid)) {
+    if (!identical(private$cached_seed_uuid(), private$seed_uuid())) {
         status$changed_after <- TRUE
     }
 
@@ -1012,11 +1028,7 @@ job_locate_output <- function (self, private, suffix = ".err", strict = TRUE, mu
 
     }
 
-    if (must_exist) {
-        assert(file.exists(out), msg = paste0("File ", surround(out), " does not exists."),
-            err_type = "error_file_not_exist"
-        )
-    }
+    if (must_exist) checkmate::assert_file_exists(out, "r", .var.name = "output file")
 
     out
 }
@@ -1033,10 +1045,27 @@ job_output_errors <- function (self, private, info = FALSE) {
 # job_sql_path {{{
 job_sql_path <- function (self, private) {
     path_sql <- job_locate_output(self, private, ".sql", must_exist = FALSE)
-    if (!file.exists(path_sql)) {
-        abort("error_sql_not_exist", paste0("Simulation SQL output does not exist."))
-    }
+    checkmate::assert_file_exists(path_sql, "r", .var.name = "Simulation SQL output")
     path_sql
+}
+# }}}
+# job_csv_path {{{
+job_csv_path <- function (self, private) {
+    # check if meter file only is set
+    cls <- c("Output:Meter:MeterFileOnly", "Output:Meeter:Cumulative:MeterFileOnly")
+    if (any(i <- private$m_idf$is_valid_class(cls))) {
+        verbose_info(collapse(cls[i]), " found in IDF. Fall back to use SQL for data extraction")
+        return(NULL)
+    }
+
+    path_csv <- job_locate_output(self, private, ".csv", must_exist = FALSE)
+
+    if (!file.exists(path_csv)) {
+        verbose_info("No CSV output found. Fall back to use SQL for data extraction.")
+        return(NULL)
+    }
+
+    path_csv
 }
 # }}}
 # job_rdd_path {{{
@@ -1047,9 +1076,8 @@ job_rdd_path <- function (self, private, type = c("rdd", "mdd")) {
         rdd = "Report Data Dictionary (RDD) file",
         mdd = "Meter Data Dictionary (MDD) file"
     )
-    if (!file.exists(path)) {
-        assert(paste0("error_", type, "_not_exist"), paste0(name, " does not exist."))
-    }
+
+    checkmate::assert_file_exists(path, "r", .var.name = name)
 
     path
 }
@@ -1086,7 +1114,7 @@ job_report_data <- function (self, private, key_value = NULL, name = NULL, year 
                              interval = NULL, simulation_days = NULL, day_type = NULL,
                              environment_name = NULL) {
     if (identical(case, "auto")) case <- tools::file_path_sans_ext(basename(job_sql_path(self, private)))
-    get_sql_report_data(job_sql_path(self, private),
+    get_sql_report_data(job_sql_path(self, private), job_csv_path(self, private),
         key_value = key_value, name = name, year = year,
         tz = tz, case = case, all = all, wide = wide,
         period = period, month = month, day = day, hour = hour, minute = minute,
@@ -1107,7 +1135,7 @@ job_tabular_data <- function (self, private, report_name = NULL, report_for = NU
 # }}}
 # job_print {{{
 job_print <- function (self, private) {
-    path_epw <- if (is.null(private$m_epw)) NULL else private$m_epw$path()
+    path_epw <- if (is.null(private$m_epw_path)) NULL else private$m_epw_path
     print_job_header(title = "EnergPlus Simulation Job",
         path_idf = private$m_idf$path(),
         path_epw = path_epw,
@@ -1163,79 +1191,86 @@ str.EplusSql <- function (object, ...) {
 format.EplusSql <- function (x, ...) {
     paste0(utils::capture.output(x$print()), collapse = "\n")
 }
+
+#' @export
+`==.EplusJob` <- function (e1, e2) {
+    if (!inherits(e2, "EplusJob")) return(FALSE)
+    identical(get_priv_env(e1)$uuid(), get_priv_env(e2)$uuid())
+}
+
+#' @export
+`!=.EplusJob` <- function (e1, e2) {
+    Negate(`==.EplusJob`)(e1, e2)
+}
 # }}}
 
 # helper
 # get_init_idf {{{
-get_init_idf <- function (idf) {
-    if (!is_idf(idf)) return(read_idf(idf))
-
-    idf <- idf$clone(deep = TRUE)
+get_init_idf <- function (idf, sql = TRUE, dict = TRUE, csv = TRUE) {
+    idf <- if (!is_idf(idf)) read_idf(idf) else idf$clone(deep = TRUE)
 
     if (is.null(idf$path())) {
-        abort("error_idf_not_local",
-            paste0(
-                "The Idf object is not created from local file. ",
-                "Please save it using `$save()` before running."
-            )
-        )
+        abort("The Idf object is not created from local file. Please save it using `$save()` before running.", "idf_not_local")
     }
 
     if (!utils::file_test("-f", idf$path())) {
-        abort("error_idf_path_not_exist",
-            paste0(
-                "Failed to locate the local IDF file of input Idf object. ",
-                "Path: ", surround(idf$path()), " ",
-                "Please re-save it to disk using `$save()` before running."
-            )
-        )
+        abort(paste0("Failed to locate the local IDF file of input Idf object. ",
+            "Path: ", surround(idf$path()), " ",
+            "Please re-save it to disk using `$save()` before running."
+        ), "idf_path_not_exist")
     }
 
     if (idf$is_unsaved()) {
-        abort("error_idf_not_saved",
-            paste0("Idf has been modified since read or last saved. ",
-                "Please save it using `$save()` before running."
-            )
-        )
+        abort("Idf has been modified since read or last saved. Please save it using `$save()` before running.", "idf_not_saved")
     }
+
+    # add Output:SQLite if necessary
+    if (sql) sql <- idf_add_output_sqlite(idf)
+    setattr(idf, "sql", sql)
+
+    # add Output:VariableDictionary if necessary
+    if (dict) dict <- idf_add_output_vardict(idf)
+    setattr(idf, "dict", dict)
+
+    # change Output:Meter*:MeterFileOnly if necessary
+    if (csv) csv <- idf_set_output_meter(idf)
+    setattr(idf, "csv", csv)
 
     idf
 }
 # }}}
 # get_init_epw {{{
+#' @importFrom checkmate test_string
 get_init_epw <- function (epw) {
-    if (!is_epw(epw)) return(read_epw(epw))
+    if (checkmate::test_string(epw)) {
+        if (!utils::file_test("-f", epw)) {
+            abort(paste0("Input EPW file does not exist. ",
+                "Path: ", surround(normalizePath(epw, mustWork = FALSE))
+            ), "epw_path_not_exist")
+        }
+        path <- epw
+    } else {
+        epw <- if (!is_epw(epw)) read_epw(epw) else epw$clone(deep = TRUE)
 
-    epw <- epw$clone(deep = TRUE)
+        if (is.null(epw$path())) {
+            abort("The Epw object is not created from local file. Please save it using `$save()` before running.", "epw_not_local")
+        }
 
-    if (is.null(epw$path())) {
-        abort("error_epw_not_local",
-            paste0(
-                "The Epw object is not created from local file. ",
-                "Please save it using `$save()` before running."
-            )
-        )
-    }
-
-    if (!utils::file_test("-f", epw$path())) {
-        abort("error_epw_path_not_exist",
-            paste0(
-                "Failed to locate the local EPW file of input Epw object. ",
+        if (!utils::file_test("-f", epw$path())) {
+            abort(paste0("Failed to locate the local EPW file of input Epw object. ",
                 "Path: ", surround(epw$path()), " ",
                 "Please re-save it to disk using `$save()` before running."
-            )
-        )
+            ), "epw_path_not_exist")
+        }
+
+        if (epw$is_unsaved()) {
+            abort("Epw has been modified since read or last saved. Please save it using `$save()` before running.", "epw_not_saved")
+        }
+
+        path <- epw$path()
     }
 
-    if (epw$is_unsaved()) {
-        abort("error_epw_not_saved",
-            paste0("Epw has been modified since read or last saved. ",
-                "Please save it using `$save()` before running."
-            )
-        )
-    }
-
-    epw
+    normalizePath(path)
 }
 # }}}
 # print_job_header {{{
@@ -1244,11 +1279,26 @@ print_job_header <- function (title = "EnergyPlus Simulation Job", path_idf, pat
                               name_idf = "Model", name_epw = "Weather") {
     cli::cat_rule(title, col = "green")
     config <- eplus_config(eplus_ver)
+    if (is.null(config)) {
+        path_eplus <- "<< Not Found >>"
+        eplus_ver <- surround(eplus_ver)
+    } else {
+        path_eplus <- surround(normalizePath(config$dir))
+        eplus_ver <- surround(config$version)
+    }
+
+    path_idf <- normalizePath(path_idf, mustWork = FALSE)
+    path_epw <- if (is.null(path_epw)) {
+        "<< Not specified >>"
+    } else {
+        normalizePath(path_epw, mustWork = FALSE)
+    }
+
     cli::cat_line(c(
-        str_trunc(paste0("* ", name_idf, ": ", surround(normalizePath(path_idf, mustWork = FALSE)))),
-        str_trunc(paste0("* ", name_epw, ": ", if (is.null(path_epw)) "<< Not specified >>" else surround(path_epw))),
-        paste0("* EnergyPlus Version: ", surround(config$version)),
-        str_trunc(paste0("* EnergyPlus Path: ", surround(normalizePath(config$dir))))
+        str_trunc(paste0("* ", name_idf, ": ", surround(path_idf))),
+        str_trunc(paste0("* ", name_epw, ": ", surround(path_epw))),
+        paste0("* EnergyPlus Version: ", eplus_ver),
+        str_trunc(paste0("* EnergyPlus Path: ", path_eplus))
     ))
 }
 # }}}

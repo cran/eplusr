@@ -9,7 +9,7 @@ version_updater(idf, ver, dir = NULL, keep_all = FALSE)
 \arguments{
 \item{idf}{An \link{Idf} object or a path of IDF file.}
 
-\item{ver}{A valid EnergyPlus version, e.g. \code{9}, \code{8.8}, or \code{"8.8.0"}.}
+\item{ver}{A valid EnergyPlus IDD version, e.g. \code{9}, \code{8.8}, or \code{"8.8.0"}.}
 
 \item{dir}{The directory to save the new IDF files. If the directory does not
 exist, it will be created before save. If \code{NULL}, the directory of input
@@ -46,7 +46,7 @@ if (any(avail_eplus()) > 7.2) {
     updated <- version_updater(idf, max(avail_eplus()))
 
     # convert it from v7.2 to the latest EnergyPlus installed and keep all
-    intermediate versions
+    # intermediate versions
     updated <- version_updater(idf, max(avail_eplus()), keep_all = TRUE)
 
     # see transition error messages

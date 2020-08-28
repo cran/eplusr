@@ -3,13 +3,35 @@
 \docType{class}
 \name{EplusJob}
 \alias{EplusJob}
+\alias{eplus_job}
 \title{Run EnergyPlus Simulation and Collect Outputs}
+\usage{
+eplus_job(idf, epw)
+}
+\arguments{
+\item{idf}{A path to an local EnergyPlus IDF file or an \code{Idf} object.}
+
+\item{epw}{A path to an local EnergyPlus EPW file or an \code{Epw} object. \code{epw}
+can also be \code{NULL} which will force design-day-only simulation when
+\code{\link[=EplusJob]{$run()}} method is called. Note this needs at least one
+\code{Sizing:DesignDay} object exists in the \link{Idf}.}
+}
+\value{
+An \code{EplusJob} object.
+}
 \description{
 \code{EplusJob} class wraps the EnergyPlus command line interface and provides
 methods to extract simulation outputs.
+
+\code{eplus_job()} takes an IDF and EPW as input, and returns an \code{EplusJob} object
+for running EnergyPlus simulation and collecting outputs.
 }
 \details{
-eplusr uses the EnergyPlus SQL output for extracting simulation outputs.
+eplusr uses the EnergyPlus SQL output and the CSV output for extracting
+simulation outputs. It will use the CSV output if possible, and will fall
+back to the SQL output when CSV output does not exist. Underneath,
+\code{\link[data.table:fread]{data.table::fread()}} is used to speed up the process when using CSV output.
+
 \code{EplusJob} has provide some wrappers that do SQL query to get report data
 results, i.e. results from \code{Output:Variable} and \verb{Output:Meter*}. But for
 \code{Output:Table} results, you have to be familiar with the structure of the
@@ -24,6 +46,11 @@ In order to make sure \code{.rdd} (Report Data Dictionary) and \code{.mdd} (Mete
 Dictionary) files are created during simulation, an object in
 \code{Output:VariableDictionary} class with \verb{Key Field} value being \code{IDF} will be
 automatically created if it does not exists.
+
+In order to make sure all output variables and meters are placed in one CSV
+output, all objects in class \code{Output:Meter:MeterFileOnly}and
+\code{Output:Meter:Cumulative:MeterFileOnly} will be converted into \code{Output:Meter}
+and \code{Output:Meter:Cumulative}, respectively.
 }
 \examples{
 
@@ -31,6 +58,7 @@ automatically created if it does not exists.
 ## Method `EplusJob$new`
 ## ------------------------------------------------
 
+\dontrun{
 if (is_avail_eplus(8.8)) {
     idf_name <- "1ZoneUncontrolled.idf"
     epw_name <-  "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
@@ -38,7 +66,12 @@ if (is_avail_eplus(8.8)) {
     idf_path <- file.path(eplus_config(8.8)$dir, "ExampleFiles", idf_name)
     epw_path <- file.path(eplus_config(8.8)$dir, "WeatherData", epw_name)
 
-    job <- EplusJob$new(idf_path, epw_path)
+    # create from local files
+    job <- eplus_job(idf_path, epw_path)
+
+    # create from an Idf and an Epw object
+    job <- eplus_job(read_idf(idf_path), read_epw(epw_path))
+}
 }
 
 ## ------------------------------------------------
@@ -125,8 +158,8 @@ job$errors(info = TRUE)
 \dontrun{
 job$output_dir()
 
-# open output directory
-job$output_dir(open = TRUE)
+# Below will open output directory
+# job$output_dir(open = TRUE)
 }
 
 
@@ -269,6 +302,8 @@ job$print()
 }
 \seealso{
 \link{ParametricJob} class for EnergyPlus parametric simulations.
+
+\code{\link[=param_job]{param_job()}} for creating an EnergyPlus parametric job.
 }
 \author{
 Hongyuan Jia
@@ -297,6 +332,7 @@ Hongyuan Jia
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-new"></a>}}
+\if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
 Create an \code{EplusJob} object
 \subsection{Usage}{
@@ -317,14 +353,20 @@ An \code{EplusJob} object.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{if (is_avail_eplus(8.8)) {
+\preformatted{\dontrun{
+if (is_avail_eplus(8.8)) {
     idf_name <- "1ZoneUncontrolled.idf"
     epw_name <-  "USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw"
 
     idf_path <- file.path(eplus_config(8.8)$dir, "ExampleFiles", idf_name)
     epw_path <- file.path(eplus_config(8.8)$dir, "WeatherData", epw_name)
 
-    job <- EplusJob$new(idf_path, epw_path)
+    # create from local files
+    job <- eplus_job(idf_path, epw_path)
+
+    # create from an Idf and an Epw object
+    job <- eplus_job(read_idf(idf_path), read_epw(epw_path))
+}
 }
 }
 \if{html}{\out{</div>}}
@@ -334,6 +376,7 @@ An \code{EplusJob} object.
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-version"></a>}}
+\if{latex}{\out{\hypertarget{method-version}{}}}
 \subsection{Method \code{version()}}{
 Get the version of IDF in current job
 \subsection{Usage}{
@@ -361,6 +404,7 @@ job$version()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-path"></a>}}
+\if{latex}{\out{\hypertarget{method-path}{}}}
 \subsection{Method \code{path()}}{
 Get the paths of file that current \code{EpwSql} uses
 \subsection{Usage}{
@@ -400,6 +444,7 @@ job$path("epw")
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-run"></a>}}
+\if{latex}{\out{\hypertarget{method-run}{}}}
 \subsection{Method \code{run()}}{
 Run simulationA
 \subsection{Usage}{
@@ -496,6 +541,7 @@ job$run(copy_external = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-kill"></a>}}
+\if{latex}{\out{\hypertarget{method-kill}{}}}
 \subsection{Method \code{kill()}}{
 Kill current running job
 \subsection{Usage}{
@@ -524,6 +570,7 @@ job$kill()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-status"></a>}}
+\if{latex}{\out{\hypertarget{method-status}{}}}
 \subsection{Method \code{status()}}{
 Get the job status
 \subsection{Usage}{
@@ -563,6 +610,7 @@ job$status()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-errors"></a>}}
+\if{latex}{\out{\hypertarget{method-errors}{}}}
 \subsection{Method \code{errors()}}{
 Read simulation errors
 \subsection{Usage}{
@@ -603,6 +651,7 @@ job$errors(info = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-output_dir"></a>}}
+\if{latex}{\out{\hypertarget{method-output_dir}{}}}
 \subsection{Method \code{output_dir()}}{
 Get simulation output directory
 \subsection{Usage}{
@@ -625,8 +674,8 @@ Get simulation output directory
 \preformatted{\dontrun{
 job$output_dir()
 
-# open output directory
-job$output_dir(open = TRUE)
+# Below will open output directory
+# job$output_dir(open = TRUE)
 }
 
 }
@@ -637,6 +686,7 @@ job$output_dir(open = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-locate_output"></a>}}
+\if{latex}{\out{\hypertarget{method-locate_output}{}}}
 \subsection{Method \code{locate_output()}}{
 Get path of output file
 \subsection{Usage}{
@@ -678,6 +728,7 @@ job$locate_output(".expidf", strict = TRUE)
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-read_rdd"></a>}}
+\if{latex}{\out{\hypertarget{method-read_rdd}{}}}
 \subsection{Method \code{read_rdd()}}{
 Read Report Data Dictionary (RDD) file
 \subsection{Usage}{
@@ -706,6 +757,7 @@ job$read_rdd()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-read_mdd"></a>}}
+\if{latex}{\out{\hypertarget{method-read_mdd}{}}}
 \subsection{Method \code{read_mdd()}}{
 Read Report Data Dictionary (RDD) file
 \subsection{Usage}{
@@ -734,6 +786,7 @@ job$read_mdd()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-list_table"></a>}}
+\if{latex}{\out{\hypertarget{method-list_table}{}}}
 \subsection{Method \code{list_table()}}{
 List all table names in EnergyPlus SQL output
 \subsection{Usage}{
@@ -762,6 +815,7 @@ job$list_table()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-read_table"></a>}}
+\if{latex}{\out{\hypertarget{method-read_table}{}}}
 \subsection{Method \code{read_table()}}{
 Read a single table from EnergyPlus SQL output
 \subsection{Usage}{
@@ -799,6 +853,7 @@ job$read_table("Zones")
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-report_data_dict"></a>}}
+\if{latex}{\out{\hypertarget{method-report_data_dict}{}}}
 \subsection{Method \code{report_data_dict()}}{
 Read report data dictionary from EnergyPlus SQL output
 \subsection{Usage}{
@@ -826,8 +881,8 @@ different tables
 \verb{HVAC System}
 \item \code{key_value}: Key name of the data
 \item \code{name}: Actual report data name
-\item \code{reporting_frequency}:
-\item \code{schedule_name}: Name of the the schedule that controls reporting
+\item \code{reporting_frequency}: Data reporting frequency
+\item \code{schedule_name}: Name the the schedule that controls reporting
 frequency.
 \item \code{units}: The data units
 }
@@ -846,6 +901,7 @@ job$report_data_dict()
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-report_data"></a>}}
+\if{latex}{\out{\hypertarget{method-report_data}{}}}
 \subsection{Method \code{report_data()}}{
 Read report data
 \subsection{Usage}{
@@ -1076,6 +1132,7 @@ job$report_data(dict[1], all = TRUE)[environment_period_index == 3L]
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-tabular_data"></a>}}
+\if{latex}{\out{\hypertarget{method-tabular_data}{}}}
 \subsection{Method \code{tabular_data()}}{
 Read tabular data
 \subsection{Usage}{
@@ -1173,6 +1230,7 @@ str(job$tabular_data(
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-print"></a>}}
+\if{latex}{\out{\hypertarget{method-print}{}}}
 \subsection{Method \code{print()}}{
 Print \code{EplusSql} object
 \subsection{Usage}{
