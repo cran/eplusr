@@ -785,7 +785,7 @@ Idf <- R6::R6Class(classname = "Idf", lock_objects = FALSE,
         #' @param class_ref Specify how to handle class-name-references. Class
         #'        name references refer to references in like field `Component 1
         #'        Object Type` in `Branch` objects. Their value refers to other
-        #'        many class names of objects, instaed of refering to specific
+        #'        many class names of objects, instaed of referring to specific
         #'        field values. There are 3 options in total, i.e. `"none"`,
         #'        `"both"` and `"all"`, with `"both"` being the default.
         #'     * `"none"`: just ignore class-name-references. It is a reasonable
@@ -1108,7 +1108,7 @@ Idf <- R6::R6Class(classname = "Idf", lock_objects = FALSE,
         #'   `=`. The main difference is that, unlike `=`, the left hand side of
         #'   `:=` should be a valid class name in current `Idf` object. It will
         #'   set the field of all objects in specified class to specified value.
-        #' * `.(object, object) := list(field = value)`: Simimar like above, but
+        #' * `.(object, object) := list(field = value)`: Similar like above, but
         #'   note the use of `.()` in the left hand side. You can put multiple
         #'   object ID or names in `.()`. It will set the field of all specified
         #'   objects to specified value.
@@ -2395,9 +2395,8 @@ Idf <- R6::R6Class(classname = "Idf", lock_objects = FALSE,
         #' @param copy_external If `TRUE`, the external files that current `Idf`
         #'        object depends on will also be copied into the simulation
         #'        output directory. The values of file paths in the Idf will be
-        #'        changed automatically. Currently, only `Schedule:File` class
-        #'        is supported.  This ensures that the output directory will
-        #'        have all files needed for the model to run. Default is
+        #'        changed automatically. This ensures that the output directory
+        #'        will have all files needed for the model to run. Default is
         #'        `FALSE`.
         #' @param echo Only applicable when `wait` is `TRUE`. Whether to show
         #'        standard output and error from EnergyPlus. Default: same as
@@ -2518,7 +2517,7 @@ Idf <- R6::R6Class(classname = "Idf", lock_objects = FALSE,
         #'
         #' * `"surface_type"`: Default. Render the model by surface type
         #'   model. Walls, roofs, windows, doors, floors, and shading
-        #'   surfaces will have unqiue colors.
+        #'   surfaces will have unique colors.
         #' * `"boundary"`: Render the model by outside boundary condition.
         #'   Only surfaces that have boundary conditions will be rendered
         #'   with a color. All other surfaces will be white.
@@ -2534,7 +2533,7 @@ Idf <- R6::R6Class(classname = "Idf", lock_objects = FALSE,
         #' @param wireframe If `TRUE`, the wireframe of each surface will be
         #'        shown. Default: `TRUE`.
         #'
-        #' @param x_ray If `TRUE`, all surfaces wll be rendered translucently.
+        #' @param x_ray If `TRUE`, all surfaces will be rendered translucently.
         #'        Default: `FALSE`.
         #'
         #' @return An [IdfViewer] object
@@ -3062,19 +3061,28 @@ idf_insert <- function (self, private, ..., .unique = TRUE, .empty = FALSE) {
         .unique = FALSE, .strict = TRUE)
 
     # ignore Version object
-    if (any(l$object$class_id == 1L)) {
+    if (any(is_ver <- l$object$class_id == 1L)) {
         if (in_verbose()) {
-            m <- l$object[class_id == 1L, paste0(" #", rleid, "| Object [", object_id, ", ] --> Class 'Version'", collapse = "\n")]
+            m <- l$object[class_id == 1L, paste0(" #", rleid, "| Object [", object_id, "] --> Class 'Version'", collapse = "\n")]
             verbose_info("'Version' objects in input below have been automatically skipped:\n", m)
         }
+        id <- l$object$object_id[is_ver]
         l$object <- l$object[!J(1L), on = "class_id"]
-        l$value <- l$value[J(l$object$rleid), on = "rleid"]
+        l$value <- l$value[!J(id), on = "object_id"]
 
         if (!nrow(l$object)) {
             verbose_info("After removing Version objects, nothing to add.")
             return(invisible())
         }
     }
+
+    # assign new rleid to make sure it can be used as an identifier
+    l$object[, new_rleid := rleid(rleid, object_id)]
+    l$value[, new_rleid := rleid(rleid, object_id)]
+    set(l$object, NULL, "rleid", NULL)
+    set(l$value, NULL, "rleid", NULL)
+    setnames(l$object, "new_rleid", "rleid")
+    setnames(l$value, "new_rleid", "rleid")
 
     ins <- add_idf_object(private$idd_env(), private$idf_env(), l$object, l$value,
         default = FALSE, unique = .unique, empty = .empty
@@ -3406,23 +3414,76 @@ idf_add_output_vardict <- function (idf) {
     added
 }
 # }}}
-# idf_set_output_meter {{{
-idf_set_output_meter <- function (idf) {
+# idf_set_output_files {{{
+idf_set_output_files <- function (idf, sql = FALSE, dict = FALSE) {
     if (!is_idf(idf)) idf <- read_idf(idf)
     modified <- FALSE
-    cls <- c("Output:Meter:MeterFileOnly", "Output:Meter:Cumulative:MeterFileOnly")
-    if (!any(i <- idf$is_valid_class(cls))) return(modified)
+    cls <- "Output:Control:Files"
+    if (idf$version() < 9.4 || !idf$is_valid_class(cls)) return(modified)
 
-    cls <- cls[i]
-    dt <- idf$to_table(class = cls)
-    set(dt, NULL, "class", stri_replace_all_fixed(dt$class, ":MeterFileOnly", ""))
+    obj <- idf$object_unique(cls)
+    val <- obj$value(all = TRUE)
+    if (sql && is.na(val[["Output SQLite"]]) || tolower(val[["Output SQLite"]]) == "no") {
+        verbose_info("Setting 'Output SQLite' in ", surround(cls), " from 'No' to 'Yes'")
+        val[["Output SQLite"]] <- "Yes"
+        modified <- TRUE
+    }
+    if (dict && is.na(val[["Output RDD"]]) || tolower(val[["Output RDD"]]) == "no") {
+        verbose_info("Setting 'Output RDD' in ", surround(cls), " from 'No' to 'Yes'")
+        val[["Output RDD"]] <- "Yes"
+        modified <- TRUE
+    }
+    if (dict && is.na(val[["Output MDD"]]) || tolower(val[["Output MDD"]]) == "no") {
+        verbose_info("Setting 'Output MDD' in ", surround(cls), " from 'No' to 'Yes'")
+        val[["Output MDD"]] <- "Yes"
+        modified <- TRUE
+    }
 
-    idf$del(unique(dt$id))
-    idf$load(dt)
-    verbose_info("Moving all objects in class ", collapse(cls), " to ",
-        collapse(unique(dt$class)), " in order to use csv for data extraction.")
+    if (modified) obj$set(val[sprintf("Output %s", c("SQLite", "RDD", "MDD"))])
 
-    TRUE
+    modified
+}
+# }}}
+# idf_has_hvactemplate {{{
+idf_has_hvactemplate <- function (idf) {
+    if (!is_idf(idf)) idf <- read_idf(idf)
+
+    cls <- c(
+        "HVACTemplate:Thermostat",
+        "HVACTemplate:Zone:IdealLoadsAirSystem",
+        "HVACTemplate:Zone:BaseboardHeat",
+        "HVACTemplate:Zone:FanCoil",
+        "HVACTemplate:Zone:PTAC",
+        "HVACTemplate:Zone:PTHP",
+        "HVACTemplate:Zone:WaterToAirHeatPump",
+        "HVACTemplate:Zone:VRF",
+        "HVACTemplate:Zone:Unitary",
+        "HVACTemplate:Zone:VAV",
+        "HVACTemplate:Zone:VAV:FanPowered",
+        "HVACTemplate:Zone:VAV:HeatAndCool",
+        "HVACTemplate:Zone:ConstantVolume",
+        "HVACTemplate:Zone:DualDuct",
+        "HVACTemplate:System:VRF",
+        "HVACTemplate:System:Unitary",
+        "HVACTemplate:System:UnitaryHeatPump:AirToAir",
+        "HVACTemplate:System:UnitarySystem",
+        "HVACTemplate:System:VAV",
+        "HVACTemplate:System:PackagedVAV",
+        "HVACTemplate:System:ConstantVolume",
+        "HVACTemplate:System:DualDuct",
+        "HVACTemplate:System:DedicatedOutdoorAir",
+        "HVACTemplate:Plant:ChilledWaterLoop",
+        "HVACTemplate:Plant:Chiller",
+        "HVACTemplate:Plant:Chiller:ObjectReference",
+        "HVACTemplate:Plant:Tower",
+        "HVACTemplate:Plant:Tower:ObjectReference",
+        "HVACTemplate:Plant:HotWaterLoop",
+        "HVACTemplate:Plant:Boiler",
+        "HVACTemplate:Plant:Boiler:ObjectReference",
+        "HVACTemplate:Plant:MixedWaterLoop"
+    )
+
+    any(idf$is_valid_class(cls))
 }
 # }}}
 

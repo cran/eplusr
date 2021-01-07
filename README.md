@@ -3,16 +3,17 @@
 
 # eplusr <img src="man/figures/logo.svg" align="right" />
 
-[![Travis-CI Build
-Status](https://travis-ci.com/hongyuanjia/eplusr.svg?branch=master)](https://travis-ci.com/hongyuanjia/eplusr)
-[![AppVeyor Build
-Status](https://ci.appveyor.com/api/projects/status/github/hongyuanjia/eplusr?branch=master&svg=true)](https://ci.appveyor.com/project/hongyuanjia/eplusr)
+<!-- badges: start -->
+
+[![R build
+status](https://github.com/hongyuanjia/eplusr/workflows/R-CMD-check/badge.svg)](https://github.com/hongyuanjia/eplusr/actions)
 [![codecov](https://codecov.io/gh/hongyuanjia/eplusr/branch/master/graph/badge.svg)](https://codecov.io/gh/hongyuanjia/eplusr)
 [![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/eplusr)](https://cran.r-project.org/package=eplusr)
 [![CRAN
 Checks](https://cranchecks.info/badges/summary/eplusr)](https://cranchecks.info/pkgs/eplusr)
 [![CRAN Download
 Badge](https://cranlogs.r-pkg.org/badges/eplusr)](https://cran.r-project.org/package=eplusr)
+<!-- badges: end -->
 
 > A Toolkit for Using EnergyPlus in R.
 
@@ -28,6 +29,29 @@ There is also an online slides here ([Interfacing EnergyPlus Using
 R](https://hongyuanjia.github.io/eplusrIntro/)). You can learn more
 about eplusr at <https://hongyuanjia.github.io/eplusr/>, along with full
 package documentation.
+
+## How to cite
+
+``` r
+citation("eplusr")
+#> 
+#> To cite eplusr in publications use:
+#> 
+#>   Hongyuan Jia, Adrian Chong (2020). eplusr: A framework for
+#>   integrating building energy simulation and data-driven analytics.
+#>   doi: 10.13140/RG.2.2.34326.16966
+#> 
+#> A BibTeX entry for LaTeX users is
+#> 
+#>   @Article{,
+#>     title = {eplusr: A framework for integrating building energy simulation and data-driven analytics},
+#>     author = {Hongyuan Jia and Adrian Chong},
+#>     year = {2020},
+#>     journal = {*In Review*},
+#>     url = {https://CRAN.R-project.org/package=eplusr},
+#>     doi = {10.13140/RG.2.2.34326.16966},
+#>   }
+```
 
 ## Installation
 
@@ -51,10 +75,10 @@ download and install it automatically on major operating systems
 (Windows, macOS and Linux):
 
 ``` r
-# install the latest version (currently v9.2.0)
+# install the latest version (currently v9.4.0)
 eplusr::install_eplus("latest")
 
-# OR download the latest version (currently v9.2.0) and run the installer
+# OR download the latest version (currently v9.4.0) and run the installer
 # manually by yourself
 eplusr::download_eplus("latest", dir = tempdir())
 ```
@@ -121,7 +145,7 @@ Please see these vignettes and articles about {eplusr}
     eplusr](https://hongyuanjia.github.io/eplusr/articles/eplusr.html)
   - [Run simulation and data
     exploration](https://hongyuanjia.github.io/eplusr/articles/job.html)
-  - [Rarametric
+  - [Parametric
     simulations](https://hongyuanjia.github.io/eplusr/articles/param.html)
   - [Update IDF
     version](https://hongyuanjia.github.io/eplusr/articles/transition.html)
@@ -138,29 +162,6 @@ Please see these vignettes and articles about {eplusr}
 
   - [Slides: Interfacing EnergyPlus using
     R](https://hongyuanjia.github.io/eplusrIntro/)
-
-## How to cite
-
-``` r
-citation("eplusr")
-#> 
-#> To cite eplusr in publications use:
-#> 
-#>   Hongyuan Jia, Adrian Chong (2020). eplusr: A framework
-#>   for integrating building energy simulation and
-#>   data-driven analytics. doi: 10.13140/RG.2.2.34326.16966
-#> 
-#> A BibTeX entry for LaTeX users is
-#> 
-#>   @Article{,
-#>     title = {eplusr: A framework for integrating building energy simulation and data-driven analytics},
-#>     author = {Hongyuan Yu and Adrian Chong},
-#>     year = {2020},
-#>     journal = {*In Review*},
-#>     url = {https://CRAN.R-project.org/package=eplusr},
-#>     doi = {10.13140/RG.2.2.34326.16966},
-#>   }
-```
 
 ## Additional resources
 
