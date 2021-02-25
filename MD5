@@ -1,7 +1,7 @@
-7755be9108af580979dac32e3dea752f *DESCRIPTION
+7d44000e2c8a096aa8ec9aa0fd8eb4b1 *DESCRIPTION
 cb3fd8040496c82e6887146c0db491f4 *LICENSE
-3eb5d94c263648dd6e1a6122d84c755d *NAMESPACE
-94bd1b81b5fa781d298d479879da6786 *NEWS.md
+c7c51c7f1813b8c2f931923415cb89ad *NAMESPACE
+26858d3c47f6faa434291c65c93c2860 *NEWS.md
 0a3b4b3581cbaa1586829feaa604cd67 *R/assert.R
 01e7ce77fb36bca3a4c902b7b2465170 *R/constants.R
 404e92c75c50a36620d81e210e879783 *R/diagram.R
@@ -37,7 +37,7 @@ f1575524644166a4960110ee93e53e00 *R/reload.R
 996396e96d4ce46dddc495f1d9abdd36 *R/sql.R
 cb9f5c006154a0b6352aeb248c6ada90 *R/sysdata.rda
 0f8bb99527daf8c769150313b82df053 *R/transition.R
-cbcb373a8f8153a74ba1fdecb09a2112 *R/units.R
+a74210ad2d9a745d0d6b4313742cb0a6 *R/units.R
 bb381a49c011d90c04adeedd8074a300 *R/utils.R
 650348bd699efbbafe67c55a5c032d0e *R/validate.R
 e459c2be7652858ee978a1ae6833d425 *R/viewer.R
@@ -49,12 +49,12 @@ e8b1bcee169c2f62ea179ab8473ac955 *inst/extdata/epw.idd
 94bfa134c4d2815e31d1e4f13a3fa7fd *man/EplusGroupJob.Rd
 9edbae934082bf456ef3a0e6402fb717 *man/EplusJob.Rd
 76f9550bd3cc36aa26a4e909af10c639 *man/EplusSql.Rd
-74e3c00a10156c71a212a9db8a033ecd *man/Epw.Rd
+d1c3c410ef69c634a907ee83ce42b7c0 *man/Epw.Rd
 b7f8d6524f626dde0bdbef0a74fd7679 *man/Idd.Rd
 3965c0d21b9c64fc38139327fed1a01f *man/IddObject.Rd
-15d82e24d4ee8cbfb970c887c1192903 *man/Idf.Rd
+6c0924c5822f5b6fbc16d3634bb3e424 *man/Idf.Rd
 37984e6e91f24c838c3b012b505c92b1 *man/IdfGeometry.Rd
-7a0449327b19aa090d4c870182f62631 *man/IdfObject.Rd
+fc778323b0442e69822e6b4da2197b62 *man/IdfObject.Rd
 61f780f625af6b9cfd7e64a5b7dc880b *man/IdfSchedule.Rd
 47759dfdc3e2d8912fd46ecb28027e74 *man/IdfViewer.Rd
 0c5e1872f4eb14a46e05ca5916de29bf *man/ParametricJob.Rd
@@ -92,7 +92,7 @@ e96b92d1d92596c61063afd79c5deefe *man/get_idd_field.Rd
 de042b8f3567ac3fb0757582ba94f146 *man/get_idf_node_relation.Rd
 0575feeee20208ffe684027673fed48f *man/get_idf_object.Rd
 3acd58d9787fc295b4e5ffad70e52604 *man/get_idf_relation.Rd
-17e8a2215fa97d88b8851eca9b06ff19 *man/get_idf_table.Rd
+ab29ca60c4a3d3550320a464e496faa9 *man/get_idf_table.Rd
 c8569518f7e552f0418d91100c40d7df *man/get_idf_value.Rd
 6483829afd42cc8d919330e89ef8a08c *man/get_object_info.Rd
 143567fcb962cc08e10e3dcb56070b2a *man/idd_object.Rd

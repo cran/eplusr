@@ -1,3 +1,10 @@
+# eplusr 0.14.1
+
+## Minor changes
+
+* Compatible changes for [units](https://github.com/r-quantities/units) v0.7-0
+  (#410).
+
 # eplusr 0.14.0
 
 ## New features
