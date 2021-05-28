@@ -141,7 +141,7 @@ trans_apply <- function (idf, ver, keep_all) {
                 " From  Ver: ", vers[i], "\n",
                 "Toward Ver: ", vers[i + 1L]
             )
-            idf <- with_speed(trans_funs[[funs[i]]](idf))
+            idf <- without_checking(trans_funs[[funs[i]]](idf))
             verbose_info("[", vers[i], " --> ", vers[i + 1L], "] SUCCEEDED.\n")
         }
         idf
@@ -155,7 +155,7 @@ trans_apply <- function (idf, ver, keep_all) {
                 " From  Ver: ", vers[i], "\n",
                 "Toward Ver: ", vers[i + 1L]
             )
-            res[[i + 1L]] <- with_speed(trans_funs[[funs[[i]]]](res[[i]]))
+            res[[i + 1L]] <- without_checking(trans_funs[[funs[[i]]]](res[[i]]))
             verbose_info("[", vers[i], " --> ", vers[i + 1L], "] SUCCEEDED.\n")
         }
         nms <- paste0(stri_sub(funs, 6L, 6L), ".", stri_sub(funs, 7L, 7L))
@@ -2958,10 +2958,13 @@ trans_funs$f920t930 <- function (idf) {
 
         map <- data.table(
             old = c(
+                "electricity",
                 "electric",
                 "elec",
                 "gas",
+                "naturalgas",
                 "natural gas",
+                "propane",
                 "propanegas",
                 "lpg",
                 "propane gas",
@@ -2978,8 +2981,11 @@ trans_funs$f920t930 <- function (idf) {
             new = c(
                 "Electricity",
                 "Electricity",
+                "Electricity",
                 "NaturalGas",
                 "NaturalGas",
+                "NaturalGas",
+                "Propane",
                 "Propane",
                 "Propane",
                 "Propane",
@@ -2996,7 +3002,7 @@ trans_funs$f920t930 <- function (idf) {
         )
 
         input[map, on = c("value" = "old"), value := i.new]
-        dt[input, on = "index", value := i.value]
+        dt[input, on = c("id", "index"), value := i.value]
     }
     # }}}
 

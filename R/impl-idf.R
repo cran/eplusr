@@ -115,11 +115,11 @@ get_idf_object <- function (idd_env, idf_env, class = NULL, object = NULL, prope
 
             # add an indicator column to check if bad key is found
             set(idf_env$object, NULL, "ind", 0L)
-            on.exit(set(idf_env$object, NULL, "ind", NULL))
+            on.exit(set(idf_env$object, NULL, "ind", NULL), add = TRUE)
 
             obj <- idf_env$object[obj_in, on = c("class_id", col_on), allow.cartesian = TRUE]
 
-            check_bad_key(obj, "ind", col_on)
+            check_bad_key(obj, "ind", col_on, sprintf("in Class '%s'", cls_in$class_name))
             set(obj, NULL, "ind", NULL)
         }
 
@@ -3038,13 +3038,16 @@ del_idf_object <- function (idd_env, idf_env, dt_object, ref_to = FALSE, ref_by 
         if (chk$reference && !ref_by && !force && nrow(rel$ref_by)) {
             rel$ref_by <- rel$ref_by[!J(id_del), on = "object_id"]
 
-            if (!eplusr_option("verbose_info")) {
+            if (!in_verbose()) {
                 rel$ref_by <- add_idf_relation_format_cols(idd_env, idf_env, rel$ref_by)
             }
-            abort(paste0("Cannot delete object(s) that are referred by others:\n",
-                "\n",
-                paste0("  ", unlist(format_idf_relation(rel$ref_by, "ref_by")$fmt, use.names = FALSE), collapse = "\n")
-            ), "del_referenced")
+
+            if (nrow(rel$ref_by)) {
+                abort(paste0("Cannot delete object(s) that are referred by others:\n",
+                    "\n",
+                    paste0("  ", unlist(format_idf_relation(rel$ref_by, "ref_by")$fmt, use.names = FALSE), collapse = "\n")
+                ), "del_referenced")
+            }
         }
         # }}}
 

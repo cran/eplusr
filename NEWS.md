@@ -1,3 +1,38 @@
+# eplusr 0.14.2
+
+## New features
+
+* `IddObject$output()` is added to extract all possible outputs of current
+  class. All outputs are extracted from the LaTeX source file of "Input
+  Output Reference" for EnergyPlus v9.5.0 and later. So empty result will
+  always be returned for `Idd` version lower than v9.5. It is possible that
+  there are some mistakes introduced when extracting the output variables.
+  Also, some outputs are only available if certain fields are set. Even they
+  are listed in the results, it does not mean that the `Idf` can report all
+  of them. It is strongly suggested to check the RDD and MDD file for
+  correctness (#427). Example:
+
+  ```r
+  idd <- use_idd(8.8)
+  idd$Lights$outputs()
+  ```
+
+## Break changes
+
+* Autocompletion is enabled by registering a S3 `.DollarNames` method. Option
+  `autocomplete` is deprecated. A warning is issued if you try to set it in
+  `eplusr_option()`. Also, `with_speed()` is deprecated and falls back to
+  `without_checking()` when called (#417).
+
+## Bug fixes
+
+* Fixed wrong transition of `FuelFactors` from v9.2 to v9.3 (#420).
+* Fixed `Idf$del` error when both sources and referees are given (#433).
+
+## Minor changes
+
+* Better error and verbose messages (#422, #423).
+
 # eplusr 0.14.1
 
 ## Minor changes
