@@ -5,6 +5,8 @@ test_that("download_idd() can download IDD from EnergyPlus repo", {
     expect_error(download_idd(1, tempdir()), classs = "eplusr_error_invalid_eplus_ver")
 
     skip_on_cran()
+    skip_if(Sys.getenv("_EPLUSR_SKIP_TESTS_DOWNLOAD_IDD_") != "")
+
     # should download IDD v9.0.1 if input is 9, 9.0, 9.0.1
     expect_equal(read_idd(attr(download_idd(9.0, tempdir()), "file"))$version(), numeric_version("9.0.1"))
     expect_equal(read_idd(attr(download_idd("9.0.1", tempdir()), "file"))$version(), numeric_version("9.0.1"))
@@ -14,6 +16,7 @@ test_that("download_idd() can download IDD from EnergyPlus repo", {
 # use_idd() {{{
 test_that("can read IDD", {
     skip_on_cran()
+
     # remove all parsed IDD
     .globals$idd <- list()
 
@@ -34,7 +37,7 @@ test_that("can read IDD", {
     expect_is(use_idd(8.4), "Idd")
 
     # can use the IDD in EnergyPlus VersionUpdater folder
-    if (!is_avail_eplus(8.8)) install_eplus(8.8)
+
     .globals$idd <- list()
     expect_is(use_idd(8.4), "Idd")
 
@@ -116,6 +119,9 @@ test_that("Idd class", {
 
     # can get Idd version
     expect_equal(idd$version(), as.numeric_version("9.9.9"))
+
+    # can get Idd path
+    expect_null(idd$path())
 
     # can get Idd build
     expect_equal(idd$build(), "7c3bbe4830")

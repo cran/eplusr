@@ -492,7 +492,7 @@ test_that("table", {
 
     # read a more complex model
     skip_on_cran()
-    if (!is_avail_eplus(8.8)) install_eplus(8.8)
+
     path_idf <- file.path(eplus_config(8.8)$dir, "ExampleFiles", "5Zone_Transformer.idf")
     idf_env <- parse_idf_file(path_idf, 8.8)
     idd_env <- get_priv_env(use_idd(8.8))$idd_env()
@@ -504,8 +504,6 @@ test_that("table", {
     # }}}
 
     # NODE RELATION {{{
-    if (!is_avail_eplus(8.8)) install_eplus(8.8)
-
     # read idf
     path_idf <- file.path(eplus_config(8.8)$dir, "ExampleFiles", "5Zone_Transformer.idf")
     idf_env <- parse_idf_file(path_idf, 8.8)
@@ -696,6 +694,11 @@ test_that("VALUE DOTS", {
         )
     )
 
+    expect_equal(
+        parse_dots_value(cls = .(..1 = "name", ..2 = 1L, NULL, NULL)),
+        parse_dots_value(cls = list(..1 = "name", ..2 = 1L, NULL, NULL))
+    )
+
     # can separate numeric and character value
     expect_equal(parse_dots_value(cls = list(..1 = "name", ..2 = 1L, NULL, NULL)),
         list(object = data.table(rleid = 1L, each_rleid = 1L, id = NA_integer_, name = "cls",
@@ -784,6 +787,27 @@ test_that("VALUE DOTS", {
                  value_chr = NA_character_, value_num = NA_real_
              )
         )
+    )
+
+    expect_equal(
+        parse_dots_value(cls = .(), .empty = TRUE),
+        parse_dots_value(cls = list(), .empty = TRUE)
+    )
+
+    expect_equal(
+        parse_dots_value(cls := .(..1 = "name")),
+        parse_dots_value(cls := list(..1 = "name"))
+    )
+
+    expect_equal(
+        parse_dots_value(.(1:3) := .(..1 = "name")),
+        parse_dots_value(.(1:3) := list(..1 = "name"))
+    )
+
+    a <- "cls1"
+    expect_equal(
+        parse_dots_value(..(a) := .(), ..("cls2") := .(), .empty = TRUE),
+        parse_dots_value(..(a) := list(), ..("cls2") := list(), .empty = TRUE)
     )
 
     # can stop if multiple value for normal list when .pair is TRUE
@@ -1436,7 +1460,7 @@ test_that("OBJECT DOTS", {
 
     # can stop if version is not the same
     skip_on_cran()
-    if (!is_avail_eplus(8.8)) install_eplus(8.8)
+
     expect_error(expand_idf_dots_object(idd_env, idf_env, empty_idf(8.7)), class = "eplusr_error_dots_format")
 
     # can proceed if version is not the same
@@ -2492,6 +2516,7 @@ test_that("resolve external link", {
     dir <- tempfile()
     dir.create(dir, FALSE)
     path <- file.path(dir, "test.idf")
+    empty_idf(8.8)$save(path)
     expect_warning(flg <- resolve_idf_external_link(idd_env, l, path, tempfile(fileext = ".idf")), "Broken")
     expect_false(flg)
 

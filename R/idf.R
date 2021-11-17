@@ -488,6 +488,9 @@ Idf <- R6::R6Class(classname = "Idf",
         #' contains valid object IDs in current `Idf` object.
         #'
         #' @param id An integer vector to check.
+        #' @param class A single string indicates the class where the objects to
+        #'        check against. If `NULL`, all classes in current `Idf` are
+        #'        used. Default: `NULL`.
         #'
         #' @return A logical vector with the same length as input integer
         #' vector.
@@ -497,8 +500,8 @@ Idf <- R6::R6Class(classname = "Idf",
         #' idf$is_valid_id(c(51, 1000))
         #' }
         #'
-        is_valid_id = function (id)
-            idf_is_valid_object_id(self, private, id),
+        is_valid_id = function (id, class = NULL)
+            idf_is_valid_object_id(self, private, id, class),
         # }}}
 
         # is_valid_name {{{
@@ -514,6 +517,9 @@ Idf <- R6::R6Class(classname = "Idf",
         #' in all methods that take object name(s) as input.
         #'
         #' @param name A character vector to check.
+        #' @param class A single string indicates the class where the objects to
+        #'        check against. If `NULL`, all classes in current `Idf` are
+        #'        used. Default: `NULL`.
         #'
         #' @return A logical vector with the same length as input character
         #' vector.
@@ -526,8 +532,8 @@ Idf <- R6::R6Class(classname = "Idf",
         #' idf$is_valid_name(c("simple one zone (wireframe dxf)", "zone one", "a"))
         #' }
         #'
-        is_valid_name = function (name)
-            idf_is_valid_object_name(self, private, name),
+        is_valid_name = function (name, class = NULL)
+            idf_is_valid_object_name(self, private, name, class),
         # }}}
 
         # object {{{
@@ -1020,6 +1026,10 @@ Idf <- R6::R6Class(classname = "Idf",
         #' components will be performed during adding new objects, please see
         #' [level_checks()].
         #'
+        #' Note that `.()` can be used as an alias as `list()`, e.g.
+        #' `idf$add(Building = .())` is equivalent to
+        #' `idf$add(Building = list())`.
+        #'
         #' Field name matching is **case-insensitive**. For convenience,
         #' underscore-style field names are also allowed, e.g. `eNd_MoNtH` is
         #' equivalent to `End Month`. This behavior is consistent among all
@@ -1064,11 +1074,11 @@ Idf <- R6::R6Class(classname = "Idf",
         #' \dontrun{
         #' # add a new Building object with all default values
         #' empty <- empty_idf(8.8) # create an empty Idf
-        #' empty$add(Building = list())
+        #' empty$add(Building = .())
         #'
         #' # add a new Building object with all default values and comments
         #' empty <- empty_idf(8.8) # create an empty Idf
-        #' empty$add(Building = list(.comment = c("this is", "a new building")))
+        #' empty$add(Building = .(.comment = c("this is", "a new building")))
         #'
         #' # add a new RunPeriod object with all possible fields
         #' empty <- empty_idf(8.8) # create an empty Idf
@@ -1101,6 +1111,10 @@ Idf <- R6::R6Class(classname = "Idf",
         #' special element `.comment` in each list will be used as the **new**
         #' comments for modified object, overwriting the old ones. Names in list
         #' element are treated as field names.
+        #'
+        #' Note that `.()` can be used as an alias as `list()`, e.g.
+        #' `idf$set(Building = .(...))` is equivalent to
+        #' `idf$set(Building = list(...))`.
         #'
         #' There is two special syntax in `$set()`, which is inspired by the
         #' [data.table](https://cran.r-project.org/package=eplusr) package:
@@ -2275,6 +2289,63 @@ Idf <- R6::R6Class(classname = "Idf",
                 all = all, group_ext = match.arg(group_ext), force = force, init = init),
         # }}}
 
+        # external_deps {{{
+        #' @description
+        #' Get external file dependencies that the Idf needs for simulation.
+        #'
+        #' @details
+        #' `$external_deps()` returns information of files that are used as
+        #' external resources for the simulation.
+        #'
+        #' Currently, classes below are checked:
+        #'
+        #' * `Schedule:File:Shading`
+        #' * `Schedule:File`
+        #' * `Construction:WindowDataFile`
+        #' * `ExternalInterface:FunctionalMockupUnitImport`
+        #' * `ExternalInterface:FunctionalMockupUnitImport:From:Variable`
+        #' * `ExternalInterface:FunctionalMockupUnitImport:To:Schedule`
+        #' * `ExternalInterface:FunctionalMockupUnitImport:To:Actuator`
+        #' * `ExternalInterface:FunctionalMockupUnitImport:To:Variable`
+        #' * `Table:IndependentVariable`
+        #' * `Table:Lookup`
+        #'
+        #' Note that, for `ExternalInterface:FunctionalMockupUnitImport` and
+        #' `ExternalInterface:FunctionalMockupUnitImport:*`, resources of FMU
+        #' will also be extracted.
+        #'
+        #' @param full If `TRUE`, a [data.table][data.table::data.table()] is
+        #' returned giving details about the objects and fields that use those
+        #' external file dependencies. Default: `FALSE`.
+        #'
+        #' @return
+        #' When `full` is `FALSE`, which is the default, a character vector.
+        #'
+        #' When `full` is `TRUE`, a [data.table][data.table::data.table()] of 8
+        #' columns:
+        #'
+        #' * `id`: Integer type. Object IDs.
+        #' * `name`: Character type. Object names.
+        #' * `class`: Character type. Current class name.
+        #' * `index`: Integer type. Field indexes.
+        #' * `field`: Character type. Field names.
+        #' * `value`: Character type. Field values.
+        #' * `path`: Character type. Full file paths.
+        #' * `exist`: Logical type. `TRUE` if file exists, `FALSE` otherwise.
+        #'
+        #' If there are any FMUs using external file resources, the returned
+        #' data.table will have an attribute named `extra` which is a list
+        #' giving the FMU name and external file resources it use.
+        #'
+        #' @examples
+        #' \dontrun{
+        #' idf$external_deps()
+        #' }
+        #'
+        external_deps = function (full = FALSE)
+            idf_external_deps(self, private, full),
+        # }}}
+
         # is_unsaved {{{
         #' @description
         #' Check if there are unsaved changes in current `Idf`
@@ -2321,12 +2392,13 @@ Idf <- R6::R6Class(classname = "Idf",
         #'     `eplusr_option("save_format")`.
         #' @param overwrite Whether to overwrite the file if it already exists.
         #'        Default: `FALSE`.
-        #' @param copy_external If `TRUE`, the external files that current `Idf`
-        #'        object depends on will also be copied into the same directory.
+        #' @param copy_external If `TRUE`, the external files extracted from
+        #'        `$external_deps()` will also be copied into the same directory.
         #'        The values of file paths in the `Idf` will be changed into
         #'        relative path automatically. This makes it possible to create
-        #'        fully reproducible simulation conditions. Currently, only
-        #'        `Schedule:File` class is supported. Default: `FALSE`.
+        #'        fully reproducible simulation conditions. If `FALSE`, the
+        #'        values of those fields that reference external file paths will
+        #'        be updated to absolute paths. Default: `FALSE`.
         #'
         #' @return A length-one character vector, invisibly.
         #'
@@ -2496,7 +2568,7 @@ Idf <- R6::R6Class(classname = "Idf",
         #' @details
         #' `$view()` uses the [rgl](https://cran.r-project.org/package=rgl)
         #' package to visualize the IDF geometry in 3D in a similar way as
-        #' [OpenStudio](https://www.openstudio.net).
+        #' [OpenStudio](https://openstudio.net/).
         #'
         #' `$view()` returns an [IdfViewer] object which can be used to further
         #' tweak the viewer scene.
@@ -2724,16 +2796,42 @@ idf_is_valid_class_name <- function (self, private, class, all = FALSE) {
 # }}}
 # idf_is_valid_object_id {{{
 #' @importFrom checkmate assert_integerish
-idf_is_valid_object_id <- function (self, private, id) {
+idf_is_valid_object_id <- function (self, private, id, class = NULL) {
     assert_valid_type(id, "Object ID", type = "id")
+    assert_string(class, null.ok = TRUE)
     id <- assert_integerish(id, any.missing = FALSE, coerce = TRUE)
-    id %in% idf_object_id(self, private, NULL, simplify = TRUE)
+    id %in% idf_object_id(self, private, class, simplify = TRUE)
 }
 # }}}
 # idf_is_valid_object_name {{{
-idf_is_valid_object_name <- function (self, private, name) {
+idf_is_valid_object_name <- function (self, private, name, class = NULL) {
     assert_valid_type(name, "Object Name", type = "name")
-    stri_trans_tolower(name) %chin% private$idf_env()$object[!is.na(object_name), object_name_lower]
+    assert_string(class, null.ok = TRUE)
+    if (is.null(class)) {
+        stri_trans_tolower(name) %chin% private$idf_env()$object[!is.na(object_name), object_name_lower]
+    } else {
+        stri_trans_tolower(name) %chin% stri_trans_tolower(get_idf_object_name(private$idd_env(), private$idf_env(), class, simplify = TRUE))
+    }
+}
+# }}}
+# idf_external_deps {{{
+idf_external_deps <- function (self, private, full = FALSE) {
+    assert_flag(full)
+
+    base_dir <- if (!is.null(private$m_path)) dirname(private$m_path) else NULL
+    deps <- get_idf_external_deps(private$idd_env(), private$idf_env(), base_dir)
+
+    if (!full) return(c(unique(deps$path), unlist(attr(deps, "extra"), FALSE, FALSE)))
+
+    setnames(deps,
+        c("object_id", "object_name", "class_name", "field_index", "field_name", "value_chr"),
+        c("id", "name", "class", "index", "field", "value"))
+
+    cols <- c("id", "name", "class", "index", "field", "value", "path", "exist")
+
+    if (length(to_del <- setdiff(names(deps), cols))) set(deps, NULL, to_del, NULL)
+
+    setcolorder(deps, cols)[]
 }
 # }}}
 # idf_is_unsaved {{{

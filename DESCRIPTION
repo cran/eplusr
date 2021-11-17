@@ -1,13 +1,19 @@
 Package: eplusr
 Title: A Toolkit for Using Whole Building Simulation Program
         'EnergyPlus'
-Version: 0.14.2
-Authors@R: 
+Version: 0.15.0
+Authors@R: c(
     person(given = "Hongyuan",
            family = "Jia",
            role = c("aut", "cre"),
-           email = "hongyuanjia@outlook.com",
-           comment = c(ORCID = "0000-0002-0075-8183"))
+           email = "hongyuanjia@cqust.edu.cn",
+           comment = c(ORCID = "0000-0002-0075-8183")),
+    person(given = "Adrian",
+           family = "Chong",
+           role = c("aut"),
+           email = "bdgczma@nus.edu.sg",
+           comment = c(ORCID = "0000-0002-9486-4728"))
+    )
 Description: A rich toolkit of using the whole building
     simulation program 'EnergyPlus'(<https://energyplus.net>), which
     enables programmatic navigation, modification of 'EnergyPlus' models
@@ -20,12 +26,11 @@ Depends: R (>= 3.2.0)
 Imports: callr (>= 2.0.4), checkmate, cli (>= 1.1.0), crayon,
         data.table (>= 1.12.4), hms, lubridate, methods, processx (>=
         3.2.0), progress (>= 1.2.0), R6, RSQLite, stringi, units
-Suggests: covr, decido, knitr, pkgdown, rgl (>= 0.100.26), rmarkdown,
-        testthat (>= 2.1.0)
+Suggests: decido, rgl (>= 0.105.13), testthat (>= 2.1.0)
 Encoding: UTF-8
-RoxygenNote: 7.1.1
-SystemRequirements: EnergyPlus (>= 8.3, optional)
-        (<https://energyplus.net>); udunits2
+RoxygenNote: 7.1.2
+SystemRequirements: EnergyPlus (optional) (<https://energyplus.net>);
+        udunits2
 Collate: 'constants.R' 'assert.R' 'diagram.R' 'eplusr.R' 'utils.R'
         'impl.R' 'parse.R' 'impl-epw.R' 'impl-idd.R' 'impl-idf.R'
         'idf.R' 'idd.R' 'epw.R' 'err.R' 'format.R' 'geom.R' 'group.R'
@@ -35,8 +40,9 @@ Collate: 'constants.R' 'assert.R' 'diagram.R' 'eplusr.R' 'utils.R'
         'rdd.R' 'reload.R' 'run.R' 'sql.R' 'transition.R' 'units.R'
         'validate.R' 'viewer.R' 'zzz.R'
 NeedsCompilation: no
-Packaged: 2021-05-25 16:14:14 UTC; hongy
-Author: Hongyuan Jia [aut, cre] (<https://orcid.org/0000-0002-0075-8183>)
-Maintainer: Hongyuan Jia <hongyuanjia@outlook.com>
+Packaged: 2021-11-17 15:55:13 UTC; hongy
+Author: Hongyuan Jia [aut, cre] (<https://orcid.org/0000-0002-0075-8183>),
+  Adrian Chong [aut] (<https://orcid.org/0000-0002-9486-4728>)
+Maintainer: Hongyuan Jia <hongyuanjia@cqust.edu.cn>
 Repository: CRAN
-Date/Publication: 2021-05-28 23:30:06 UTC
+Date/Publication: 2021-11-17 17:00:05 UTC

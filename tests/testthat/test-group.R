@@ -1,19 +1,24 @@
 test_that("Group methods", {
     skip_on_cran()
+
     eplusr_option(verbose_info = FALSE)
 
-    if (!is_avail_eplus(8.8)) install_eplus(8.8)
-
-    path_idfs <- normalizePath(file.path(eplus_config(8.8)$dir, "ExampleFiles",
+    path_idfs <- path_eplus_example(8.8,
         c("1ZoneDataCenterCRAC_wPumpedDXCoolingCoil.idf",
           "1ZoneEvapCooler.idf",
           "1ZoneParameterAspect.idf",
           "1ZoneUncontrolled_DD2009.idf",
           "1ZoneUncontrolled_DDChanges.idf"
         )
-    ))
-    path_epws <- normalizePath(list.files(file.path(eplus_config(8.8)$dir, "WeatherData"),
-        "\\.epw", full.names = TRUE)[1:5])
+    )
+    path_epws <- path_eplus_weather(8.8,
+        c("USA_CA_San.Francisco.Intl.AP.724940_TMY3.epw",
+          "USA_CO_Golden-NREL.724666_TMY3.epw",
+          "USA_FL_Tampa.Intl.AP.722110_TMY3.epw",
+          "USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+          "USA_VA_Sterling-Washington.Dulles.Intl.AP.724030_TMY3.epw"
+        )
+    )
 
     expect_error(group_job(empty_idf(8.8)), "local", class = "eplusr_error")
     # can stop if input model is not saved after modification
@@ -102,6 +107,7 @@ test_that("Group methods", {
     # Report Data Dict {{{
     expect_error(grp$report_data_dict(), class = "eplusr_error_job_error")
     expect_is(grp$report_data_dict(c(1,2,4,5)), "data.table")
+    expect_true(has_names(grp$report_data_dict(c(1,2,4,5)), "index"))
     expect_true(has_names(grp$report_data_dict(c(1,2,4,5)), "case"))
     expect_equal(nrow(grp$report_data_dict(2)), 22)
     expect_equal(nrow(grp$report_data_dict("1zoneevapcooler")), 22)
@@ -135,6 +141,7 @@ test_that("Group methods", {
     expect_equal(names(tab), "AnnualBuildingUtilityPerformanceSummary.Entire Facility.Site and Source Energy")
     expect_equivalent(tab[[1L]][, lapply(.SD, class)],
         data.table(
+            index = "integer",
             case = "character",
             report_name = "character",
             report_for = "character",
@@ -191,5 +198,25 @@ test_that("Group methods", {
             paste0(tools::file_path_sans_ext(basename(path_idfs[2])), ".sql")
         ))
     )
+    # }}}
+
+    # List files {{{
+    expect_is(files <- grp$list_files(c(1, 2), simplify = TRUE), "list")
+    expect_equal(length(files), 2L)
+    expect_equal(length(files[[1]]), 21L)
+    expect_equal(length(files[[2]]), 21L)
+
+    expect_is(files <- grp$list_files(c(1, 2), simplify = TRUE, full = TRUE), "list")
+    expect_equal(length(files), 2L)
+    expect_equal(normalizePath(dirname(files[[1]])), rep(grp$output_dir(1), 21L))
+    expect_equal(normalizePath(dirname(files[[2]])), rep(grp$output_dir(2), 21L))
+
+    expect_is(files <- grp$list_files(c(1, 2), simplify = FALSE), "data.table")
+    expect_equal(names(files), c("index", "type", "file"))
+    expect_equal(nrow(files), 114L)
+
+    expect_is(files <- grp$list_files(c(1, 2), simplify = FALSE, full = TRUE), "data.table")
+    expect_equal(names(files), c("index", "type", "file"))
+    expect_equal(nrow(files), 114L)
     # }}}
 })

@@ -7,7 +7,7 @@
 
 [![R build
 status](https://github.com/hongyuanjia/eplusr/workflows/R-CMD-check/badge.svg)](https://github.com/hongyuanjia/eplusr/actions)
-[![codecov](https://codecov.io/gh/hongyuanjia/eplusr/branch/master/graph/badge.svg?token=HoBA0Qm6k2)](https://codecov.io/gh/hongyuanjia/eplusr)
+[![codecov](https://codecov.io/gh/hongyuanjia/eplusr/branch/master/graph/badge.svg?token=HoBA0Qm6k2)](https://app.codecov.io/gh/hongyuanjia/eplusr)
 [![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/eplusr)](https://cran.r-project.org/package=eplusr)
 [![CRAN
 Checks](https://cranchecks.info/badges/summary/eplusr)](https://cranchecks.info/pkgs/eplusr)
@@ -37,9 +37,9 @@ citation("eplusr")
 #> 
 #> To cite eplusr in publications use:
 #> 
-#>   Hongyuan Jia, Adrian Chong (2020). eplusr: A framework for
+#>   Hongyuan Jia, Adrian Chong (2021). eplusr: A framework for
 #>   integrating building energy simulation and data-driven analytics.
-#>   Energy and Buildings 237 (April): 110757.
+#>   Energy and Buildings 237: 110757.
 #>   https://doi.org/10.1016/j.enbuild.2021.110757
 #> 
 #> A BibTeX entry for LaTeX users is
@@ -51,7 +51,7 @@ citation("eplusr")
 #>     journal = {Energy and Buildings},
 #>     volume = {237},
 #>     url = {https://CRAN.R-project.org/package=eplusr},
-#>     doi = {https://doi.org/10.1016/j.enbuild.2021.110757},
+#>     doi = {10.1016/j.enbuild.2021.110757},
 #>   }
 ```
 
@@ -66,8 +66,7 @@ install.packages("eplusr")
 Alternatively, you can install the development version from GitHub.
 
 ``` r
-# install.packages("remotes")
-remotes::install_github("hongyuanjia/eplusr")
+install.packages("eplusr", repos = "https://hongyuanjia.r-universe.dev")
 ```
 
 Since running the IDF files requires EnergyPlus
@@ -77,10 +76,10 @@ download and install it automatically on major operating systems
 (Windows, macOS and Linux):
 
 ``` r
-# install the latest version (currently v9.4.0)
+# install the latest version (currently v9.6.0)
 eplusr::install_eplus("latest")
 
-# OR download the latest version (currently v9.4.0) and run the installer
+# OR download the latest version (currently v9.6.0) and run the installer
 # manually by yourself
 eplusr::download_eplus("latest", dir = tempdir())
 ```
@@ -180,9 +179,9 @@ Please see these vignettes and articles about {eplusr}
 I would like to thank many open source projects who have heavily
 inspired the development of eplusr package, especially these below:
 
--   [EnergyPlus](https://www.energyplus.net): A whole building energy
+-   [EnergyPlus](https://energyplus.net): A whole building energy
     simulation program.
--   [OpenStudio](https://www.openstudio.net): A cross-platform
+-   [OpenStudio](https://openstudio.net): A cross-platform
     collection of software tools to support whole building energy
     modeling using EnergyPlus and advanced daylight analysis using
     Radiance.
@@ -193,13 +192,13 @@ inspired the development of eplusr package, especially these below:
 
 ## Author
 
-Hongyuan Jia
+Hongyuan Jia and Adrian Chong
 
 ## License
 
 The project is released under the terms of MIT License.
 
-Copyright © 2016-2020 Hongyuan Jia
+Copyright © 2016-2021 Hongyuan Jia and Adrian Chong
 
 ------------------------------------------------------------------------
 

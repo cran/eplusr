@@ -163,6 +163,10 @@ test_that("$is_valid_id()", {
     expect_false(idf$is_valid_id(6L))
     expect_equal(idf$is_valid_id(1L:4L), rep(TRUE, times = 4L))
     expect_error(idf$is_valid_id("1"))
+
+    # can check inside a specific class
+    expect_false(idf$is_valid_id(1L, "Version"))
+    expect_true(idf$is_valid_id(1L, "Material"))
 })
 # }}}
 
@@ -175,6 +179,31 @@ test_that("$is_valid_name()", {
     expect_true(idf$is_valid_name("wd01"))
     expect_error(idf$is_valid_name(NA_character_))
     expect_equal(idf$is_valid_name(c("wd01", "WALL-1")), c(TRUE, TRUE))
+
+    # can check inside a specific class
+    expect_false(idf$is_valid_name("WD01", "Version"))
+    expect_true(idf$is_valid_name("WD01", "Material"))
+})
+# }}}
+
+# EXTERNAL_DEPS {{{
+test_that("$external_deps()", {
+    expect_is(idf <- read_idf(idftext("idf", 8.8)), "Idf")
+
+    sch <- file.path(tempdir(), "schedule_file.csv")
+    write_lines("index, value\n1, 1\n", sch)
+    idf$add(Schedule_File = list("Schedule", NULL, sch, 2, 1))
+
+    expect_equal(idf$external_deps(), normalizePath(sch))
+    expect_null(attr(idf$external_deps(), "extra"))
+
+    expect_equivalent(idf$external_deps(full = TRUE),
+        data.table(
+            id = 6L, name = "Schedule", class = "Schedule:File",
+            index = 3L, field = "File Name", value = sch,
+            path = normalizePath(sch), exist = TRUE
+        )
+    )
 })
 # }}}
 

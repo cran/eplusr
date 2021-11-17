@@ -148,7 +148,7 @@ get_sql_tabular_data <- function (sql, report_name = NULL, report_for = NULL,
                                   table_name = NULL, column_name = NULL, row_name = NULL,
                                   case = "auto", wide = FALSE, string_value = !wide, index = NULL) {
     q <- get_sql_tabular_data_query(report_name, report_for, table_name, column_name, row_name)
-    dt <- setnames(get_sql_query(sql, q), "tabular_data_index", "index")[]
+    dt <- set(get_sql_query(sql, q), NULL, "tabular_data_index", NULL)
 
     if (!is.null(case)) {
         assert_scalar(case)
@@ -175,7 +175,9 @@ get_sql_tabular_data <- function (sql, report_name = NULL, report_for = NULL,
     }
 
     # add row index
-    dt[, row_index := seq_len(.N), by = c("case"[has_names(dt, "case")], "report_name", "report_for", "table_name", "column_name")]
+    dt[, row_index := seq_len(.N), by = c(
+        "index"[has_names(dt, "index")], "case"[has_names(dt, "case")],
+        "report_name", "report_for", "table_name", "column_name")]
 
     # remove empty rows
     dt <- dt[!J(c("", "-"), c("", "-")), on = c("row_name", "value")]
@@ -204,11 +206,29 @@ subset_sql_time <- function (time, year = NULL, tz = "UTC", period = NULL,
 
     # store day of week for the first simulation day
     if (datetime && is.null(year)) {
-        # get wday of first simulation day per environment
-        w <- time[SIMULATION_DAYS == 1L & !is.na(DAY_TYPE), .SD[1L],
-            .SDcols = c("MONTH", "DAY", "DAY_TYPE", "ENVIRONMENT_PERIOD_INDEX"),
+        # get wday of first normal simulation day per environment
+        # here should exclude special days including SummerDesignDay,
+        # WinterDesignDay, Holiday, CustomDay1 and CustomDay2
+        # see #450
+        #
+        # note that it is possible that there is only one day in a run period
+        # and that day is Holiday/CustomDay1/CustomDay2
+        # there is no way to get the day of the week of start day directly from
+        # the SQL
+        # in this case, still return the first day and the nearest year will be
+        # used
+        w <- time[!is.na(DAY_TYPE) &
+            !DAY_TYPE %chin% c("WinterDesignDay", "SummerDesignDay"),
+            {
+                if (all(unique(DAY_TYPE) %chin% c("Holiday", "CustomDay1", "CustomDay2"))) {
+                    .SD[1L]
+                } else {
+                    .SD[which(!DAY_TYPE %chin% c("Holiday", "CustomDay1", "CustomDay2"))[1L]]
+                }
+            },
+            .SDcols = c("MONTH", "DAY", "DAY_TYPE", "SIMULATION_DAYS"),
             by = "ENVIRONMENT_PERIOD_INDEX"
-        ][!J(c("WinterDesignDay", "SummerDesignDay")), on = "DAY_TYPE"]
+        ]
     }
     if (!is.null(month)) {
         subset_time <- TRUE
@@ -342,8 +362,9 @@ create_sql_datetime <- function (time, first_day = NULL, year = NULL, tz = "UTC"
         year <- assert_count(year, positive = TRUE, coerce = TRUE)
         set(time, NULL, "year", year)
     } else {
-        # current year
-        cur_year <- lubridate::year(Sys.Date())
+        # use the nearest year as EnergyPlus
+        # see EnergyPlus/WeatherManager/findYearForWeekday
+        nearest_year <- 2017L
 
         if ("year" %in% names(time)) {
             time[J(0L), on = "year", year := NA_integer_]
@@ -354,9 +375,9 @@ create_sql_datetime <- function (time, first_day = NULL, year = NULL, tz = "UTC"
         # in case there is no valid day type
         if (!nrow(first_day)) {
             # directly assign current year
-            set(time, NULL, "year", cur_year)
+            set(time, NULL, "year", nearest_year)
         } else {
-            set(first_day, NULL, "date", lubridate::make_date(cur_year, first_day$month, first_day$day))
+            set(first_day, NULL, "date", lubridate::make_date(nearest_year, first_day$month, first_day$day))
             set(first_day, NULL, "dt", get_epw_wday(first_day$day_type))
 
             # check leap year
@@ -364,18 +385,18 @@ create_sql_datetime <- function (time, first_day = NULL, year = NULL, tz = "UTC"
 
             if (any(!is.na(first_day$dt))) {
                 for (i in which(!is.na(first_day$dt))) {
-                    set(first_day, i, "year", find_nearst_wday_year(first_day$date[i], first_day$dt[i], cur_year, leap))
+                    set(first_day, i, "year", find_nearst_wday_year(first_day$date[i], first_day$dt[i], nearest_year, leap))
                 }
             }
 
             # make sure all environments have a year value
             first_day[is.na(dt), year := lubridate::year(Sys.Date())]
 
-            set(time, NULL, "year", first_day[J(time$environment_period_index), on = "environment_period_index", year])
+            time[first_day, on = "environment_period_index", year := i.year]
         }
 
         # for SummerDesignDay and WinterDesignDay, directly use current year
-        time[J(c("WinterDesignDay", "SummerDesignDay")), on = "day_type", year := cur_year]
+        time[J(c("WinterDesignDay", "SummerDesignDay")), on = "day_type", year := nearest_year]
     }
 
     set(time, NULL, "datetime",
@@ -446,17 +467,14 @@ wide_tabular_data <- function (dt, string_value = TRUE) {
     cols_num <- unique(dt$column_name[dt$is_num])
 
     # format table
+    fml <- "report_name + report_for + table_name + row_index + row_name ~ column_name"
     if (has_names(dt, "case")) {
-        dt <- data.table::dcast.data.table(dt,
-            case + report_name + report_for + table_name + row_index + row_name ~ column_name,
-            value.var = "value"
-        )
-    } else {
-        dt <- data.table::dcast.data.table(dt,
-            report_name + report_for + table_name + row_index + row_name ~ column_name,
-            value.var = "value"
-        )
+        fml <- paste("case", fml, sep = " + ")
     }
+    if (has_names(dt, "index")) {
+        fml <- paste("index", fml, sep = " + ")
+    }
+    dt <- data.table::dcast.data.table(dt, stats::as.formula(fml), value.var = "value")
 
     # clean
     set(dt, NULL, "row_index", NULL)
@@ -489,6 +507,39 @@ read_report_data_sql <- function (sql, env, dict, time,
                                   # run period
                                   environment_name = NULL,
                                   all = FALSE, wide = FALSE) {
+    # See https://github.com/NREL/EnergyPlus/issues/8268
+    # If `Do HVAC Sizing Simulation for Sizing Periods` is set to `Yes` in
+    # `SimulationControl`, extra run periods will be added for winter design day
+    # and summer design day. The problem is that the Time table has correctly
+    # reflected this by adding new time for those added run periods, but
+    # EnvironmentPeriods table did not have entries for those periods.
+    ind_time_env <- unique(time$environment_period_index)
+    if (length(extra_env <- setdiff(ind_time_env, env$environment_period_index))) {
+        # append rows for environment period table
+        time_env <- time[J(ind_time_env), on = "environment_period_index", mult = "first",
+            .SD, .SDcols = c("day_type", "environment_period_index")]
+        setorderv(time_env, c("environment_period_index", "day_type"))
+        env <- env[time_env, on = "environment_period_index"]
+        setnafill(env, "locf", cols = "simulation_index")
+        env[J(c("SummerDesignDay", "WinterDesignDay")), on = "day_type", by = "day_type",
+            environment_name := {
+                # construct environment name
+                n_pass <- .N - 1L
+                # It is possible that 'Run Simulation for Sizing Periods' is set to
+                # 'No' but 'Do HVAC Sizing Simulation for Sizing Periods' is set to
+                # 'Yes'. In this case, no DDY name is in the 'EnvironmentPeriods'
+                # table.
+                if (!n_pass) {
+                    environment_name <- paste(.BY$day_type, "HVAC Sizing Pass 1")
+                } else {
+                    suffix <- paste("HVAC Sizing Pass", seq_len(n_pass))
+                    environment_name[is.na(environment_name)] <- paste(environment_name[1L], suffix)
+                }
+                environment_name
+            }
+        ]
+    }
+
     dict <- subset_sql_report_data_dict(dict, key_value = key_value, name = name)
     env <- subset_sql_environment_periods(env, environment_name = environment_name)
     time <- time[env, on = "environment_period_index", nomatch = NULL]

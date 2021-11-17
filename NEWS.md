@@ -1,3 +1,113 @@
+# eplusr (development version)
+
+## New features
+
+* `Idd$path()` is added to show the path of IDD parsed (#442).
+* Add epw data sources from [climate.onebuilding.org](https://climate.onebuilding.org/)
+  for `download_weather()`. `type` will always be `"all"` for those sources (#453).
+* Add a new `"stat"` option in `type` in `download_weather()` (#453).
+* `Idf$is_valid_id()` and `Idf$is_valid_name()` gain a new argument named
+  `class` defaulting to `NULL` to check the validity of object IDs and names
+  again a specific class.
+* Add support for EnergyPlus v9.5 (#438).
+* Add support for EnergyPlus v9.6 (#460).
+* Internal function `locate_eplus()` has been exported to enable user to find
+  all available EnergyPlus without restarting R (#477).
+* `uninstall_eplus()` has been added to enable uninstall EnergyPlus from R on
+  all platform (#477).
+* Now force re-installation of EnergyPlus `install_eplus(force = TRUE)` has been
+  updated to support all platforms, including macOS (#477).
+* `install_eplus()` has been updated to behave smarter on macOS (#477).
+* `run_idf()` and `run_multi()` have been refactored to mimick the `Epl-run.bat`
+  procedure. It supports to call the `Basement` and `Slab` processors. Now the
+  requirement of EnergyPlus >=v8.3 for running simulations has been droppped
+  Now simulations with FMU, including obFMU are supported. (#467).
+* `HVAC-Diagram` will be called when running simulations to make sure the `svg`
+  output of HVAC diagram can be generated. Therefore, `hvac_diagram()`
+  has been deprecated and will be removed in next major version (#467).
+* Functions `path_eplus()` and `path_eplus_*()` have been added to help specify
+  file paths under EnergyPlus installation directory (#467).
+* A new `Idf` method `$external_deps()` is added to extra any external file
+  resources specified in the IDF that are needed for simulation, e.g. schedule
+  files (#467).
+* Now `Idf$save(external = TRUE)` and `Idf$run(copy_external)` save external
+  file dependencies based on the results of `Idf$external_deps()` (#467).
+* A new `EplusJob` method `$list_files()` is added to list all inputs and output
+  files for current simulation (#467).
+* A new argument `readvars` can be specified in `EplusJob$run()` and
+  `EplusGroupJob$run()`. Setting it to `FALSE` will disable to run ReadVarsESO
+  post-processor and thus no CSVs will be generated for Report variables and
+  meters. This can speed up simulations significantly if there are hundreds of
+  outputs in the model. Setting it to `FALSE` will not affect any data
+  extraction functionalities in eplusr, as it uses the SQLite output instead of
+  the CSVs (#467).
+* Now `.()` can also be used as an alias as `list()` in `Idf$add()` and
+  `Idf$set()` (#445).
+
+  ```r
+  idf$add(Output_Variable = .("*", "zone mean air temperature"))
+  # is equivalent to
+  idf$add(Output_Variable = list("*", "zone mean air temperature"))
+  ```
+* A new argument `names` can be specified in `ParametricJob$models()` to rename
+  the parametric models created (#487).
+* A new interface for creating parametric models has been introduced using
+  `ParametricJob$param()`. It takes parameter definitions in list format, which
+  is similar to `Idf$set()` except that each field is not assigned with a single
+  value, but a vector of any length, indicating the levels of each parameter.
+  For example, the code block below defines 3 parameters (#487):
+
+  * Field `Fan Total Efficiency` in object named `Supply Fan 1` in class
+    `Fan:VariableVolume` class, with 10 levels being 0.1 to 1.0 with a
+    0.1 step.
+  * Field `Thickness` in all objects in class `Material`, with 10
+    levels being 0.01 to 0.1 m with a 0.1 m step.
+  * Field `Conductivity` in all objects in class `Material`, with 10
+   levels being 0.1 to 1.0 W/m-K with a 0.1 W/m-K step.
+
+  ```
+  param$param(
+      `Supply Fan 1` = list(Fan_Total_Efficiency = seq(0.1, 1.0, 0.1)),
+      Material := list(Thickness = seq(0.01, 0.1, 0.1), Conductivity = seq(0.1, 1.0, 0.1))
+  )
+  ```
+* `ParametricJob$cases()` is added to get a summary of parametric models and
+  parameter values. It returns a `data.table` giving you the indices and names
+  of the parametric models, and all parameter values used to create those
+  models.For parametric models created using `ParametricJob$param()`, the column
+  names will be the same as what you specified in `.names`. For the case of
+  `ParametricJob$apply_measure()`, this will be the argument names of the
+  measure functions (#487).
+* Now `.names` in `ParametricJob$apply_measure()` can be a single character. In
+  this case, it will be used as the prefix of all parametric models. The models
+  will be named in the pattern `.names_X` where `X` is the model index (#487).
+
+## Break changes
+
+* `hvac_diagram()` has been deprecated as `HVAC-Diagram` will always be called
+  after EnergyPlus simulation. If you still want to generate HVAC `svg` diagram
+  manually, please use `HVAC_Diagram()` instead (#467).
+
+## Minor changes
+
+* When `type` is `"all"` in `download_weather()`, the ZIP file will be
+  downloaded instead of downloading both `EPW` and `DDY` files (#453).
+* `EplusJob$output_dir()` now use backslash in the returned path on Windows
+  (#467).
+* Better error message when no arguments are given to the measure function in
+  `ParametricJob$apply_measure()` (#487).
+
+## Bug fixes
+
+* Fix the year value calculation when first day of a run period is holiday (#450).
+* Fix `download_weather()` file downloading URL (#452).
+* Fix `EplusSql$report_data(..., wide = TRUE)` when `Do HVAC Sizing Simulation
+  for Sizing Periods` is set to `Yes` in `SimulationControl` (#461).
+* Now `read_idf()` and other functions that read files from disk can use
+  `stringi::stri_enc_detect()` to fix encoding issue (#467).
+* Now `ParametricJob$run(dir = NULL)` will always use the seed model directory
+  (#483).
+
 # eplusr 0.14.2
 
 ## New features
@@ -28,10 +138,13 @@
 
 * Fixed wrong transition of `FuelFactors` from v9.2 to v9.3 (#420).
 * Fixed `Idf$del` error when both sources and referees are given (#433).
+* Fixed the error that `EplusGroupJob$tabular_data(..., wide = TRUE)` did not
+  return the `index` column (#449).
 
 ## Minor changes
 
 * Better error and verbose messages (#422, #423).
+* The default mouse mode for `wheel` has been changed to `"pull"`.
 
 # eplusr 0.14.1
 
