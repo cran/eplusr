@@ -1,7 +1,7 @@
 Package: eplusr
 Title: A Toolkit for Using Whole Building Simulation Program
         'EnergyPlus'
-Version: 0.15.0
+Version: 0.15.1
 Authors@R: c(
     person(given = "Hongyuan",
            family = "Jia",
@@ -40,9 +40,9 @@ Collate: 'constants.R' 'assert.R' 'diagram.R' 'eplusr.R' 'utils.R'
         'rdd.R' 'reload.R' 'run.R' 'sql.R' 'transition.R' 'units.R'
         'validate.R' 'viewer.R' 'zzz.R'
 NeedsCompilation: no
-Packaged: 2021-11-17 15:55:13 UTC; hongy
+Packaged: 2022-01-21 03:57:44 UTC; hongy
 Author: Hongyuan Jia [aut, cre] (<https://orcid.org/0000-0002-0075-8183>),
   Adrian Chong [aut] (<https://orcid.org/0000-0002-9486-4728>)
 Maintainer: Hongyuan Jia <hongyuanjia@cqust.edu.cn>
 Repository: CRAN
-Date/Publication: 2021-11-17 17:00:05 UTC
+Date/Publication: 2022-01-21 04:32:40 UTC

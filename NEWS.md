@@ -1,4 +1,18 @@
-# eplusr (development version)
+# eplusr 0.15.1
+
+## Bug fixes
+
+* Fix `ParametricJob$cases()` when multiple objects are specified on the LHS in
+  `ParametricJob$param()` (#492).
+* Fix `install_eplus(9.1)` on Linux (#494, #495).
+* Now `ParametricJob$run()` can correctly use weather file when only one
+  parametric model exists (#497).
+
+## Minor changes
+
+* Compatibility changes for incoming {units} v0.8 (#499).
+
+# eplusr v0.15.0
 
 ## New features
 
