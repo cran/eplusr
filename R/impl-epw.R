@@ -176,12 +176,12 @@ get_epw_idd_env <- function () {
 #    01:00:00, Hour of 2 corresponds to the period between 01:00:01 to 02:00:00,
 #    and etc. The minute column is **not used** to determine currently sub-hour
 #    time.
-parse_epw_file <- function (path, idd = NULL) {
+parse_epw_file <- function (path, idd = NULL, encoding = "unknown") {
     # read and parse header
-    epw_header <- parse_epw_header(path)
+    epw_header <- parse_epw_header(path, encoding = encoding)
 
     # read core weather data
-    epw_data <- parse_epw_data(path)
+    epw_data <- parse_epw_data(path, encoding = encoding)
 
     # add line indicator
     set(epw_data, NULL, "line", seq_len(nrow(epw_data)))
@@ -201,10 +201,10 @@ parse_epw_file <- function (path, idd = NULL) {
 # }}}
 ## HEADER
 # parse_epw_header {{{
-parse_epw_header <- function (path, strict = FALSE) {
+parse_epw_header <- function (path, strict = FALSE, encoding = "unknown") {
     idd_env <- get_epw_idd_env()
 
-    dt_in <- read_lines(path, nrows = 8L)
+    dt_in <- read_lines(path, nrows = 8L, encoding = encoding)
 
     # in case header does not any fields, e.g. "LOCATION\n"
     dt_in[!stri_detect_fixed(string, ","), string := paste0(string, ",")]
@@ -659,7 +659,7 @@ validate_epw_header <- function (header, strict = FALSE) {
 # }}}
 # validate_epw_header_basic {{{
 validate_epw_header_basic <- function (header, class = NULL, field = NULL) {
-    chk <- level_checks("final")
+    chk <- level_checks()
     chk$auto_field <- FALSE
     chk$reference <- FALSE
 
@@ -1194,7 +1194,7 @@ as.POSIXct.EpwDate <- function (x, ...) {
 # }}}
 ## DATA
 # parse_epw_data {{{
-parse_epw_data <- function (path) {
+parse_epw_data <- function (path, encoding = "unknown") {
     num_header <- 8L
 
     idd_env <- get_epw_idd_env()
@@ -1205,7 +1205,7 @@ parse_epw_data <- function (path) {
     # colnames refers to column "Long Name" in Table 2.8 in
     # "AuxiliaryPrograms.pdf" of EnergyPlus 8.6
     # TODO: fread will directly skip those few abnormal rows
-    header_epw_data <- fread(path, sep = ",", skip = num_header, nrows = 0L, header = FALSE)
+    header_epw_data <- fread(path, sep = ",", skip = num_header, nrows = 0L, header = FALSE, encoding = encoding)
     if (ncol(header_epw_data) != cls$min_fields) {
         parse_error("epw", "Invalid weather data column", num = 1L,
             post = sprintf("Expected %i fields in EPW weather data instead of '%i' in current file",
@@ -1650,6 +1650,14 @@ get_epw_data <- function (epw_data, epw_header, matched, period = 1L, start_year
                 lubridate::year(Sys.Date()), leapyear)
             year <- get_epw_datetime_year(start_year, p$start_day, p$end_day, m$num, 60 / interval)
             start_year <- year[1L]
+            # If Feb 28 is from a leap year, the datetime here will fall on Feb
+            # 29th instead of Mar 1st. Here reset the date to Mar 1st manually
+            # to avoid invalid date if derived start year is a non-leap year
+            # See #552
+            if (!leapyear && length(is_feb28 <- which(d$month == 2L & d$day == 28L)) && mday(datetime[max(is_feb28)]) == 29L) {
+                lubridate::month(datetime[max(is_feb28)]) <- 3L
+                lubridate::mday(datetime[max(is_feb28)]) <- 1L
+            }
             lubridate::year(datetime) <- year
         }
 

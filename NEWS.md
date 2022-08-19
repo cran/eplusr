@@ -1,3 +1,37 @@
+# eplusr 0.15.2
+
+## New features
+
+* A new `encoding` parameter has been added in `read_idf()`, `use_idd()` and
+  `read_epw()`. The default value is `unknown` which indicates that the input
+  file is native encoded (#515).
+* Now `validate_level` option is respected when parsing EPW files. This makes it
+  possible to parse EPW files with non-standard EPW header values, which is
+  useful when only the core EPW data is needed (#520). E.g:
+  ```
+  with_option(list(validate_level = "none"), read_epw(YOUR_EPW_PATH))
+  ```
+
+## Bug fixes
+
+* Now `IdfGeometry$coord_system()` can correctly work. The coordinate system
+  type can also be `"world"`. `"absolute"` input now is automatically converted
+  to `"world"` to be compatible with EnergyPlus. `IdfGeometry$coord_system()`
+  now returns itself by default, instead of the parent `Idf` object. This
+  enables to check the modified coordinate systems by printing the `IdfGeometry`
+  (#506 #507).
+* Fix `Idf$load()` when input is a single string without any new line (`\n`)
+  (#510).
+* Fix `IdfViewer$snapshot()` for PNG output. A new parameter `webshot` has been
+  added in `IdfViewer$snapshot()` with default value being `FALSE` (#509).
+* Now `IdfSchedule$... <- val` works (#512).
+* Fix the error of invalid datetime in `Epw$data()` when data of Feb 28 is from
+  a leap year while the EPW did not contain any leap year data (#552).
+
+## Documentation
+
+* Regenerate package documentation to fix CRAN NOTES on HTML manuals (#525).
+
 # eplusr 0.15.1
 
 ## Bug fixes

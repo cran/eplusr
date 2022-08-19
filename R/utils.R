@@ -62,6 +62,9 @@ surround <- function (x, out = "'") {
 #'
 #' @details
 #'
+#' `get_super_env()` returns the `super` enclosed environment of an [R6::R6Class()]
+#' object.
+#'
 #' `get_self_env()` returns the `self` enclosed environment of an [R6::R6Class()]
 #' object.
 #'
@@ -86,6 +89,15 @@ get_self_env <- function (x) {
 #' @name get_env
 get_priv_env <- function (x) {
     .subset2(.subset2(x, ".__enclos_env__"), "private")
+}
+# }}}
+
+# get_super_env{{{
+#' @keywords internal
+#' @export
+#' @name get_env
+get_super_env <- function (x) {
+    .subset2(.subset2(x, ".__enclos_env__"), "super")
 }
 # }}}
 
@@ -115,17 +127,6 @@ read_lines <- function(input, trim = TRUE, encoding = "unknown", ...) {
     )
     if (!nrow(dt)) return(data.table(string = character(0L), line = integer(0L)))
     set(dt, j = "line", value = seq_along(dt[["string"]]))
-
-    # stringi will silent convert every inputs to UTF-8 encoded
-    if (any(not_valid <- !stringi::stri_enc_isutf8(dt$string) & !stringi::stri_enc_isascii(dt$string))) {
-        # try to fix the problems using the most possible encoding guessed from
-        # stringi
-        enc <- vcapply(stringi::stri_enc_detect(dt$string[not_valid]),
-            function(l) .subset2(.subset2(l, "Encoding"), 1L)
-        )
-        enc <- names(table(enc))[1L]
-        set(dt, which(not_valid), "string", stringi::stri_encode(dt$string[not_valid], enc, "UTF-8"))
-    }
 
     if (trim) set(dt, j = "string", value = stri_trim_both(dt[["string"]]))
 
