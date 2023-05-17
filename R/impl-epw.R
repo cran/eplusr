@@ -11,7 +11,6 @@
 #' @importFrom cli cat_rule cat_line
 #' @importFrom utils combn
 #' @importFrom stats na.omit
-#' @importFrom methods setOldClass
 #' @include parse.R
 #' @include utils.R
 #' @include assert.R
@@ -879,12 +878,39 @@ ymd_to_md <- function (x) {
 }
 # }}}
 # as_EpwDate {{{
-as_EpwDate <- function (x, ...) {
+
+#' Convert to EnergyPlus Weather File date
+#'
+#' `as_EpwDate()` converts inputs to EnergyPlus Weather File (EPW) dates.
+#'
+#' @details
+#' EnergyPlus supports multiple formats of date specification
+#' Reference: Table 2.14, Chap 2 Weather Converter Program, Auxiliary Program
+#'
+#' Those formats include:
+#'
+#' 1. Julian day of year
+#' 2. num_Month/num_Day
+#' 3. num_Month/num_Day/num_Year (only for DataPeriod)
+#' 4. num_Day alpha_Month
+#' 5. alpha_Month num_Day
+#' 6. num Weekday In Month (only for Holiday/DaylightSavingPeriod)
+#' 7. last Weekday In Month (only for Holiday/DaylightSavingPeriod)
+#'
+#' @param x An integer vector or a character vector.
+#' @param leapyear Whether support leap year. Default: `TRUE`
+#' @export
+#' @keywords internal
+as_EpwDate <- function (x, leapyear = TRUE) {
     UseMethod("as_EpwDate")
 }
-as_EpwDate.default <- function (x, ...) {
+#' @export
+#' @keywords internal
+as_EpwDate.default <- function (x, leapyear = TRUE) {
     stop("Missing method to convert <", class(x)[1L], "> object to <EpwDate>.")
 }
+#' @export
+#' @keywords internal
 # as_EpwDate.integer {{{
 as_EpwDate.integer <- function (x, leapyear = TRUE) {
     res <- init_epwdate_vctr(length(x))
@@ -904,6 +930,8 @@ as_EpwDate.integer <- function (x, leapyear = TRUE) {
 }
 # }}}
 # as_EpwDate.numeric {{{
+#' @export
+#' @keywords internal
 as_EpwDate.numeric <- function (x, leapyear = TRUE) {
     res <- init_epwdate_vctr(length(x))
     if (length(x) == 0L) return(res)
@@ -921,6 +949,8 @@ as_EpwDate.numeric <- function (x, leapyear = TRUE) {
 }
 # }}}
 # as_EpwDate.character {{{
+#' @export
+#' @keywords internal
 as_EpwDate.character <- function (x, leapyear = TRUE) {
     res <- init_epwdate_vctr(length(x))
     if (length(x) == 0L) return(res)
@@ -963,21 +993,29 @@ as_EpwDate.character <- function (x, leapyear = TRUE) {
 }
 # }}}
 # as_EpwDate.logical {{{
+#' @export
+#' @keywords internal
 as_EpwDate.logical <- as_EpwDate.integer
 # }}}
 # as_EpwDate.Date {{{
+#' @export
+#' @keywords internal
 as_EpwDate.Date <- function (x, ...) {
     # treat as default "yyyy-mm-dd" format
     assign_epwdate(copy(x))
 }
 # }}}
 # as_EpwDate.POSIXt{{{
+#' @export
+#' @keywords internal
 as_EpwDate.POSIXt <- function (x, ...) {
     # treat as default "yyyy-mm-dd" format
     assign_epwdate(as_date(x))
 }
 # }}}
 # as_EpwDate.EpwDate {{{
+#' @export
+#' @keywords internal
 as_EpwDate.EpwDate <- function (x, ...) x
 # }}}
 # parse_epwdate_md {{{
@@ -1129,6 +1167,10 @@ format_epwdate_nthwkd <- function (x, last = FALSE) {
         lubridate::month(x, label = TRUE, abbr = FALSE, locale = "C")
     )
 }
+# }}}
+#' @export
+# as.character.EpwDate {{{
+as.character.EpwDate <- format.EpwDate
 # }}}
 #' @export
 # print.EpwDate {{{
@@ -1548,7 +1590,8 @@ check_epw_data_type <- function (epw_data, type = NULL) {
     type_detected <- epw_data[, vcapply(.SD, typeof)]
     for (j in seq_along(type)) {
         if (type[[j]] == "integer") {
-            if (type_detected[[j]] == "integer") {
+            # handle integerish
+            if (type_detected[[j]] == "integer" || (type_detected[[j]] == "double" && checkmate::test_integerish(epw_data[[j]]))) {
                 # remove all derived S3 class
                 set(epw_data, NULL, j, as.integer(epw_data[[j]]))
             } else {
@@ -2650,3 +2693,5 @@ save_epw_file <- function (epw_data, epw_header, matched, path, overwrite = FALS
     normalizePath(path)
 }
 # }}}
+
+# vim: set fdm=marker:

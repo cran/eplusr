@@ -2,12 +2,10 @@
 #' @importFrom checkmate assert_flag assert_file_exists assert_directory_exists
 #' @importFrom checkmate assert_logical
 #' @importFrom cli cat_line
-#' @importFrom crayon red
 #' @importFrom data.table data.table setattr setnames
 #' @importFrom lubridate with_tz
 #' @importFrom tools file_path_sans_ext
 #' @importFrom processx process
-#' @importFrom progress progress_bar
 #' @importFrom tools file_path_sans_ext
 NULL
 
@@ -565,7 +563,7 @@ get_eplus_loc_from_input <- function(idf, eplus = NULL) {
 }
 
 get_ver_from_output_string <- function(line) {
-    re <- "Program Version,EnergyPlus, Version (\\d\\.\\d\\.\\d)-[0-9a-f]+, YMD=\\d+\\.\\d{2}\\.\\d{2} \\d{2}:\\d{2}"
+    re <- "Program Version,EnergyPlus, Version (\\d{1,2}\\.\\d\\.\\d)-[0-9a-f]+, YMD=\\d+\\.\\d{2}\\.\\d{2} \\d{2}:\\d{2}"
     standardize_ver(regmatches(line, regexec(re, line))[[1L]][2L])
 }
 
@@ -1062,9 +1060,17 @@ EnergyPlus <- function(model, weather, output_dir = NULL,
         if (!is.null(idd)) args <- c(args, "--idd", normalizePath(idd, mustWork = FALSE))
         if (!is.null(weather)) args <- c(args, "--weather", normalizePath(weather, mustWork = FALSE))
 
-        args <- c(args, cmd$model)
+        # NOTE: if input file has an extension of 'epmidf' or 'epmidf', create
+        # an IDF file with the same name
+        model <- cmd$model
+        if (clean_idf <- tools::file_ext(model) %in% c("epmidf", "expidf")) {
+            model <- file_copy(model, file.path(dirname(model), sprintf("%s.idf", tools::file_path_sans_ext(basename(model)))))
+        }
+
+        args <- c(args, model)
 
         file_callback <- function() {
+            if (clean_idf) unlink(model)
             file <- list()
             file$idf <- normalizePath(file.path(cmd$output_dir, basename(cmd$model)))
             if (!is.null(cmd$weather)) {
@@ -1662,7 +1668,7 @@ run_energyplus <- function(
             unlink(cmd$idf)
 
             # use the expanded model as the input for later simulation
-            cmd$idf <- file_copy(file$expidf, path_sim2(("_expanded.idf")))
+            cmd$idf <- file_copy(file$expidf, path_sim2("_expanded.idf"))
         }
 
         if (!is.na(res_expandobj$file$experr)) {
@@ -1968,10 +1974,13 @@ run_sim_event_loop <- function(state) {
     )
 
     # global progress bar
-    state$progress <- progress::progress_bar$new(
+    state$progress <- cli::cli_progress_bar(
         total = nrow(state$jobs), clear = FALSE,
-        format = "[:current/:total | :percent] :bar [Elapsed: :elapsedfull]"
+        format = "[{cli::pb_current}/{cli::pb_total}] | {cli::pb_percent} {cli::pb_bar} [Elapsed: {cli::pb_elapsed}]"
     )
+    # catch current enviroment where the progress bar is created
+    # this is needed to correctly update the progress
+    state$env <- environment()
 
     # kill all simulation jobs once exit
     on.exit(kill_all_sims(state), add = TRUE)
@@ -1979,7 +1988,6 @@ run_sim_event_loop <- function(state) {
     # init one simulation for each worker
     num <- min(state$options$num_parallel, nrow(state$jobs))
     for (i in seq_len(num)) {
-        state$progress$tick(0L)
         state <- schedule_next_sim(state)
         state <- do_sim(state)
     }
@@ -1987,9 +1995,8 @@ run_sim_event_loop <- function(state) {
     # run simulations until all simulation completes
     while (TRUE) {
         if (are_all_completed(state)) break;
-        state$progress$tick(0L)
         state <- handle_sim_events(state)
-        state  <- schedule_next_sim(state)
+        state <- schedule_next_sim(state)
         state <- do_sim(state)
     }
 
@@ -2074,9 +2081,9 @@ handle_sim_events <- function(state) {
 
             if (state$options$echo) {
                 comp <- get_sim_status_string("completed", index, model, weather, exit_status)
-                state$progress$message(paste0(comp, collapse = "\n"))
+                cli::cli_progress_output(paste0(comp, collapse = "\n"), id = state$progress, .envir = state$env)
             }
-            state$progress$tick(.N)
+            cli::cli_progress_update(inc = .N, id = state$progress, .envir = state$env)
 
             status[exit_status == 0L] <- "completed"
             status[exit_status != 0L] <- "failed"
@@ -2107,9 +2114,8 @@ do_sim <- function(state) {
 
         if (state$options$echo) {
             run <- get_sim_status_string("running", index, model, weather)
-            state$progress$message(paste0(run, collapse = "\n"))
+            cli::cli_progress_output(paste0(run, collapse = "\n"), id = state$progress, .envir = state$env)
         }
-        state$progress$tick(0L)
 
         list(status = "running", process = list(process), start_time = current())
     }]
@@ -2484,3 +2490,5 @@ post_process_sim_state <- function(state) {
     setcolorder(jobs, cols)
     jobs
 }
+
+# vim: set fdm=marker:

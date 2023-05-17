@@ -1095,7 +1095,7 @@ use_idd <- function (idd, download = FALSE, encoding = "unknown") {
             abort(paste0("Parameter 'idd' should be a valid version, a path, or ",
                 "a single character string of an EnergyPlus Input Data ",
                 "Dictionary (IDD) file (usually named 'Energy+.idd'). ",
-                "Invalid input found: ", str_trunc(surround(idd)), "."
+                "Invalid input found: ", surround(idd), "."
             ), "read_lines")
         }))
     }
@@ -1379,3 +1379,5 @@ get_idd_from_ver <- function (idf_ver = NULL, idd = NULL, warn = TRUE) {
     idd
 }
 # }}}
+
+# vim: set fdm=marker:

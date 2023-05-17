@@ -1586,7 +1586,7 @@ parse_issue <- function (type = c("idf", "idd", "err", "epw"), title, data = NUL
             mes <- c(mes[1L:10L], "...[truncated. First 10 are shown.]")
         }
 
-        mes <- str_trunc(mes)
+        mes <- cli::ansi_strtrim(mes)
     }
 
     if (stop) {
@@ -1644,3 +1644,5 @@ insert_version <- function (x, ver) {
     }
 }
 # }}}
+
+# vim: set fdm=marker:

@@ -231,6 +231,7 @@ IdfGeometry <- R6Class("IdfGeometry", cloneable = FALSE,
         #' * `name`: Character type. Object names.
         #' * `class`: Character type. Class names.
         #' * `zone`: Character type. Zone names that specified objects belong to.
+        #' * `space`: Character type. Space names that specified objects belong to.
         #' * `type`: Character type. Surface types.
         #' * `area`: Numeric type. Surface Area in m2.
         #'
@@ -262,6 +263,7 @@ IdfGeometry <- R6Class("IdfGeometry", cloneable = FALSE,
         #' * `name`: Character type. Object names.
         #' * `class`: Character type. Class names.
         #' * `zone`: Character type. Zone names that specified objects belong to.
+        #' * `space`: Character type. Space names that specified objects belong to.
         #' * `type`: Character type. Surface types.
         #' * `azimuth`: Numeric type. Azimuth in degree.
         #'
@@ -293,6 +295,7 @@ IdfGeometry <- R6Class("IdfGeometry", cloneable = FALSE,
         #' * `name`: Character type. Object names.
         #' * `class`: Character type. Class names.
         #' * `zone`: Character type. Zone names that specified objects belong to.
+        #' * `space`: Character type. Space names that specified objects belong to.
         #' * `type`: Character type. Surface types.
         #' * `tilt`: Numeric type. Azimuth in degree.
         #'
@@ -327,7 +330,7 @@ IdfGeometry <- R6Class("IdfGeometry", cloneable = FALSE,
         #' For more detailed control on the scene, see [IdfViewer].
         #'
         #' @param new If `TRUE`, a new rgl window will be open using
-        #'        [rgl::rgl.open()]. If `FALSE`, existing rgl window will be
+        #'        [rgl::open3d()]. If `FALSE`, existing rgl window will be
         #'        reused if possible. Default: `FALSE`.
         #'
         #' @param render_by A single string specifying the way of rendering the
@@ -341,6 +344,7 @@ IdfGeometry <- R6Class("IdfGeometry", cloneable = FALSE,
         #'   color. All other surfaces will be white.
         #' * `"construction"`: Render the model by surface constructions.
         #' * `"zone"`: Render the model by zones assigned.
+        #' * `"space"`: Render the model by spaces assigned.
         #' * `"normal"`: Render the model by surface normal. The outside face of
         #'   a heat transfer face will be rendered as white and the inside face
         #'   will be rendered as red.
@@ -437,7 +441,7 @@ IdfGeometry <- R6Class("IdfGeometry", cloneable = FALSE,
                 as.data.table(stri_split_fixed(obj$class_name, ":", n = 3L, simplify = TRUE))
             )
             obj[type %chin% c("Building", "GlobalGeometryRules",
-                "Zone", "BuildingSurface", "Wall", "RoofCeiling", "Floor",
+                "Zone", "Space", "BuildingSurface", "Wall", "RoofCeiling", "Floor",
                 "Wall", "Roof", "Ceiling", "FenestrationSurface", "Window",
                 "Door", "GlazedDoor", "Shading", "Daylighting")]
         },
@@ -625,7 +629,7 @@ idfgeom_cal_property <- function (self, private, class = NULL, object = NULL, fu
 
     if (!nrow(geoms$vertices)) {
         return(data.table(id = integer(), name = character(), class = character(),
-            zone = character(), type = character(), property = double()
+            zone = character(), space = character(), type = character(), property = double()
         ))
     }
 
@@ -635,16 +639,16 @@ idfgeom_cal_property <- function (self, private, class = NULL, object = NULL, fu
     }
     prop <- get_newall_vector(geoms$vertices)[, by = "id", list(property = fun(c(x, y, z)))]
 
-    add_zone_name(geoms)
-    cols <- c("id", "name", "class", "zone_name", "surface_type")
+    add_zone_space_name(geoms)
+    cols <- c("id", "name", "class", "zone_name", "space_name", "surface_type")
     meta <- rbindlist(list(
         NULL,
         if (nrow(geoms$surface)) fast_subset(geoms$surface, cols),
         if (nrow(geoms$subsurface)) fast_subset(geoms$subsurface, cols),
         if (nrow(geoms$shading)) fast_subset(geoms$shading, cols)
     ))
-    setnames(meta, c("id", "name", "class", "zone", "type"))
-    del_zone_name(geoms)
+    setnames(meta, c("id", "name", "class", "zone", "space", "type"))
+    del_zone_space_name(geoms)
 
     add_joined_cols(meta, prop, "id", names(meta)[-1L])
     setcolorder(prop, names(meta))
@@ -708,23 +712,23 @@ idfgeom_view <- function (self, private, new = FALSE, render_by = "surface_type"
 idfgeom_print <- function (self, private) {
     cli::cat_rule("EnergPlus IDF Geometry", line = 1)
 
-    if (is.null(private$m_parent$path())) path <- crayon::bold$bgRed("NOT LOCAL") else path <- surround(private$m_parent$path())
+    if (is.null(private$m_parent$path())) path <- cli::style_bold(cli::bg_red("NOT LOCAL")) else path <- surround(private$m_parent$path())
 
-    cli::cat_line(" * ", c(
-        str_trunc(paste0("Path: ", path), width = cli::console_width() - 3L),
-        paste0("Version: ", surround(private$m_parent$version()))
-    ))
+    cli::cat_line(cli::ansi_strtrim(c(
+        paste0(" ", cli::symbol$bullet, " Path: ", path),
+        paste0(" ", cli::symbol$bullet, " Version: ", surround(private$m_parent$version()))
+    )))
 
     geoms <- private$geoms()
 
-    cli::cat_line(sprintf(" * Building: '%s'", geoms$building$name))
-    cli::cat_line(sprintf(" * North Axis: %s\u00B0", geoms$building$north_axis))
-    cli::cat_line(sprintf(" * Zone Num: %s", NROW(geoms$zone)))
-    cli::cat_line(sprintf(" * Surface Num: %s", NROW(geoms$surface)))
-    cli::cat_line(sprintf(" * SubSurface Num: %s", NROW(geoms$subsurface)))
-    cli::cat_line(sprintf(" * Shading Num: %s", NROW(geoms$shading)))
-    cli::cat_line(sprintf(" * Dayl Ref Pnt Num: %s", NROW(geoms$daylighting_point)))
-    cli::cat_line(" * Coordinate System:")
+    cli::cat_line(sprintf(" %s Building: '%s'", cli::symbol$bullet, geoms$building$name))
+    cli::cat_line(sprintf(" %s North Axis: %s\u00B0", cli::symbol$bullet, geoms$building$north_axis))
+    cli::cat_line(sprintf(" %s Zone Num: %s", cli::symbol$bullet, NROW(geoms$zone)))
+    cli::cat_line(sprintf(" %s Surface Num: %s", cli::symbol$bullet, NROW(geoms$surface)))
+    cli::cat_line(sprintf(" %s SubSurface Num: %s", cli::symbol$bullet, NROW(geoms$subsurface)))
+    cli::cat_line(sprintf(" %s Shading Num: %s", cli::symbol$bullet, NROW(geoms$shading)))
+    cli::cat_line(sprintf(" %s Dayl Ref Pnt Num: %s", cli::symbol$bullet, NROW(geoms$daylighting_point)))
+    cli::cat_line(" %s Coordinate System:", cli::symbol$bullet)
     cli::cat_line(c(
         sprintf("   - Detailed: '%s'", ifelse(geoms$rules$coordinate_system == "world", "World", "Relative")),
         sprintf("   - Simple:   '%s'", ifelse(geoms$rules$rectangular_surface_coordinate_system == "world", "World", "Relative")),
@@ -732,3 +736,5 @@ idfgeom_print <- function (self, private) {
     ))
 }
 # }}}
+
+# vim: set fdm=marker:

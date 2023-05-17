@@ -4,7 +4,7 @@
 #          x -->      x
 #          y -->     -z
 #          z -->      y
-rgl_vertice_trans_to_opengl <- function(vertices){
+rgl_vertice_trans_to_opengl <- function(vertices) {
     if (!NROW(vertices)) {
         return(vertices)
     }
@@ -16,7 +16,7 @@ rgl_vertice_trans_to_opengl <- function(vertices){
 #      x -->          x
 #      y -->          z
 #      z -->         -y
-rgl_vertice_trans_to_eplus <- function(vertices){
+rgl_vertice_trans_to_eplus <- function(vertices) {
     if (!NROW(vertices)) {
         return(vertices)
     }
@@ -26,7 +26,7 @@ rgl_vertice_trans_to_eplus <- function(vertices){
 # }}}
 
 # rgl_viewpoint {{{
-rgl_viewpoint <- function (dev, look_at = "iso", theta = NULL, phi = NULL, fov = NULL, zoom = NULL, scale = NULL) {
+rgl_viewpoint <- function(dev, look_at = "iso", theta = NULL, phi = NULL, fov = NULL, zoom = NULL, scale = NULL) {
     assert_choice(look_at, c("iso", "top", "bottom", "front", "back", "left", "right"), null.ok = TRUE)
     assert_number(phi, lower = -90, upper = 90, null.ok = TRUE)
     assert_number(fov, lower = 0, upper = 179, null.ok = TRUE)
@@ -57,16 +57,16 @@ rgl_viewpoint <- function (dev, look_at = "iso", theta = NULL, phi = NULL, fov =
 
     m <- get_viewpoint_matrix(rot[1], rot[2], rot[3])
 
-    rgl::rgl.set(dev)
-    rgl::rgl.viewpoint(fov = fov, zoom = zoom, scale = scale, userMatrix = m)
+    rgl::set3d(dev)
+    rgl::view3d(fov = fov, zoom = zoom, scale = scale, userMatrix = m)
 
     list(userMatrix = m, fov = fov, zoom = zoom, scale = scale)
 }
 # }}}
 
 # rgl_view_surface {{{
-rgl_view_surface <- function (dev, geoms, type = "surface_type", x_ray = FALSE, wireframe = TRUE, width = 1.5) {
-    assert_choice(type, c("surface_type", "boundary", "construction", "zone", "normal"))
+rgl_view_surface <- function(dev, geoms, type = "surface_type", x_ray = FALSE, wireframe = TRUE, width = 1.5) {
+    assert_choice(type, c("surface_type", "boundary", "construction", "zone", "space", "normal"))
     assert_flag(x_ray)
     # should contain vertices after triangulation
     assert_names(names(geoms), must.include = "vertices2")
@@ -77,7 +77,7 @@ rgl_view_surface <- function (dev, geoms, type = "surface_type", x_ray = FALSE, 
         on.exit(rgl_vertice_trans_to_eplus(geoms$vertices2), add = TRUE)
     }
 
-    rgl::rgl.set(dev)
+    rgl::set3d(dev)
 
     geoms <- map_view_color(geoms, type = type, x_ray = x_ray)
 
@@ -176,15 +176,15 @@ rgl_view_surface <- function (dev, geoms, type = "surface_type", x_ray = FALSE, 
 # }}}
 
 # rgl_view_surface_twoside_tri {{{
-rgl_view_surface_twoside_tri <- function (vertices) {
+rgl_view_surface_twoside_tri <- function(vertices) {
     if (!nrow(vertices)) return(integer())
-    ext <- rgl::rgl.triangles(
+    ext <- rgl::triangles3d(
         x = as.matrix(fast_subset(vertices, c("x", "y", "z"))),
         color = as.matrix(fast_subset(vertices, rep("color_ext", 3L))),
         alpha = as.matrix(fast_subset(vertices, rep("alpha", 3L))),
         front = "filled", back = "culled", lit = FALSE
     )
-    int <- rgl::rgl.triangles(
+    int <- rgl::triangles3d(
         x = as.matrix(fast_subset(vertices, c("x", "y", "z"))),
         color = as.matrix(fast_subset(vertices, rep("color_int", 3L))),
         alpha = as.matrix(fast_subset(vertices, rep("alpha", 3L))),
@@ -195,15 +195,15 @@ rgl_view_surface_twoside_tri <- function (vertices) {
 # }}}
 
 # rgl_view_surface_twoside_quad {{{
-rgl_view_surface_twoside_quad <- function (vertices) {
+rgl_view_surface_twoside_quad <- function(vertices) {
     if (!nrow(vertices)) return(integer())
-    ext <- rgl::rgl.quads(
+    ext <- rgl::quads3d(
         x = as.matrix(fast_subset(vertices, c("x", "y", "z"))),
         color = as.matrix(fast_subset(vertices, rep("color_ext", 3L))),
         alpha = as.matrix(fast_subset(vertices, rep("alpha", 3L))),
         front = "filled", back = "culled", lit = FALSE
     )
-    int <- rgl::rgl.quads(
+    int <- rgl::quads3d(
         x = as.matrix(fast_subset(vertices, c("x", "y", "z"))),
         color = as.matrix(fast_subset(vertices, rep("color_int", 3L))),
         alpha = as.matrix(fast_subset(vertices, rep("alpha", 3L))),
@@ -214,11 +214,11 @@ rgl_view_surface_twoside_quad <- function (vertices) {
 # }}}
 
 # rgl_view_surface_oneside_tri {{{
-rgl_view_surface_oneside_tri <- function (vertices) {
+rgl_view_surface_oneside_tri <- function(vertices) {
     if (!nrow(vertices)) return(integer())
     col <- if (has_names(vertices, "color_int")) "color_int" else "color"
 
-    as.integer(rgl::rgl.triangles(
+    as.integer(rgl::triangles3d(
         x = as.matrix(fast_subset(vertices, c("x", "y", "z"))),
         color = as.matrix(fast_subset(vertices, rep(col, 3L))),
         alpha = as.matrix(fast_subset(vertices, rep("alpha", 3L))),
@@ -228,11 +228,11 @@ rgl_view_surface_oneside_tri <- function (vertices) {
 # }}}
 
 # rgl_view_surface_oneside_quad {{{
-rgl_view_surface_oneside_quad <- function (vertices) {
+rgl_view_surface_oneside_quad <- function(vertices) {
     if (!nrow(vertices)) return(integer())
     col <- if (has_names(vertices, "color_int")) "color_int" else "color"
 
-    as.integer(rgl::rgl.quads(
+    as.integer(rgl::quads3d(
         x = as.matrix(fast_subset(vertices, c("x", "y", "z"))),
         color = as.matrix(fast_subset(vertices, rep(col, 3L))),
         alpha = as.matrix(fast_subset(vertices, rep("alpha", 3L))),
@@ -242,7 +242,7 @@ rgl_view_surface_oneside_quad <- function (vertices) {
 # }}}
 
 # rgl_view_wireframe {{{
-rgl_view_wireframe <- function (dev, geoms, color = "black", width = 1.5, alpha = 1.0, ...) {
+rgl_view_wireframe <- function(dev, geoms, color = "black", width = 1.5, alpha = 1.0, ...) {
     if (!nrow(geoms$vertices)) return(integer())
 
     # make sure all vertices are in the OpenGL coordinate system
@@ -251,14 +251,14 @@ rgl_view_wireframe <- function (dev, geoms, color = "black", width = 1.5, alpha 
         on.exit(rgl_vertice_trans_to_eplus(geoms$vertices), add = TRUE)
     }
 
-    rgl::rgl.set(dev)
+    rgl::set3d(dev)
     l <- pair_line_vertex(geoms$vertices)
-    as.integer(rgl::rgl.lines(l$x, l$y, l$z, color = color, lwd = width, lit = FALSE, alpha = alpha, ...))
+    as.integer(rgl::segments3d(l$x, l$y, l$z, color = color, lwd = width, lit = FALSE, alpha = alpha, ...))
 }
 # }}}
 
 # rgl_view_point {{{
-rgl_view_point <- function (dev, geoms, color = "red", size = 8.0, lit = TRUE, ...) {
+rgl_view_point <- function(dev, geoms, color = "red", size = 8.0, lit = TRUE, ...) {
     if (!nrow(geoms$vertices)) return(integer())
     if (!nrow(geoms$daylighting_point)) return(integer())
 
@@ -270,13 +270,13 @@ rgl_view_point <- function (dev, geoms, color = "red", size = 8.0, lit = TRUE, .
 
     v <- geoms$vertices[J(geoms$daylighting_point$id), on = "id", nomatch = NULL]
 
-    rgl::rgl.set(dev)
-    as.integer(rgl::rgl.points(v$x, v$y, v$z, color = color, size = size, lit = lit, ...))
+    rgl::set3d(dev)
+    as.integer(rgl::points3d(v$x, v$y, v$z, color = color, size = size, lit = lit, ...))
 }
 # }}}
 
 # rgl_view_axis {{{
-rgl_view_axis <- function (dev, geoms, expand = 2.0, width = 1.5, color = c("red", "green", "blue", "orange"), alpha = 1.0) {
+rgl_view_axis <- function(dev, geoms, expand = 2.0, width = 1.5, color = c("red", "green", "blue", "orange"), alpha = 1.0) {
     assert_number(expand, finite = TRUE, lower = 1.0)
     assert_number(width, lower = 1E-5, finite = TRUE)
     assert_number(alpha, lower = 0, upper = 1)
@@ -325,7 +325,7 @@ rgl_view_axis <- function (dev, geoms, expand = 2.0, width = 1.5, color = c("red
 # }}}
 
 # rgl_view_ground {{{
-rgl_view_ground <- function (dev, geoms, expand = 1.02, color = "#EDEDEB", alpha = 1.0) {
+rgl_view_ground <- function(dev, geoms, expand = 1.02, color = "#EDEDEB", alpha = 1.0) {
     assert_number(expand, finite = TRUE, lower = 1.0)
     assert_number(alpha, lower = 0.0, upper = 1.0)
     assert_string(color)
@@ -366,7 +366,7 @@ rgl_view_ground <- function (dev, geoms, expand = 1.02, color = "#EDEDEB", alpha
     # transform geometry from EnergyPlus to OpenGL coordinate system
     vert <- rgl_vertice_trans_to_opengl(vert)
 
-    as.integer(rgl::rgl.quads(
+    as.integer(rgl::quads3d(
         vert$x, vert$y, vert$z,
         color = color, lit = FALSE, alpha = alpha
     ))
@@ -374,11 +374,11 @@ rgl_view_ground <- function (dev, geoms, expand = 1.02, color = "#EDEDEB", alpha
 # }}}
 
 # rgl_snapshot {{{
-rgl_snapshot <- function (dev, filename, webshot = FALSE, ...) {
+rgl_snapshot <- function(dev, filename, webshot = FALSE, ...) {
     assert_string(filename)
 
     # set the last plot device as active
-    if (!rgl::rgl.useNULL()) rgl::rgl.set(dev)
+    if (!rgl::rgl.useNULL()) rgl::set3d(dev)
 
     if (!dir.exists(dirname(filename))) dir.create(dirname(filename), recursive = TRUE)
 
@@ -397,7 +397,7 @@ rgl_snapshot <- function (dev, filename, webshot = FALSE, ...) {
 # }}}
 
 # get_viewpoint_rotation {{{
-get_viewpoint_rotation <- function (dev) {
+get_viewpoint_rotation <- function(dev) {
     m <- rgl::par3d(dev = dev, "userMatrix")
 
     x <- atan2(-m[2L, 3L], m[3L, 3L])
@@ -416,7 +416,7 @@ get_viewpoint_rotation <- function (dev) {
 # }}}
 
 # get_viewpoint_matrix {{{
-get_viewpoint_matrix <- function (deg_x, deg_y, deg_z) {
+get_viewpoint_matrix <- function(deg_x, deg_y, deg_z) {
     viewpoint_rotate_matrix("x", deg_x) %*%
     viewpoint_rotate_matrix("y", deg_y) %*%
     viewpoint_rotate_matrix("z", deg_z)
@@ -424,7 +424,7 @@ get_viewpoint_matrix <- function (deg_x, deg_y, deg_z) {
 # }}}
 
 # viewpoint_rotate_matrix {{{
-viewpoint_rotate_matrix <- function (axis, degree) {
+viewpoint_rotate_matrix <- function(axis, degree) {
     rad <- deg_to_rad(degree)
     s <- sin(rad)
     c <- cos(rad)
@@ -453,7 +453,7 @@ viewpoint_rotate_matrix <- function (axis, degree) {
 # }}}
 
 # pair_line_vertex {{{
-pair_line_vertex <- function (vertices) {
+pair_line_vertex <- function(vertices) {
     # for lines, vertices should be provided in pairs
     vertices[, by = "id", {
         idx <- c(index[[1L]], rep(index[-1L], each = 2L), index[[1L]])
@@ -463,7 +463,7 @@ pair_line_vertex <- function (vertices) {
 # }}}
 
 # add_surface_hole_vertices {{{
-add_surface_hole_vertices <- function (surface, subsurface, vertices) {
+add_surface_hole_vertices <- function(surface, subsurface, vertices) {
     if (!nrow(surface) || !nrow(subsurface)) return(vertices)
 
     subsurface[surface, on = c("building_surface_name" = "name"), `:=`(id_surface = i.id)]
@@ -480,7 +480,7 @@ add_surface_hole_vertices <- function (surface, subsurface, vertices) {
 # }}}
 
 # triangulate_geoms {{{
-triangulate_geoms <- function (geoms) {
+triangulate_geoms <- function(geoms) {
     # In case there is no surface to triangulate and the original vertice
     # data.table is directly returned. See #479
     if (!nrow(geoms$vertices)) return(copy(geoms$vertices))
@@ -499,12 +499,12 @@ triangulate_geoms <- function (geoms) {
 # }}}
 
 # triangulate_surfaces {{{
-triangulate_surfaces <- function (vertices) {
+triangulate_surfaces <- function(vertices) {
     # tweaked for speed and avoid grouping computation as long as possible
     trans <- align_face(vertices)
 
     dt_trans <- rbindlist(lapply(trans$trans, as.list))
-    dt_inv_trans <- rbindlist(lapply(trans$trans, function (x) as.list(solve.default(x))))
+    dt_inv_trans <- rbindlist(lapply(trans$trans, function(x) as.list(solve.default(x))))
 
     set(dt_trans, NULL, "id", trans$id)
     set(dt_inv_trans, NULL, "id", trans$id)
@@ -540,7 +540,7 @@ triangulate_surfaces <- function (vertices) {
 
 # pan3d {{{
 # adapted from rgl examples
-pan3d <- function(button, dev = rgl::rgl.cur(), subscene = rgl::currentSubscene3d(dev)) {
+pan3d <- function(button, dev = rgl::cur3d(), subscene = rgl::currentSubscene3d(dev)) {
     start <- list()
 
     begin <- function(x, y) {
@@ -566,7 +566,7 @@ pan3d <- function(button, dev = rgl::rgl.cur(), subscene = rgl::currentSubscene3
 # }}}
 
 # pan_view {{{
-pan_view <- function (dev, x, y, z) {
+pan_view <- function(dev, x, y, z) {
     init <- rgl::par3d(c("userProjection", "viewport"), dev = dev)
     init$pos <- c(0.5, 0.5, 0.5)
 
@@ -577,14 +577,14 @@ pan_view <- function (dev, x, y, z) {
 # }}}
 
 # rgl_pop {{{
-rgl_pop <- function (id, type = "shapes") {
-    try(as.integer(rgl::rgl.pop(id = id, type = "shapes")), silent = TRUE)
+rgl_pop <- function(id, type = "shapes") {
+    try(as.integer(rgl::pop3d(id = id, type = "shapes")), silent = TRUE)
 }
 # }}}
 
 # map_view_color {{{
-map_view_color <- function (geoms, type = "surface_type", x_ray = FALSE) {
-    assert_choice(type, c("surface_type", "boundary", "construction", "zone", "normal"))
+map_view_color <- function(geoms, type = "surface_type", x_ray = FALSE) {
+    assert_choice(type, c("surface_type", "boundary", "construction", "zone", "space", "normal"))
     alpha <- if (x_ray) 0.4 else 1.0
 
     set.seed(1L)
@@ -719,6 +719,25 @@ map_view_color <- function (geoms, type = "surface_type", x_ray = FALSE) {
         if (nrow(geoms$surface)) {
             set(geoms$surface, NULL, c("color", "alpha"), list(COLOR_MAP$surface_type["Undefined"], alpha))
             geoms$surface[geoms$zone, on = c("zone_name" = "name"), `:=`(color = i.color, alpha = i.alpha)]
+
+            if (nrow(geoms$subsurface)) {
+                set(geoms$subsurface, NULL, c("color", "alpha"), list(COLOR_MAP$surface_type["Undefined"], alpha))
+                geoms$subsurface[geoms$surface, on = c("building_surface_name" = "name"),
+                    `:=`(color = i.color, alpha = i.alpha)]
+            }
+            if (nrow(geoms$shading)) {
+                set(geoms$shading, NULL, c("color", "alpha"), list(COLOR_MAP$surface_type["Undefined"], alpha))
+                geoms$shading[geoms$surface, on = c("base_surface_name" = "name"),
+                    `:=`(color = i.color, alpha = i.alpha)]
+            }
+        }
+    } else if (type == "space") {
+        set(geoms$space, NULL, c("color", "alpha"), list(sample(COLOR_MAP$color, nrow(geoms$space), replace = TRUE), alpha))
+        # add surface
+        if (nrow(geoms$surface)) {
+            # NOTE: It is possible that the space name is left empty.
+            set(geoms$surface, NULL, c("color", "alpha"), list(COLOR_MAP$surface_type["Undefined"], alpha))
+            geoms$surface[geoms$space, on = c("space_name" = "name"), `:=`(color = i.color, alpha = i.alpha)]
 
             if (nrow(geoms$subsurface)) {
                 set(geoms$subsurface, NULL, c("color", "alpha"), list(COLOR_MAP$surface_type["Undefined"], alpha))
@@ -946,3 +965,5 @@ COLOR_MAP <- list(
     )
 )
 # }}}
+
+# vim: set fdm=marker:
