@@ -1,3 +1,14 @@
+# eplusr 0.16.1
+
+## Bug fixes
+
+* Fix edge cases of IDF/IDD parsing (#566).
+
+## Internal refactor
+
+* Use character input for `numeric_version()` (#565).
+* Skips tests that need IDD downloading on CRAN (#561).
+
 # eplusr 0.16.0
 
 ## New features
