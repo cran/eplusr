@@ -1,3 +1,14 @@
+# eplusr 0.16.2
+
+## Bug fixes
+
+* Support design condition specs from ASHRAE HOF 2021 (#571).
+* Use `NA_character_` instead of `NA` for `numeric_version()` (#572).
+
+## New features
+
+* Update weather database for `OneBuilding` (#574).
+
 # eplusr 0.16.1
 
 ## Bug fixes
