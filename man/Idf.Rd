@@ -794,6 +794,9 @@ idf$run(epw, dir = tempdir(), wait = FALSE)
 # copy all external files into the directory run simulation
 idf$run(epw, dir = tempdir(), copy_external = TRUE)
 
+# run simulation without generating CSV files from ESO output
+idf$run(epw, dir = tempdir(), readvars = FALSE)
+
 # check for simulation errors
 job$errors()
 
@@ -2017,7 +2020,7 @@ all possible recursive relations are returned. Default: \code{0}.}
 
 \item{\code{class_ref}}{Specify how to handle class-name-references. Class
 name references refer to references in like field \verb{Component 1 Object Type} in \code{Branch} objects. Their value refers to other
-many class names of objects, instaed of refering to specific
+many class names of objects, instead of referring to specific
 field values. There are 3 options in total, i.e. \code{"none"},
 \code{"both"} and \code{"all"}, with \code{"both"} being the default.
 * \code{"none"}: just ignore class-name-references. It is a reasonable
@@ -3362,7 +3365,7 @@ definitions, i.e. character, numeric and integer fields should be
 filled with corresponding type of values.
 \item \code{choice}: Check if all choice fields are filled with valid choice
 values.
-\item \code{range}: Check if all numeric fields have values within prescibed
+\item \code{range}: Check if all numeric fields have values within prescribed
 ranges.
 \item \code{reference}: Check if all fields whose values refer to other fields
 are valid.
@@ -4002,7 +4005,8 @@ Run simulation using EnergyPlus
   wait = TRUE,
   force = FALSE,
   copy_external = FALSE,
-  echo = wait
+  echo = wait,
+  readvars = TRUE
 )}\if{html}{\out{</div>}}
 }
 
@@ -4036,6 +4040,12 @@ will have all files needed for the model to run. Default is
 \item{\code{echo}}{Only applicable when \code{wait} is \code{TRUE}. Whether to show
 standard output and error from EnergyPlus. Default: same as
 \code{wait}.}
+
+\item{\code{readvars}}{If \code{TRUE}, the \code{ReadVarESO} post-processor will run
+to generate CSV files from the ESO output. Since those CSV
+files are never used when extracting simulation data in eplusr,
+setting it to \code{FALSE} can speed up the simulation if there are
+hundreds of output variables or meters. Default: \code{TRUE}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -4091,6 +4101,9 @@ idf$run(epw, dir = tempdir(), wait = FALSE)
 
 # copy all external files into the directory run simulation
 idf$run(epw, dir = tempdir(), copy_external = TRUE)
+
+# run simulation without generating CSV files from ESO output
+idf$run(epw, dir = tempdir(), readvars = FALSE)
 
 # check for simulation errors
 job$errors()

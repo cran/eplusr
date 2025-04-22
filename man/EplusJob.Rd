@@ -110,6 +110,9 @@ job$run(echo = FALSE)
 
 # copy external files used in the model to simulation output directory
 job$run(copy_external = TRUE)
+
+# run simulation without generating CSV files from ESO output
+job$run(epw, dir = tempdir(), readvars = FALSE)
 }
 
 
@@ -456,7 +459,7 @@ job$path("epw")
 \if{html}{\out{<a id="method-EplusJob-run"></a>}}
 \if{latex}{\out{\hypertarget{method-EplusJob-run}{}}}
 \subsection{Method \code{run()}}{
-Run simulationA
+Run simulation
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{EplusJob$run(
   epw,
@@ -464,7 +467,8 @@ Run simulationA
   wait = TRUE,
   force = FALSE,
   echo = wait,
-  copy_external = FALSE
+  copy_external = FALSE,
+  readvars = TRUE
 )}\if{html}{\out{</div>}}
 }
 
@@ -547,6 +551,9 @@ job$run(echo = FALSE)
 
 # copy external files used in the model to simulation output directory
 job$run(copy_external = TRUE)
+
+# run simulation without generating CSV files from ESO output
+job$run(epw, dir = tempdir(), readvars = FALSE)
 }
 
 }
@@ -753,7 +760,7 @@ returned list.\tabular{lll}{
    17 \tab \code{epmdet} \tab EPMacro inputs echo \cr
    18 \tab \code{epmidf} \tab EPMacro IDF output \cr
    19 \tab \code{epw} \tab EnergyPlus Weather File input \cr
-   20 \tab \code{err} \tab EnergyPlus error summarry \cr
+   20 \tab \code{err} \tab EnergyPlus error summary \cr
    21 \tab \code{eso} \tab EnergyPlus standard output \cr
    22 \tab \code{experr} \tab ExpandObjects error summary \cr
    23 \tab \code{expidf} \tab ExpandObjects IDF output \cr
@@ -775,7 +782,7 @@ returned list.\tabular{lll}{
    39 \tab \code{rdd} \tab EnergyPlus report variable names \cr
    40 \tab \code{rvaudit} \tab ReadVarsESO input echo \cr
    41 \tab \code{sci} \tab EnergyPlus cost benefit calculation information \cr
-   42 \tab \code{screen} \tab EnergyPlus window scrren transmittance map output \cr
+   42 \tab \code{screen} \tab EnergyPlus window screen transmittance map output \cr
    43 \tab \code{shading} \tab EnergyPlus surface shading CSV output \cr
    44 \tab \code{shd} \tab EnergyPlus surface shading combination report \cr
    45 \tab \code{slab_ger} \tab Slab error summary \cr

@@ -34,7 +34,6 @@ package documentation.
 
 ``` r
 citation("eplusr")
-#> 
 #> To cite eplusr in publications use:
 #> 
 #>   Hongyuan Jia, Adrian Chong (2021). eplusr: A framework for
@@ -66,7 +65,12 @@ install.packages("eplusr")
 Alternatively, you can install the development version from GitHub.
 
 ``` r
-install.packages("eplusr", repos = "https://hongyuanjia.r-universe.dev")
+install.packages("eplusr",
+    repos = c(
+        hongyuanjia = "https://hongyuanjia.r-universe.dev",
+        cran = "https://cran.r-project.org"
+    )
+)
 ```
 
 Since running the IDF files requires EnergyPlus
@@ -174,7 +178,7 @@ Please see these vignettes and articles about {eplusr}
   parametric analysis on EnergyPlus models, including sensitivity
   analysis, Bayesian calibration and optimization.
 
-## Acknowledgement
+## Acknowledgment
 
 I would like to thank many open source projects who have heavily
 inspired the development of eplusr package, especially these below:
@@ -197,7 +201,7 @@ Hongyuan Jia and Adrian Chong
 
 The project is released under the terms of MIT License.
 
-Copyright © 2016-2023 Hongyuan Jia and Adrian Chong
+Copyright © 2016-2025 Hongyuan Jia and Adrian Chong
 
 ------------------------------------------------------------------------
 

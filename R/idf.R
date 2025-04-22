@@ -890,7 +890,7 @@ Idf <- R6::R6Class(classname = "Idf",
         #' @param class_ref Specify how to handle class-name-references. Class
         #'        name references refer to references in like field `Component 1
         #'        Object Type` in `Branch` objects. Their value refers to other
-        #'        many class names of objects, instaed of refering to specific
+        #'        many class names of objects, instead of referring to specific
         #'        field values. There are 3 options in total, i.e. `"none"`,
         #'        `"both"` and `"all"`, with `"both"` being the default.
         #'     * `"none"`: just ignore class-name-references. It is a reasonable
@@ -1920,7 +1920,7 @@ Idf <- R6::R6Class(classname = "Idf",
         #'   filled with corresponding type of values.
         #' * `choice`: Check if all choice fields are filled with valid choice
         #'   values.
-        #' * `range`: Check if all numeric fields have values within prescibed
+        #' * `range`: Check if all numeric fields have values within prescribed
         #'   ranges.
         #' * `reference`: Check if all fields whose values refer to other fields
         #'   are valid.
@@ -2478,6 +2478,12 @@ Idf <- R6::R6Class(classname = "Idf",
         #'        standard output and error from EnergyPlus. Default: same as
         #'        `wait`.
         #'
+        #' @param readvars If `TRUE`, the `ReadVarESO` post-processor will run
+        #'        to generate CSV files from the ESO output. Since those CSV
+        #'        files are never used when extracting simulation data in eplusr,
+        #'        setting it to `FALSE` can speed up the simulation if there are
+        #'        hundreds of output variables or meters. Default: `TRUE`.
+        #'
         #' @return An [EplusJob] object of current simulation.
         #'
         #' @examples
@@ -2501,6 +2507,9 @@ Idf <- R6::R6Class(classname = "Idf",
         #' # copy all external files into the directory run simulation
         #' idf$run(epw, dir = tempdir(), copy_external = TRUE)
         #'
+        #' # run simulation without generating CSV files from ESO output
+        #' idf$run(epw, dir = tempdir(), readvars = FALSE)
+        #'
         #' # check for simulation errors
         #' job$errors()
         #'
@@ -2517,8 +2526,8 @@ Idf <- R6::R6Class(classname = "Idf",
         #' job$report_data()
         #' }
         #'
-        run = function(weather, dir = NULL, wait = TRUE, force = FALSE, copy_external = FALSE, echo = wait)
-            idf_run(self, private, weather, dir, wait, force, copy_external = copy_external, echo),
+        run = function(weather, dir = NULL, wait = TRUE, force = FALSE, copy_external = FALSE, echo = wait, readvars = TRUE)
+            idf_run(self, private, weather, dir, wait, force, copy_external = copy_external, echo = echo, readvars = readvars),
         # }}}
 
         # last_job {{{
@@ -3344,7 +3353,7 @@ idf_save <- function(self, private, path = NULL, format = eplusr_option("save_fo
 # }}}
 # idf_run {{{
 idf_run <- function(self, private, epw, dir = NULL, wait = TRUE,
-                     force = FALSE, copy_external = FALSE, echo = wait) {
+                     force = FALSE, copy_external = FALSE, echo = wait, readvars = TRUE) {
     # check if the model is still running
     old <- private$m_log$job
     if (!inherits(old, "EplusJob")) {
@@ -3355,7 +3364,7 @@ idf_run <- function(self, private, epw, dir = NULL, wait = TRUE,
     }
 
     private$m_log$job$run(epw = epw, dir = dir, wait = wait, force = force,
-        echo = echo, copy_external = copy_external
+        echo = echo, copy_external = copy_external, readvars = readvars
     )
 }
 # }}}

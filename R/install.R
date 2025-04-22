@@ -28,10 +28,10 @@ NULL
 #'   * For `install_eplus()`, the installer will always be saved into
 #'     [tempdir()]. But you can use `dir` to specify the **parent** directory
 #'     of EnergyPlus installation, i.e. the **parent** directory of
-#'     `EnergyPlusVX-Y-0` on Windows and `EnergyPlus-X-Y-0` on Linux. macOS is
-#'     not supported. If `NULL`, the default installation path will be used.
-#'     See details for more information. Please note that `dir` does not work
-#'     on macOS and EnergyPlus will always be installed into the default
+#'     `EnergyPlusVX-Y-0` on Windows and `EnergyPlus-X-Y-0` on Linux and macOS.
+#'     If `NULL`, the default installation path will be used.
+#'     See details for more information. Please note that `dir` only works
+#'     when on macOS and EnergyPlus will always be installed into the default
 #'     location. Default: `NULL`.
 #'
 #' @param force Whether to install EnergyPlus even if it has already been
@@ -39,6 +39,10 @@ NULL
 #'        EnergyPlus anyway. Please note that this may results in multiple
 #'        EnergyPlus installations of the same version at different locations.
 #'        eplusr will only use the first EnergyPlus installation. Default: `FALSE`.
+#'
+#' @param portable Whether to install EnergyPlus using the portable `zip` (on
+#'        Windows) and `tar.gz` (on macOS and Linux) installer for EnergyPlus
+#'        v8.8 and above. Default: `FALSE`.
 #'
 #' @param ... Other arguments to be passed to the installer. Current only one
 #'        additional argument exists and is only for Linux:
@@ -69,13 +73,13 @@ NULL
 #'   - `dir(Sys.getenv("LOCALAPPDATA"), "EnergyPlusVX-Y-0")` OR
 #'   - \verb{C:\Users\<User>\AppData\Local\EnergyPlusVX-Y-0} if environment
 #'     variable `"LOCALAPPDATA"` is not set
-#' * macOS: `/Users/<User>/Applications/EnergyPlus-X-Y-0`
+#' * macOS: `/Users/User/Applications/EnergyPlus-X-Y-0`
 #' * Linux: `"~/.local/EnergyPlus-X-Y-0"`
 #'
 #' On Windows and Linux, you can also specify your custom directory using the
 #' `dir` argument. Remember to change `local` to `FALSE` in order to ask for
 #' administrator privileges if you do not have the write access to that
-#' directory.
+#' directory. On macOS, `dir` only works when `portable` is set to `TRUE`.
 #'
 #' Please note that when `local` is set to `FALSE`, no symbolic links
 #' will be created, since this process requires administrative privileges.
@@ -118,7 +122,7 @@ NULL
 #' @export
 #' @importFrom checkmate assert_string
 # install_eplus {{{
-install_eplus <- function(ver = "latest", local = FALSE, dir = NULL, force = FALSE, ...) {
+install_eplus <- function(ver = "latest", local = FALSE, dir = NULL, force = FALSE, portable = FALSE, ...) {
     checkmate::assert_atomic_vector(ver, any.missing = FALSE, len = 1L)
     ver <- standardize_ver(ver)
 
@@ -133,13 +137,10 @@ install_eplus <- function(ver = "latest", local = FALSE, dir = NULL, force = FAL
 
     verbose_info(sprintf("Starting to download EnergyPlus v%s...", ver))
 
-    dl <- download_eplus(ver, tempdir())
+    dl <- download_eplus(ver, tempdir(), portable = portable)
     inst <- attr(dl, "file")
 
-    path <- install_eplus_from_file(ver, inst, local = local, dir = dir, ...)
-
-    # add newly installed EnergyPlus to dictionary
-    use_eplus(path)
+    path <- install_eplus_from_file(ver, inst, local = local, dir = dir, portable = portable, ...)
 
     res <- 0L
     attr(res, "path") <- path
@@ -149,23 +150,29 @@ install_eplus <- function(ver = "latest", local = FALSE, dir = NULL, force = FAL
 }
 # }}}
 # install_eplus_from_file {{{
-install_eplus_from_file <- function(ver, inst, local = FALSE, dir = NULL, ...) {
+install_eplus_from_file <- function(ver, inst, local = FALSE, dir = NULL, portable = FALSE, ...) {
     ver <- standardize_ver(ver)
     verbose_info(sprintf("Starting to install EnergyPlus v%s...", ver))
 
-    if (!local)
+    if (!local && !portable)
         verbose_info("NOTE: Administrative privileges required during installation. ",
-            "Please make sure R is running with an administrator acount or equivalent.")
+            "Please make sure R is running with an administrator account or equivalent.")
 
-    res <- switch(os_type(),
-           windows = install_eplus_win(ver, inst, local = local, dir = dir),
-           linux = install_eplus_linux(ver, inst, local = local, dir = dir, ...),
-           macos = install_eplus_macos(ver, inst, local = local))
+    res <- switch(
+        os_type(),
+        windows = install_eplus_win(ver,   inst, local = local, dir = dir, portable = portable),
+        linux   = install_eplus_linux(ver, inst, local = local, dir = dir, portable = portable, ...),
+        macos   = install_eplus_macos(ver, inst, local = local, dir = dir, portable = portable)
+    )
 
     if (res != 0L) abort(paste0("Failed to install EnergyPlus v", ver, "."))
 
-    path <- eplus_default_path(ver, local = local)
+    path <- attr(res, "path")
     verbose_info(sprintf("EnergyPlus v%s successfully installed into '%s'.", ver, path))
+
+    # add newly installed EnergyPlus to dictionary
+    use_eplus(path)
+
     path
 }
 # }}}
@@ -180,14 +187,34 @@ uninstall_eplus <- function(ver) {
     dir <- tryCatch(eplus_config(ver)$dir, eplusr_warning_miss_eplus_config = function(w) abort(conditionMessage(w)))
 
     verbose_info(sprintf("Start uninstalling EnergyPlus v%s...", ver))
+
+    # detect if it is a portable EnergyPlus installation
+    is_portable <- switch(
+        os_type(),
+        windows = if (ver >= "9.2") {
+            file.exists(file.path(dir, "maintenancetool.exe"))
+        } else {
+            file.exists(file.path(dir, "Uninstall.exe"))
+        },
+        linux = file.exists(file.path(dir, "uninstall.sh")),
+        macos = if (ver >= "9.2") {
+            file.exists(file.path(dir, "maintenancetool.app/Contents/MacOS/maintenancetool"))
+        } else {
+            TRUE
+        }
+    )
     verbose_info("NOTE: Administrative privileges may be required during uninstallation. ",
         "Please make sure R is running with an administrator acount or equivalent.")
 
-    res <- switch(os_type(),
-           windows = uninstall_eplus_win(ver, dir),
-           linux = uninstall_eplus_linux(ver, dir),
-           macos = uninstall_eplus_macos(ver, dir)
-    )
+    if (is_portable) {
+        res <- uninstall_eplus_portable(ver, dir)
+    } else {
+        res <- switch(os_type(),
+            windows = uninstall_eplus_win(ver, dir),
+            linux   = uninstall_eplus_linux(ver, dir),
+            macos   = uninstall_eplus_macos(ver, dir)
+        )
+    }
 
     if (res != 0L) abort(paste0("Failed to uninstall EnergyPlus v", ver, "."))
 
@@ -204,15 +231,21 @@ uninstall_eplus <- function(ver) {
 # }}}
 
 #' @name install_eplus
+#' @param portable Whether to download the portable version of EnergyPlus. Only
+#' works for EnergyPlus v8.8 and above. Default: `FALSE`.
 #' @export
 # download_eplus {{{
-download_eplus <- function(ver = "latest", dir) {
+download_eplus <- function(ver = "latest", dir, portable = FALSE) {
     ver <- match_minor_ver(standardize_ver(ver, complete = FALSE), ALL_EPLUS_VER, "eplus")
-    url <- eplus_download_url(ver)
+    url <- eplus_download_url(ver, portable = portable)
+
     file <- basename(url)
 
     dest <- normalizePath(file.path(dir, file), mustWork = FALSE)
+    # set timeout option to a large number: 30 mins
+    old <- options("timeout" = 60 * 30)
     dl <- download_file(url, dest)
+    on.exit(options("timeout" = old), add = TRUE)
 
     if (dl != 0L) stop("Failed to download EnergyPlus v", ver, ".", call. = FALSE)
 
@@ -225,63 +258,153 @@ download_eplus <- function(ver = "latest", dir) {
 # }}}
 
 # eplus_download_url: get EnergyPlus installer download URL {{{
-eplus_download_url <- function(ver) {
+eplus_download_url <- function(ver, portable = FALSE) {
+    base_url <- "https://github.com/NREL/EnergyPlus/releases/download/"
+
     cmt <- eplus_release_commit(ver)
 
-    if (!length(cmt))
-        stop("Failed to get installer data for EnergyPlus v", ver, ". ",
-             "All available version are: ",
-             collapse(ALL_EPLUS_RELEASE_COMMIT[order(version), version]), ".", call. = FALSE)
+    if (!nrow(cmt)) {
+        abort(paste0(
+            "Failed to get installer data for EnergyPlus v", ver, ". ",
+            "All available version are: ",
+            collapse(ALL_EPLUS_RELEASE_COMMIT[order(version), version]), "."
+        ))
+    }
 
-    os <- switch(os_type(), windows = "Windows", macos = "Darwin", linux = "Linux")
+    # get operating system
+    os <- os_type()
+    if (os == "unknown") abort("Unsupported operating system.")
+    ostype <- switch(os,
+        windows = "Windows", macos = "Darwin", linux = "Linux"
+    )
 
-    # handle EnergyPlus v9.4 and above on Linux and macOS
-    if (ver >= "9.4") {
-        if (is_macos()) {
-            os <- sprintf("%s-macOS10.15", os)
-        } else if (is_linux()) {
-            # detect ubuntu version
-            osrel <- tryCatch(readLines("/etc/os-release", warn = FALSE),
-                error = function(e) NULL
+    # get installer file extension
+    if (!portable) {
+        ext <- switch(os_type(), windows = "exe", macos = "dmg", linux = "sh")
+    } else {
+        if (numeric_version(cmt$version) < "8.8") {
+            abort("Portable version of EnergyPlus is only available for v8.8 and above.")
+        }
+        ext <- switch(os_type(), windows = "zip", macos = "tar.gz", linux = "tar.gz")
+    }
+
+    # get architecture
+    info_arch <- Sys.info()[["machine"]]
+    if (info_arch %in% c("x86-64", "x86_64")) {
+        arch <- "x86_64"
+    } else {
+        arch <- info_arch
+        # stop if it is a 32-bit system for Linux
+        if (arch == "i386" && os != "windows") {
+            abort("EnergyPlus does not provide 32-bit version installer for macOS and Linux.")
+        }
+        # NOTE: check Windows i386 support for EnergyPlus 24.1.0 and above
+    }
+
+    # EnergyPlus v9.4 and above provide different installers for various
+    # Ubuntu distribution and macOS versions and should be handled differently
+    if (os == "windows" || !cmt$version %in% names(ALL_EPLUS_OSVER)) {
+        # no macOS arm64 installer provided for ENergyPlus v9.4 and below
+        if (arch == "arm64") {
+            verbose_info(
+                "EnergyPlus does not provide v", cmt$version, " installer for ",
+                if (ostype == "Darwin") "macOS" else ostype, " arm64 platform. ",
+                "The x86_64 installer will be used instead."
             )
+            arch <- "x86_64"
+        }
 
-            # if fail to read, use Ubuntu 20.04
-            if (is.null(osrel)) {
-                os <- sprintf("%s-Ubuntu20.04", os)
+        file <- sprintf("EnergyPlus-%s-%s-%s-%s.%s", cmt$version, cmt$commit, ostype, arch, ext)
+        return(paste0(base_url, "v", cmt$version, "/", file))
+    }
+
+    # if arm64 installer is not provided, use the x86_64 one
+    if (arch == "arm64" && is.null(ALL_EPLUS_OSVER[[cmt$version]][[os]][[arch]])) {
+        verbose_info(
+            "EnergyPlus does not provide v", cmt$version, " installer for ", ostype, " arm64 platform. ",
+            "The x86_64 installer will be used instead."
+        )
+        arch <- "x86_64"
+    }
+
+    idx_osver <- NA_integer_
+    osver_cur <- os_version()
+    osver_cur_num <- numeric_version(osver_cur, FALSE)
+    osvers_nm <- ALL_EPLUS_OSVER[[cmt$version]][[os]][[arch]]
+    osvers <- gsub(os, "", osvers_nm, ignore.case = TRUE)
+    dist <- linux_dist()
+
+    # use the latest installer if not Ubuntu
+    if (os == "linux" && dist != "ubuntu") {
+        idx_osver <- length(osvers)
+        verbose_info(
+            "Current distribution is ", dist, ". ",
+            "Currently, EnergyPlus only provides installers for Ubuntu. ",
+            "The latest installer for Ubuntu ", osvers[idx_osver], " will be used."
+        )
+    }
+
+    if (in_verbose()) osname <- if (os == "macos") "macOS" else "Ubuntu"
+
+    # use the latest installer if fail to get the os version
+    if (is.na(idx_osver) && (is.na(osver_cur) || is.na(osver_cur_num))) {
+        idx_osver <- length(osvers)
+
+        verbose_info(
+            "Failed to determine the current ", osname, " version. ",
+            "The latest installer for ", osname, " ", osvers[idx_osver], " will be used."
+        )
+    }
+
+    if (is.na(idx_osver)) {
+        # check if the exact version is supported
+        if (osver_cur %in% osvers) {
+            idx_osver <- which(osvers == osver_cur)
+        } else {
+            osver_cur_num <- numeric_version(osver_cur, FALSE)
+            osvers_num <- numeric_version(osvers)
+
+            # if the major version is not supported, use the nearest installer
+            if (!length(idx_major <- which(osver_cur_num[, 1L] == osvers_num[, 1L]))) {
+                idx_osver <- which.min(abs(
+                    as.numeric(osver_cur_num[, 1L]) - as.numeric(osvers_num[, 1L])
+                ))
+
+                verbose_info(
+                    "EnergyPlus does not provide v", cmt$version, " installer for ", osname,  " ", osver_cur, ". ",
+                    "The nearest installer for ", osname, " ", osvers[idx_osver], " will be used."
+                )
             } else {
-                # test if Ubuntu
-                if (!any(grepl("^ID\\s*=\\s*ubuntu", osrel))) {
-                    os <- sprintf("%s-Ubuntu20.04", os)
-                # get Ubuntu version
+                # only minor version mismatches
+                if (length(idx_major) == 1L) {
+                   idx_osver <- idx_major
+                # in case multiple major version matches
                 } else {
-                    vers <- stringi::stri_match_first_regex(osrel, "^BUILD_ID\\s*=\\s*(.+)")[, 2L]
-                    vers <- numeric_version(vers, strict = FALSE)
-                    vers <- vers[!is.na(vers)]
-                    # if fail to get version, use Ubuntu 20.04
-                    if (!length(vers)) {
-                        os <- sprintf("%s-Ubuntu20.04", os)
-                    } else if (any(vers >= "20.04")) {
-                        os <- sprintf("%s-Ubuntu20.04", os)
+                    # if no minor version, use the latest installer
+                    if (is.na(osver_cur_num[, 2L])) {
+                        idx_osver <- idx_major[osvers_num[idx_major] == max(osvers_num[idx_major])]
                     } else {
-                        os <- sprintf("%s-Ubuntu18.04", os)
+                        idx_osver <- idx_major[which.min(abs(
+                            as.numeric(osver_cur_num[, 2L]) - as.numeric(osvers_num[idx_major][, 2L])
+                        ))]
                     }
                 }
+                verbose_info(
+                    "EnergyPlus does not provide v", cmt$version, " installer for ", osname,  " ", osver_cur, ". ",
+                    "Installer for ", osname, " ", osvers[idx_major], " is available and will be used.",
+                )
             }
         }
     }
 
-    if (!is_windows() ||
-        identical(Sys.info()[['machine']], "x86-64") ||
-        identical(Sys.info()[['machine']], "x86_64")) {
-        arch <- "x86_64"
-    } else {
-        arch <- "i386"
+    if (is.na(idx_osver)) {
+        abort(paste0("Failed to determine the installer for EnergyPlus v", cmt$version, "."))
     }
+    osver <- osvers_nm[idx_osver]
 
-    ext <- switch(os_type(), windows = "exe", macos = "dmg", linux = "sh")
-
-    base_url <- "https://github.com/NREL/EnergyPlus/releases/download/"
-    file <- sprintf("EnergyPlus-%s-%s-%s-%s.%s", cmt$version, cmt$commit, os, arch, ext)
+    file <- sprintf("EnergyPlus-%s-%s-%s-%s-%s.%s",
+        cmt$version, cmt$commit, ostype, osver, arch, ext
+    )
     paste0(base_url, "v", cmt$version, "/", file)
 }
 # }}}
@@ -311,7 +434,7 @@ download_file <- function(url, dest) {
 }
 # }}}
 # install_eplus_win {{{
-install_eplus_win <- function(ver, exec, local = FALSE, dir = NULL) {
+install_eplus_win <- function(ver, exec, local = FALSE, dir = NULL, portable = FALSE) {
     ver <- standardize_ver(ver)
     if (is.null(dir)) {
         if (local) {
@@ -324,11 +447,18 @@ install_eplus_win <- function(ver, exec, local = FALSE, dir = NULL) {
     if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
     dir <- normalizePath(file.path(dir, paste0("EnergyPlusV", gsub("\\.", "-", ver))), mustWork = FALSE)
 
-    if (ver >= "9.2") {
-        install_eplus_qt(ver, exec, dir, local = local)
+    if (portable) {
+        # install using the portable version
+        res <- install_eplus_portable(ver, exec, dir)
     } else {
-        system(sprintf("%s /S /D=%s", exec, dir))
+        if (ver >= "9.2") {
+            res <- install_eplus_qt(ver, exec, dir, local = local)
+        } else {
+            res <- system(sprintf("%s /S /D=%s", exec, dir))
+        }
+        attr(res, "path") <- dir
     }
+    res
 }
 # }}}
 # get_win_user_path {{{
@@ -357,7 +487,7 @@ get_win_user_path <- function(error = FALSE) {
     normalizePath(file.path("C:/Users", user, "AppData/Local"))
 }
 # }}}
-# sudo_on_mac_interactive {{{
+# sudo_on_mac {{{
 sudo_on_mac <- function(cmd) {
     if (interactive()) {
         # see: https://stackoverflow.com/questions/1517183/is-there-any-graphical-sudo-for-mac-os-x
@@ -368,35 +498,47 @@ sudo_on_mac <- function(cmd) {
 }
 # }}}
 # install_eplus_macos {{{
-install_eplus_macos <- function(ver, exec, local = FALSE) {
+install_eplus_macos <- function(ver, exec, local = FALSE, dir = NULL, portable = FALSE) {
     ver <- standardize_ver(ver)
     no_ext <- tools::file_path_sans_ext(basename(exec))
 
-    # mount
-    system(sprintf("hdiutil mount %s", exec))
-    if (ver < "9.1") {
-        if (local) {
-            res <- system(sprintf("installer -pkg /Volumes/%s/%s.pkg -target CurrentUserHomeDirectory", no_ext, no_ext))
-        } else {
-            res <- sudo_on_mac(sprintf("installer -pkg /Volumes/%s/%s.pkg -target LocalSystem", no_ext, no_ext))
-        }
-    } else {
-        ver_dash <- gsub("\\.", "-", ver)
+    if ((portable && is.null(dir)) || ver >= "9.1") {
+        ver_dash <- gsub(".", "-", ver, fixed = TRUE)
         if (local) {
             dir <- normalizePath(file.path("~/Applications", paste0("EnergyPlus-", ver_dash)), mustWork = FALSE)
         } else {
             dir <- file.path("/Applications", paste0("EnergyPlus-", ver_dash))
         }
-        exec <- sprintf("/Volumes/%s/%s.app/Contents/MacOS/%s", no_ext, no_ext, no_ext)
-        res <- install_eplus_qt(ver, exec, dir, local = local)
     }
-    system(sprintf("hdiutil unmount /Volumes/%s/", no_ext))
+
+    if (portable) {
+        if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+        dir <- normalizePath(dir, mustWork = TRUE)
+
+        # install using the portable version
+        res <- install_eplus_portable(ver, exec, dir)
+    } else {
+        # mount
+        system(sprintf("hdiutil mount %s", exec))
+        if (ver < "9.1") {
+            if (local) {
+                res <- system(sprintf("installer -pkg /Volumes/%s/%s.pkg -target CurrentUserHomeDirectory", no_ext, no_ext))
+            } else {
+                res <- sudo_on_mac(sprintf("installer -pkg /Volumes/%s/%s.pkg -target LocalSystem", no_ext, no_ext))
+            }
+            attr(res, "path") <- eplus_default_path(ver, local = local)
+        } else {
+            res <- install_eplus_qt(ver, exec, dir, local = local)
+            attr(res, "path") <- dir
+        }
+        system(sprintf("hdiutil unmount /Volumes/%s/", no_ext))
+    }
     res
 }
 # }}}
 # install_eplus_linux {{{
 #' @importFrom checkmate assert_string
-install_eplus_linux <- function(ver, exec, local = FALSE, dir = NULL, dir_bin = NULL) {
+install_eplus_linux <- function(ver, exec, local = FALSE, dir = NULL, dir_bin = NULL, portable = FALSE) {
     ver <- standardize_ver(ver)
 
     if (local) {
@@ -417,47 +559,55 @@ install_eplus_linux <- function(ver, exec, local = FALSE, dir = NULL, dir_bin = 
     ver_dash <- gsub("\\.", "-", ver)
     dir_eplus <- file.path(dir, paste0("EnergyPlus-", ver_dash))
 
-    # EnergyPlus installation are broken since 9.1.0, which extract all files
-    # directly into `/usr/local.
-    # see https://github.com/NREL/EnergyPlus/issues/7256
-    if (ver == "9.1") {
-        if (Sys.which("sed") != "") {
-            # copy the original installer
-            temp_exec <- file.path(tempdir(), paste0("patched-", basename(exec)))
-            flag <- file.copy(exec, temp_exec, overwrite = TRUE, copy.date = TRUE)
-            if (!flag) {
-                abort(paste0(
-                    "Failed to create a temporary copy of EnergyPlus installer '",
-                    dir, "' at temporary directory '", tempdir(), "'."
-                ))
+    if (portable) {
+        # install using the portable version
+        res <- install_eplus_portable(ver, exec, dir_eplus)
+    } else {
+        # EnergyPlus installation are broken since 9.1.0, which extract all files
+        # directly into `/usr/local.
+        # see https://github.com/NREL/EnergyPlus/issues/7256
+        if (ver == "9.1") {
+            if (Sys.which("sed") != "") {
+                # copy the original installer
+                temp_exec <- file.path(tempdir(), paste0("patched-", basename(exec)))
+                flag <- file.copy(exec, temp_exec, overwrite = TRUE, copy.date = TRUE)
+                if (!flag) {
+                    abort(paste0(
+                        "Failed to create a temporary copy of EnergyPlus installer '",
+                        dir, "' at temporary directory '", tempdir(), "'."
+                    ))
+                }
+                patch_eplus_linux_sh(ver, temp_exec)
+                exec <- temp_exec
+            } else {
+                message("There is a known issue in EnergyPlus installation for v9.1.0 which ",
+                    "fails to extract files into correct directory ('", dir_eplus, "'). ",
+                    "eplusr uses 'sed' to fix the issue before running the installation, ",
+                    "but 'sed' is not found on current system. ",
+                    "Please remember to manually move corresponding files ",
+                    "from '", dir, "' to '", dir_eplus, "' in order to make sure ",
+                    "eplusr can locate EnergyPlus v", ver, "correctly.",
+                    "For more information, please see https://github.com/NREL/EnergyPlus/issues/7256"
+                )
             }
-            patch_eplus_linux_sh(ver, temp_exec)
-            exec <- temp_exec
-        } else {
-            message("There is a known issue in EnergyPlus installation for v9.1.0 which ",
-                "fails to extract files into correct directory ('", dir_eplus, "'). ",
-                "eplusr uses 'sed' to fix the issue before running the installation, ",
-                "but 'sed' is not found on current system. ",
-                "Please remember to manually move corresponding files ",
-                "from '", dir, "' to '", dir_eplus, "' in order to make sure ",
-                "eplusr can locate EnergyPlus v", ver, "correctly.",
-                "For more information, please see https://github.com/NREL/EnergyPlus/issues/7256"
-            )
         }
+
+        # EnergyPlus v9.3 and above provide a QtIFW based installer for Linux
+        system(sprintf('chmod +x %s', exec))
+        # installers for EnergyPlus v9.2 and above should provide the full path
+        # of EnergyPlus install directory
+        if (ver >= "9.2") dir <- dir_eplus
+        if (local) {
+            res <- system(sprintf('echo "y\n%s\n%s" | %s', dir, dir_bin, exec))
+            res <- res + system(sprintf('chmod -R a+w %s', dir_eplus))
+        } else {
+            res <- system(sprintf('echo "y\n%s\n%s" | sudo %s', dir, dir_bin, exec))
+            res <- res + system(sprintf('sudo chmod -R a+w %s', dir_eplus))
+        }
+        attr(res, "path") <- dir_eplus
     }
 
-    # EnergyPlus v9.3 and above provide a QtIFW based installer for Linux
-    system(sprintf('chmod +x %s', exec))
-    # installers for EnergyPlus v9.2 and above should provide the full path
-    # of EnergyPlus install directory
-    if (ver >= "9.2") dir <- dir_eplus
-    if (local) {
-        system(sprintf('echo "y\n%s\n%s" | %s', dir, dir_bin, exec))
-        system(sprintf('chmod -R a+w %s', dir_eplus))
-    } else {
-        system(sprintf('echo "y\n%s\n%s" | sudo %s', dir, dir_bin, exec))
-        system(sprintf('sudo chmod -R a+w %s', dir_eplus))
-    }
+    res
 }
 # }}}
 # patch_eplus_linux_sh {{{
@@ -562,6 +712,56 @@ install_eplus_qt <- function(ver, exec, dir, local = FALSE, verbose = FALSE) {
     res
 }
 # }}}
+# install_eplus_portable {{{
+install_eplus_portable <- function(ver, file, dir) {
+    ver <- standardize_ver(ver)
+    file <- normalizePath(file, mustWork = TRUE)
+    if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+    ext <- tools::file_ext(file)
+
+    # It is possible that unzip fails due to very long path on Windows So first
+    # unzip it in R's temporary directory and then move the extracted files to
+    # the target directory
+    if (is_windows()) {
+        tmpdir <- tempfile("epinst-")
+    } else {
+        tmpdir <- tempfile(tmpdir = dirname(dir))
+    }
+    dir.create(tmpdir)
+    on.exit(unlink(tmpdir, recursive = TRUE, force = TRUE), add = TRUE)
+
+    if (ext == "zip") {
+        utils::unzip(file, overwrite = TRUE, exdir = tmpdir)
+        res <- 0L
+    } else if (ext == "gz" && tools::file_ext(tools::file_path_sans_ext(file)) == "tar") {
+        res <- utils::untar(file, exdir = tmpdir)
+        if (res != 0L) return(res)
+    } else {
+        abort("Unsupported portable EnergyPlus installer file format.")
+    }
+
+    epdir <- list.files(list.files(tmpdir, full.names = TRUE), full.names = TRUE)
+
+    # file.rename only works if dest does not exist or is empty
+    files <- list.files(epdir, full.names = TRUE)
+    if (length(list.files(dir)) == 0L) {
+        res <- file.rename(files, file.path(dir, basename(files)))
+        # file.rename is error-prone, so check if the file is moved successfully
+        # if not, copy it
+        if (!all(res)) {
+            res <- file.copy(files[!res], file.path(dir, basename(files))[!res],
+                overwrite = TRUE, recursive = TRUE, copy.date = TRUE
+            )
+        }
+    } else {
+        res <- file.copy(files, dir, overwrite = TRUE, recursive = TRUE, copy.date = TRUE)
+    }
+
+    res <- as.integer(!all(res))
+    attr(res, "path") <- dir
+    res
+}
+# }}}
 # uninstall_eplus_win {{{
 uninstall_eplus_win <- function(ver, dir) {
     ver <- standardize_ver(ver)
@@ -647,6 +847,24 @@ uninstall_eplus_linux <- function(ver, dir, force = FALSE) {
     system(sprintf("sudo bash %s", uninstaller))
     verbose_info(sprintf("Removing installation directory of EnergyPlus v%s.", ver))
     system(sprintf("sudo rm -rf %s", dir))
+}
+# }}}
+# uninstall_eplus_portable {{{
+uninstall_eplus_portable <- function(ver, dir) {
+    if (is_windows()) {
+        unlink(dir, recursive = TRUE, force = TRUE)
+    } else {
+        # test if EnergyPlus directory is accessible for current user
+        if (identical(unname(try(file.access(dir, 2L), silent = TRUE)), 0L)) {
+            unlink(dir, recursive = TRUE, force = TRUE)
+        } else {
+            if (is_macos()) {
+                sudo_on_mac(sprintf("rm -rf %s", dir))
+            } else {
+                system(sprintf("sudo rm -rf %s", dir))
+            }
+        }
+    }
 }
 # }}}
 
