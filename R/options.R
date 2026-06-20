@@ -7,6 +7,7 @@ NULL
 
 # for storing internal data
 .globals$eplus <- list()
+.globals$eplus_scanned <- FALSE
 .globals$idd <- list()
 .globals$epw <- list()
 .globals$color <- has_color()
@@ -33,6 +34,7 @@ rm_global_cache <- function(type = c("idd", "epw", "eplus"), ver = NULL) {
 .options$view_in_ip <- FALSE
 .options$save_format <- "asis"
 .options$num_parallel <- parallel::detectCores()
+if (is.na(.options$num_parallel)) .options$num_parallel <- 1L
 # }}}
 
 #' Get and Set eplusr options

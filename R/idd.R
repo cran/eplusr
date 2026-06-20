@@ -19,8 +19,8 @@ NULL
 #' of EnergyPlus, valid IDF files are defined by the "Energy+.idd" file shipped
 #' with the release.
 #'
-#' eplusr tries to detect all installed EnergyPlus in default installation
-#' locations when loading, i.e. `C:\\EnergyPlusVX-X-0` on Windows,
+#' eplusr tries to detect installed EnergyPlus lazily when that information is
+#' needed, using default installation locations, i.e. `C:\\EnergyPlusVX-X-0` on Windows,
 #' `/usr/local/EnergyPlus-X-Y-0` on Linux, and
 #' `/Applications/EnergyPlus-X-Y-0` on macOS and stores all found locations
 #' internally. This data is used to locate the distributed "Energy+.idd" file of
@@ -52,7 +52,7 @@ NULL
 #' curtain class
 #' @author Hongyuan Jia
 #' @references
-#' [IDFEditor](https://github.com/NREL/EnergyPlus/tree/develop/src/IDF_Editor),
+#' [IDFEditor](https://github.com/NatLabRockies/EnergyPlus/tree/develop/src/IDF_Editor),
 #' [OpenStudio utilities library](https://openstudio-sdk-documentation.s3.amazonaws.com/cpp/OpenStudio-2.5.1-doc/utilities/html/idf_page.html)
 NULL
 
@@ -391,8 +391,9 @@ Idd <- R6::R6Class(classname = "Idd", cloneable = FALSE,
         #' contains valid class names in the context of current `Idd`, and
         #' `FALSE`s otherwise.
         #'
-        #' Note that case-sensitive matching is performed, which means that
-        #' `"Version"` is a valid class name but `"version"` is not.
+        #' Class name matching is **case-insensitive**. For convenience,
+        #' underscore-style class names are also allowed, e.g. `Site_Location`
+        #' is equivalent to `Site:Location`.
         #'
         #' @param class A character vector to check.
         #'
@@ -418,10 +419,8 @@ Idd <- R6::R6Class(classname = "Idd", cloneable = FALSE,
         #' `$object()` returns an [IddObject] object specified by a class ID
         #' or name.
         #'
-        #' Note that case-sensitive matching is performed, which means that
-        #' `"Version"` is a valid class name but `"version"` is not.
-        #'
-        #' For convenience, underscore-style names are allowed, e.g.
+        #' Class name matching is **case-insensitive**. For convenience,
+        #' underscore-style names are allowed, e.g.
         #' `Site_Location` is equivalent to `Site:Location`.
         #'
         #' @param class A single integer specifying the class index or a single
@@ -448,10 +447,8 @@ Idd <- R6::R6Class(classname = "Idd", cloneable = FALSE,
         #' `$objects()` returns a named list of [IddObject] objects using class
         #' indices or names. The returned list is named using class names.
         #'
-        #' Note that case-sensitive matching is performed, which means that
-        #' `"Version"` is a valid class name but `"version"` is not.
-        #'
-        #' For convenience, underscore-style names are allowed, e.g.
+        #' Class name matching is **case-insensitive**. For convenience,
+        #' underscore-style names are allowed, e.g.
         #' `Site_Location` is equivalent to `Site:Location`.
         #'
         #' @param class An integer vector specifying class indices or a character
@@ -798,7 +795,8 @@ idd_is_valid_group_name <- function(self, private, group) {
 # }}}
 # idd_is_valid_class_name {{{
 idd_is_valid_class_name <- function(self, private, class) {
-    class %chin% private$m_idd_env$class$class_name
+    normalize_idd_class_name_us(private$m_idd_env)
+    lower_name(class) %chin% private$m_idd_env$class$class_name_us
 }
 # }}}
 # idd_obj {{{
@@ -902,8 +900,9 @@ idd_print <- function(self, private) {
     if (i %chin% ls(x)) return(NextMethod())
 
     private <- get_priv_env(x)
+    normalize_idd_class_name_us(private$m_idd_env)
 
-    cls_id <- chmatch(i, private$m_idd_env$class$class_name)
+    cls_id <- chmatch(lower_name(i), private$m_idd_env$class$class_name_us)
 
     # skip if not a valid IDD class name
     if (is.na(cls_id)) return(NextMethod())
@@ -919,8 +918,9 @@ idd_print <- function(self, private) {
     if (i %chin% ls(x)) return(NextMethod())
 
     private <- get_priv_env(x)
+    normalize_idd_class_name_us(private$m_idd_env)
 
-    cls_id <- chmatch(underscore_name(i), private$m_idd_env$class$class_name_us)
+    cls_id <- chmatch(lower_name(i), private$m_idd_env$class$class_name_us)
 
     # skip if not a valid IDD class name
     if (is.na(cls_id)) return(NextMethod())
@@ -1002,7 +1002,7 @@ read_idd <- function(path, encoding = "unknown") {
 #'     file, usually named as `Energy+.idd`, or a valid version of IDD, e.g.
 #'     `"8.9"`, `"8.9.0"`.
 #' @param download If `TRUE` and argument `idd`, the IDD file will be
-#'     downloaded from [EnergyPlus GitHub Repository](https://github.com/NREL/EnergyPlus),
+#'     downloaded from [EnergyPlus GitHub Repository](https://github.com/NatLabRockies/EnergyPlus),
 #'     and saved to [tempdir()]. It will be parsed after it is downloaded
 #'     successfully. A special value of `"auto"` can be given, which will
 #'     automatically download corresponding IDD file if the Idd object is
@@ -1024,7 +1024,7 @@ read_idd <- function(path, encoding = "unknown") {
 #'  object. For details on `Idd` class, please see [Idd].
 #'
 #' `download_idd()` downloads specified version of EnergyPlus IDD file from
-#' [EnergyPlus GitHub Repository](https://github.com/NREL/EnergyPlus). It is
+#' [EnergyPlus GitHub Repository](https://github.com/NatLabRockies/EnergyPlus). It is
 #' useful in case where you only want to edit an EnergyPlus Input Data File
 #' (IDF) directly but do not want to install whole EnergyPlus software.
 #'
@@ -1033,9 +1033,9 @@ read_idd <- function(path, encoding = "unknown") {
 #' `is_avail_idd()` returns `TRUE` if input version of IDD file has been parsed
 #' and cached.
 #'
-#' eplusr tries to detect all installed EnergyPlus in default installation
-#' locations when loading. If argument `idd` is a version, eplusr will try the
-#' follow ways sequentially to find corresponding IDD:
+#' eplusr tries to detect installed EnergyPlus lazily when that information is
+#' needed. If argument `idd` is a version, eplusr will try the follow ways
+#' sequentially to find corresponding IDD:
 #'
 #' * The cached `Idd` object of that version
 #' * `"Energy+.idd"` file distributed with EnergyPlus of that version (see
@@ -1224,14 +1224,17 @@ download_idd <- function(ver = "latest", dir = ".") {
         latest_ver <- LATEST_EPLUS_VER
     }
 
-    base_url <- paste0("https://raw.githubusercontent.com/NREL/EnergyPlus/v", latest_ver, "/idd/")
-
     ver_dash <- paste0(ver[, 1L], "-", ver[, 2L], "-", ver[, 3L])
 
     ver <- as.character(ver)
     if (ver == latest_ver) {
+        base_url <- paste0("https://raw.githubusercontent.com/NREL/EnergyPlus/v", latest_ver, "/idd/")
         file_url <- "Energy%2B.idd.in"
     } else {
+        # From v23.2.0, historical IDDs are stored in a dedicated 'versions'
+        # folder while the latest Energy+.idd.in remains directly under 'idd'.
+        base_url <- paste0("https://raw.githubusercontent.com/NREL/EnergyPlus/v", latest_ver, "/idd/")
+        if (numeric_version(latest_ver) >= numeric_version("23.2.0")) base_url <- paste0(base_url, "versions/")
         file_url <- paste0("V", ver_dash, "-Energy%2B.idd")
     }
 

@@ -157,7 +157,10 @@ test_that("$is_valid_class()", {
 
     # can check invalid class name
     expect_true(idf$is_valid_class("Version"))
-    expect_false(idf$is_valid_class("version"))
+    expect_true(idf$is_valid_class("version"))
+    expect_true(idf$is_valid_class("simulationcontrol", all = TRUE))
+    expect_false(idf$is_valid_class("wrongclass"))
+    expect_s3_class(idf$definition("version"), "IddObject")
 })
 # }}}
 
@@ -299,7 +302,7 @@ test_that("$objects_in_class()", {
     expect_s3_class(idf <- read_idf(idftext("idf", LATEST_EPLUS_VER)), "Idf")
 
     # can get all objects in a class
-    expect_error(idf$objects_in_class("version"), class = "eplusr_error_invalid_class_name")
+    expect_type(idf$objects_in_class("version"), "list")
     expect_type(idf$objects_in_class("Version"), "list")
 })
 # }}}
@@ -493,6 +496,14 @@ test_that("$add()", {
     expect_equal(idf$objects("rp_test_3")[[1]]$value(simplify = TRUE),
         c("rp_test_3", "3", "1", NA, "4", "1", NA)
     )
+    expect_silent(idf$add(runperiod = list(
+        name = "rp_test_4",
+        begin_month = 5,
+        begin_day_of_month = 1,
+        end_month = 5,
+        end_day_of_month = 31
+    )))
+    expect_equal(idf$object("rp_test_4")$class_name(), "RunPeriod")
 
     # can stop adding objects if trying to add a object with same name
     expect_error(idf$add(RunPeriod = list("rp_test_1", 1, 1, 2, 1)), class = "eplusr_error_validity_check")
@@ -542,8 +553,8 @@ test_that("$set()", {
     # can set all values in a class
     expect_type(type = "list",
         idf$set(
-            RunPeriod := list(treat_weather_as_actual = NULL),
-            Material_NoMass := list(roughness = "Rough")
+            runperiod := list(treat_weather_as_actual = NULL),
+            material_nomass := list(roughness = "Rough")
         )
     )
     expect_equal(idf$Material_NoMass$R13LAYER$Roughness, "Rough")
@@ -555,6 +566,48 @@ test_that("$set()", {
     )
     expect_equal(idf$Material_NoMass$R13LAYER$Roughness, "VeryRough")
     expect_equal(idf$Material_NoMass$R31LAYER$Roughness, "Smooth")
+
+    # can update fields using a formula
+    res <- c(
+        idf$Material_NoMass$R13LAYER$Thermal_Resistance,
+        idf$Material_NoMass$R31LAYER$Thermal_Resistance
+    )
+    expect_type(idf$set(Material_NoMass := list(thermal_resistance = ~ . * c(0.5, 2))), "list")
+    expect_equal(idf$Material_NoMass$R13LAYER$Thermal_Resistance, res[[1L]] * 0.5)
+    expect_equal(idf$Material_NoMass$R31LAYER$Thermal_Resistance, res[[2L]] * 2)
+
+    # can update fields using a function
+    half <- function(x, frac = 0.5) x * frac
+    expect_type(idf$set(Material_NoMass := list(thermal_resistance = half)), "list")
+    expect_equal(idf$Material_NoMass$R13LAYER$Thermal_Resistance, res[[1L]] * 0.25)
+    expect_equal(idf$Material_NoMass$R31LAYER$Thermal_Resistance, res[[2L]])
+
+    expect_error(
+        idf$set(Material_NoMass := list(thermal_resistance = ~ . > 0)),
+        class = "eplusr_error_dots_update"
+    )
+    expect_error(
+        idf$set(Material_NoMass := list(thermal_resistance = function(x) NULL)),
+        class = "eplusr_error_dots_update"
+    )
+    expect_error(
+        idf$set(Material_NoMass := list(thermal_resistance = function(x, frac) x * frac)),
+        class = "eplusr_error_dots_update"
+    )
+    expect_error(
+        idf$set(Material_NoMass := list(thermal_resistance = function(x) c(1, 2, 3))),
+        class = "eplusr_error_dots_pair_length"
+    )
+    expect_type(
+        idf$set(Material_NoMass := list(visible_absorptance = ~ NA_real_), .default = FALSE, .empty = TRUE),
+        "list"
+    )
+    expect_true(is.na(idf$Material_NoMass$R13LAYER$Visible_Absorptance))
+    expect_true(is.na(idf$Material_NoMass$R31LAYER$Visible_Absorptance))
+    expect_error(
+        idf$set(Material_NoMass := list(visible_absorptance = ~ NA)),
+        class = "eplusr_error_dots_update"
+    )
 
     # can handle references
     expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "5Zone_Transformer.idf")), "Idf")
@@ -903,6 +956,8 @@ test_that("$to_table()", {
             value = as.list(c("WALL-1", "WD01", "PW03", "IN02", "GP01"))
         )
     )
+    set_units <- units::set_units
+
     expect_equal(
         ignore_attr = TRUE, tolerance = 1e-5,
         idf$to_table(1, unit = TRUE, string_value = FALSE),
@@ -1286,6 +1341,8 @@ test_that("[[.Idf and $.Idf", {
 
     expect_equal(names(idf[["Material"]]), c("WD01", "WD02"))
     expect_equal(names(idf$Material), c("WD01", "WD02"))
+    expect_equal(names(idf[["material"]]), c("WD01", "WD02"))
+    expect_equal(names(idf$material), c("WD01", "WD02"))
 
     expect_null(idf$Wrong)
     expect_null(idf[["Wrong"]])

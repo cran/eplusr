@@ -27,11 +27,11 @@ of EnergyPlus simulations.
 For details on \code{ParametricJob}, please see \link{ParametricJob} class.
 }
 \details{
-Basically, it is a collection of multiple \code{EplusJob} objects. However, the
-model is first parsed and the \link{Idf} object is stored internally, instead of
-storing only the path of Idf like in \link{EplusJob} class. Also, an object in
-\code{Output:SQLite} with \verb{Option Type} value of \code{SimpleAndTabular} will be
-automatically created if it does not exists, like \link{Idf} class does.
+Basically, it is a collection of multiple \code{EplusJob} objects. The seed model
+and generated models are stored internally as prepared model snapshots and
+parsed as \link{Idf} objects only when needed. Also, an object in \code{Output:SQLite}
+with \verb{Option Type} value of \code{SimpleAndTabular} will be automatically created
+if it does not exists, like \link{Idf} class does.
 }
 \examples{
 
@@ -78,6 +78,16 @@ param$seed()
 
 \dontrun{
 param$weather()
+}
+
+
+## ------------------------------------------------
+## Method `ParametricJob$weathers`
+## ------------------------------------------------
+
+\dontrun{
+param$weathers()
+param$weathers(c(sf = "USA_CA_San.Francisco.epw", golden = "USA_CO_Golden.epw"))
 }
 
 
@@ -246,6 +256,7 @@ Hongyuan Jia
 \item \href{#method-ParametricJob-version}{\code{ParametricJob$version()}}
 \item \href{#method-ParametricJob-seed}{\code{ParametricJob$seed()}}
 \item \href{#method-ParametricJob-weather}{\code{ParametricJob$weather()}}
+\item \href{#method-ParametricJob-weathers}{\code{ParametricJob$weathers()}}
 \item \href{#method-ParametricJob-param}{\code{ParametricJob$param()}}
 \item \href{#method-ParametricJob-apply_measure}{\code{ParametricJob$apply_measure()}}
 \item \href{#method-ParametricJob-models}{\code{ParametricJob$models()}}
@@ -352,13 +363,25 @@ param$version()
 \if{html}{\out{<a id="method-ParametricJob-seed"></a>}}
 \if{latex}{\out{\hypertarget{method-ParametricJob-seed}{}}}
 \subsection{Method \code{seed()}}{
-Get the seed \link{Idf} object
+Get or replace the seed \link{Idf} object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ParametricJob$seed()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ParametricJob$seed(new)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{new}}{A path to an EnergyPlus IDF file or an \link{Idf} object used
+to replace the current seed. If missing, the current seed is
+returned.}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Details}{
-\verb{$seed()} returns the parsed input seed \link{Idf} object.
+\verb{$seed()} returns the parsed input seed \link{Idf} object. \verb{$seed(new)}
+replaces the seed model. If parametric models have already been
+generated, they become stale and cannot be run or saved until
+\verb{$param()} or \verb{$apply_measure()} is called again.
 }
 
 \subsection{Examples}{
@@ -391,6 +414,52 @@ when creating the \code{ParametricJob} object, \code{NULL} is returned.
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{\dontrun{
 param$weather()
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-ParametricJob-weathers"></a>}}
+\if{latex}{\out{\hypertarget{method-ParametricJob-weathers}{}}}
+\subsection{Method \code{weathers()}}{
+Get or set weather cases
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{ParametricJob$weathers(epws, names = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{epws}}{A path, a character vector of paths, an \link{Epw} object, or a
+list of paths and \link{Epw} objects. \code{NULL} or \code{NA} entries indicate
+design-day-only weather cases. If missing, the current weather case
+table is returned.}
+
+\item{\code{names}}{Optional weather case names. If \code{NULL}, names are taken
+from \code{epws}, file names, or \code{"design_day"}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+\verb{$weathers()} returns the current weather case table. \verb{$weathers(epws)}
+replaces the weather cases and rebuilds the actual run cases used by
+\verb{$run()}, \verb{$save()} and \verb{$cases(type = "run")}. Existing generated
+parametric models are kept.
+}
+
+\subsection{Returns}{
+If \code{epws} is missing, a \code{\link[data.table:data.table]{data.table::data.table()}}. Otherwise,
+the modified \code{ParametricJob} object invisibly.
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+param$weathers()
+param$weathers(c(sf = "USA_CA_San.Francisco.epw", golden = "USA_CO_Golden.epw"))
 }
 
 }
@@ -634,13 +703,10 @@ returned. Default: \code{NULL}.}
 method. Model names are assigned in the same way as the \code{.names}
 argument in
 \href{../../eplusr/html/ParametricJob.html#method-apply_measure}{\code{$apply_measure()}}.
-If no measure has been applied, \code{NULL} is returned. Note that it is
-not recommended to conduct any extra modification on those models
-directly, after they were created using
-\href{../../eplusr/html/ParametricJob.html#method-apply_measure}{\code{$apply_measure()}},
-as this may lead to an un-reproducible process. A warning message
-will be issued if any of those models has been modified when running
-simulations.
+If no measure has been applied, \code{NULL} is returned. Returned \link{Idf}
+objects are detached copies of the internally stored prepared
+snapshots. Modifying them will not change the models that are used
+for \verb{$run()} or \verb{$save()}.
 }
 
 \subsection{Examples}{
@@ -659,16 +725,27 @@ param$models()
 \if{html}{\out{<a id="method-ParametricJob-cases"></a>}}
 \if{latex}{\out{\hypertarget{method-ParametricJob-cases}{}}}
 \subsection{Method \code{cases()}}{
-Get a summary of parametric models and parameters
+Get a summary of parametric or run cases
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{ParametricJob$cases()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{ParametricJob$cases(type = c("model", "run"))}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{type}}{\code{"model"} returns parameter model cases and preserves the
+historical \verb{$cases()} behavior. \code{"run"} returns the actual simulation
+cases. Default: \code{"model"}.}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Details}{
 \verb{$cases()} returns a \link[data.table:data.table]{data.table} giving a
-summary of parametric models and parameter values.
+summary of parametric models and parameter values. With
+\code{type = "run"}, it returns the actual simulation case table created
+from parametric model cases and weather cases.
 
-The returned \code{data.table} has the following columns:
+The model case \code{data.table} has the following columns:
 \itemize{
 \item \code{index}: Integer type. The indices of parameter models
 \item \code{case}: Character type. The names of parameter models
@@ -679,11 +756,23 @@ you specified in \code{.names}. For the case of
 \code{ParametricJob$apply_measure()}, this will be the argument names of
 the measure functions.
 }
+
+The run case \code{data.table} has the following columns:
+\itemize{
+\item \code{index}: Integer type. The indices of actual simulations
+\item \code{case}: Character type. The names of actual simulations
+\item \code{model_index}: Integer type. The indices of parameter models
+\item \code{model_case}: Character type. The names of parameter models
+\item \code{weather_index}: Integer type. The indices of weather cases
+\item \code{weather_case}: Character type. The names of weather cases
+\item \code{epw}: Character type. The paths of weather files. \code{NA} means
+design-day-only simulation.
+}
 }
 
 \subsection{Returns}{
-If no parametric models have been created, \code{NULL} is
-returned. Otherwise, a \link[data.table:data.table]{data.table}.
+If no corresponding cases exist, \code{NULL} is returned.
+Otherwise, a \link[data.table:data.table]{data.table}.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}

@@ -430,6 +430,10 @@ idf$set(r13layer = list(solar_absorptance = 0.8),
         r31layer = list(solar_absorptance = 0.8)
 )
 
+# update values using the current field values
+idf$set(Material := list(conductivity = ~ . * 0.5))
+idf$set(Material := list(conductivity = function(x) x * 0.5))
+
 # use variable input
 sets <- list(r13layer = list(roughness = "smooth"))
 idf$set(sets)
@@ -1249,8 +1253,9 @@ contains valid class names in the context of current \code{Idf} (when
 \code{all} is \code{FALSE}) or current underlying \link{Idd} (when \code{all} is \code{TRUE}),
 and \code{FALSE}s otherwise.
 
-Note that case-sensitive matching is performed, which means that
-\code{"Version"} is a valid class name but \code{"version"} is not.
+Class name matching is \strong{case-insensitive}. For convenience,
+underscore-style class names are also allowed, e.g. \code{Site_Location}
+is equivalent to \code{Site:Location}.
 }
 
 \subsection{Returns}{
@@ -2250,6 +2255,10 @@ Note that \code{.()} can be used as an alias as \code{list()}, e.g.
 \code{idf$add(Building = .())} is equivalent to
 \code{idf$add(Building = list())}.
 
+Class name matching is \strong{case-insensitive}. For convenience,
+underscore-style class names are also allowed, e.g. \code{runperiod} is
+equivalent to \code{RunPeriod}.
+
 Field name matching is \strong{case-insensitive}. For convenience,
 underscore-style field names are also allowed, e.g. \code{eNd_MoNtH} is
 equivalent to \verb{End Month}. This behavior is consistent among all
@@ -2366,6 +2375,14 @@ object ID or names in \code{.()}. It will set the field of all specified
 objects to specified value.
 }
 
+Field values can be updated from their current values using a one-sided
+formula or a function. In \code{field = ~ . * 0.5}, \code{.} is the current field
+value. In \code{field = function(x) x * 0.5}, the first argument receives the
+current field value. eplusr only supplies that first argument; other
+function arguments must have defaults or be captured from the enclosing
+environment. Function updates must return a character, integer, or double
+vector of length \code{1} or the number of target objects.
+
 You can delete a field by assigning \code{NULL} to it, e.g. \code{list(fld = NULL)} means to delete the value of field \code{fld}, in the condition
 that \code{.default} is \code{FALSE}, \code{fld} is not a required field and the
 index of \code{fld} is larger than the number minimum fields required for
@@ -2382,6 +2399,10 @@ empty fields by setting \code{.empty} to \code{TRUE}.
 
 New fields that currently do not exist in that object can also be
 set. They will be automatically added on the fly.
+
+Class name matching in \verb{:=} is \strong{case-insensitive}. For convenience,
+underscore-style class names are also allowed, e.g. \code{material_nomass}
+is equivalent to \code{Material:NoMass}.
 
 Field name matching is \strong{case-insensitive}. For convenience,
 underscore-style field names are also allowed, e.g. \code{eNd_MoNtH} is
@@ -2431,6 +2452,10 @@ idf$set(.("r13layer", "r31layer") := list(solar_absorptance = 0.8))
 idf$set(r13layer = list(solar_absorptance = 0.8),
         r31layer = list(solar_absorptance = 0.8)
 )
+
+# update values using the current field values
+idf$set(Material := list(conductivity = ~ . * 0.5))
+idf$set(Material := list(conductivity = function(x) x * 0.5))
 
 # use variable input
 sets <- list(r13layer = list(roughness = "smooth"))
@@ -3675,7 +3700,8 @@ type being a string instead of a number. Default: \code{TRUE}.}
 
 \item{\code{unit}}{Only applicable when \code{string_value} is \code{FALSE}. If
 \code{TRUE}, values of numeric fields are assigned with units using
-\code{\link[units:units]{units::set_units()}} if applicable. Default: \code{FALSE}.}
+\code{\link[units:units]{units::set_units()}} if applicable. This requires the suggested
+package \code{units}. Default: \code{FALSE}.}
 
 \item{\code{wide}}{Only applicable if target objects belong to a same class.
 If \code{TRUE}, a wide table will be returned, i.e. first three

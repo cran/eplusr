@@ -1,3 +1,275 @@
+fake_eplus_install <- function(parent, ver = LATEST_EPLUS_VER, name = NULL) {
+    ver <- standardize_ver(ver)
+    if (is.null(name)) name <- paste0("EnergyPlus-", gsub(".", "-", ver, fixed = TRUE))
+
+    dir <- file.path(parent, name)
+    dir.create(dir, recursive = TRUE)
+    writeLines(paste0("!IDD_Version ", ver), file.path(dir, "Energy+.idd"))
+    file.create(file.path(dir, paste0("energyplus", if (is_windows()) ".exe" else "")))
+    dir
+}
+
+with_clean_eplus_cache <- function(code) {
+    old_eplus <- .globals$eplus
+    old_scanned <- .globals$eplus_scanned
+    old_dirs <- getOption("eplusr.eplus_dirs")
+    on.exit({
+        .globals$eplus <- old_eplus
+        .globals$eplus_scanned <- old_scanned
+        options(eplusr.eplus_dirs = old_dirs)
+    }, add = TRUE)
+
+    .globals$eplus <- list()
+    .globals$eplus_scanned <- FALSE
+    options(eplusr.eplus_dirs = NULL)
+
+    force(code)
+}
+
+test_that(".onLoad() does not locate EnergyPlus", {
+    with_clean_eplus_cache({
+        get(".onLoad", envir = asNamespace("eplusr"))("", "eplusr")
+
+        expect_identical(.globals$eplus, list())
+        expect_false(.globals$eplus_scanned)
+    })
+})
+
+test_that("EnergyPlus can be lazily located from eplusr.eplus_dirs", {
+    with_clean_eplus_cache({
+        root <- tempfile()
+        fake <- fake_eplus_install(root)
+        options(eplusr.eplus_dirs = root)
+
+        cfg <- eplus_config(LATEST_EPLUS_VER)
+
+        expect_identical(cfg$dir, normalizePath(fake))
+        expect_false(.globals$eplus_scanned)
+    })
+})
+
+test_that("avail_eplus() performs full lazy discovery once", {
+    with_clean_eplus_cache({
+        root <- tempfile()
+        fake_eplus_install(root)
+        options(eplusr.eplus_dirs = root)
+
+        expect_true(numeric_version(LATEST_EPLUS_VER) %in% avail_eplus())
+        expect_true(.globals$eplus_scanned)
+    })
+})
+
+test_that("locate_eplus() accepts extra parent and exact installation dirs", {
+    with_clean_eplus_cache({
+        root <- tempfile()
+        fake <- fake_eplus_install(root)
+
+        expect_true(numeric_version(LATEST_EPLUS_VER) %in% locate_eplus(dirs = root))
+
+        .globals$eplus <- list()
+        .globals$eplus_scanned <- FALSE
+
+        expect_true(numeric_version(LATEST_EPLUS_VER) %in% locate_eplus(dirs = fake))
+    })
+})
+
+test_that("locate_eplus() preserves existing custom EnergyPlus paths", {
+    with_clean_eplus_cache({
+        custom <- fake_eplus_install(tempfile(), name = "custom-eplus")
+        root <- tempfile()
+        fake_eplus_install(root)
+
+        suppressMessages(use_eplus(custom))
+        locate_eplus(dirs = root)
+
+        expect_identical(eplus_config(LATEST_EPLUS_VER)$dir, normalizePath(custom))
+    })
+})
+
+test_that("invalid extra EnergyPlus dirs are ignored quietly", {
+    with_clean_eplus_cache({
+        expect_silent(locate_eplus(dirs = file.path(tempdir(), "missing-eplus-dir")))
+    })
+})
+
+test_that("macOS Qt installer executable is found inside a mounted app bundle", {
+    skip_on_os("windows")
+
+    no_ext <- "EnergyPlus-9.4.0-998c4b761e-Darwin-macOS10.15-x86_64"
+    mount_dir <- tempfile()
+    exec_dir <- file.path(mount_dir, paste0(no_ext, ".app"), "Contents", "MacOS")
+    dir.create(exec_dir, recursive = TRUE)
+
+    exec <- file.path(exec_dir, no_ext)
+    file.create(exec)
+    Sys.chmod(exec, "755")
+
+    expect_identical(macos_qt_installer_exec(mount_dir, no_ext), normalizePath(exec))
+})
+
+test_that("macOS Qt installer executable can be found at mounted volume root", {
+    skip_on_os("windows")
+
+    no_ext <- "EnergyPlus-9.4.0-998c4b761e-Darwin-macOS10.15-x86_64"
+    mount_dir <- tempfile()
+    dir.create(mount_dir)
+
+    exec <- file.path(mount_dir, no_ext)
+    file.create(exec)
+    Sys.chmod(exec, "755")
+
+    expect_identical(macos_qt_installer_exec(mount_dir, no_ext), normalizePath(exec))
+})
+
+test_that("macOS Qt installer uses executable from mounted DMG", {
+    skip_on_os("windows")
+
+    no_ext <- "EnergyPlus-9.4.0-998c4b761e-Darwin-macOS10.15-x86_64"
+    inst <- file.path(tempdir(), paste0(no_ext, ".dmg"))
+    mount_dir <- tempfile()
+    qt_exec <- file.path(mount_dir, paste0(no_ext, ".app"), "Contents", "MacOS", no_ext)
+    used_exec <- NULL
+    unmounted <- FALSE
+
+    local_mocked_bindings(
+        macos_mount_dmg = function(exec, no_ext) {
+            res <- 0L
+            attr(res, "mount_dir") <- mount_dir
+            res
+        },
+        macos_unmount_dmg = function(mount_dir) {
+            unmounted <<- TRUE
+            0L
+        },
+        macos_qt_installer_exec = function(mount_dir, no_ext) qt_exec,
+        install_eplus_qt = function(ver, exec, dir, local = FALSE) {
+            used_exec <<- exec
+            0L
+        }
+    )
+
+    res <- install_eplus_macos("9.4", inst, local = TRUE)
+
+    expect_identical(used_exec, qt_exec)
+    expect_true(unmounted)
+    expect_identical(attr(res, "path"),
+        normalizePath("~/Applications/EnergyPlus-9-4-0", mustWork = FALSE)
+    )
+})
+
+test_that("uninstall_eplus() delegates to platform uninstallers", {
+    with_clean_eplus_cache({
+        root <- tempfile()
+        fake <- fake_eplus_install(root, ver = "23.1")
+        dir.create(file.path(fake, "maintenancetool.app", "Contents", "MacOS"), recursive = TRUE)
+        file.create(file.path(fake, "maintenancetool.app", "Contents", "MacOS", "maintenancetool"))
+        suppressMessages(use_eplus(fake))
+
+        called <- NULL
+        local_mocked_bindings(
+            os_type = function() "macos",
+            uninstall_eplus_macos = function(ver, dir) {
+                called <<- "macos"
+                0L
+            },
+            uninstall_eplus_portable = function(ver, dir) {
+                called <<- "portable"
+                0L
+            }
+        )
+
+        expect_equal(ignore_attr = TRUE, uninstall_eplus("23.1"), 0L)
+        expect_identical(called, "macos")
+    })
+})
+
+test_that("macOS Qt installations use the maintenance tool", {
+    dir <- tempfile()
+    mt <- file.path(dir, "maintenancetool.app", "Contents", "MacOS", "maintenancetool")
+    dir.create(dirname(mt), recursive = TRUE)
+    file.create(mt)
+
+    called <- NULL
+    local_mocked_bindings(
+        os_type = function() "macos",
+        uninstall_eplus_qt = function(ver, dir) {
+            called <<- list(ver = as.character(ver), dir = dir)
+            0L
+        }
+    )
+
+    expect_identical(uninstall_eplus_macos("9.4", dir), 0L)
+    expect_identical(called, list(ver = "9.4.0", dir = dir))
+})
+
+test_that("macOS installs without maintenance tools are removed directly", {
+    dir <- fake_eplus_install(tempfile(), ver = "9.4")
+
+    local_mocked_bindings(
+        os_type = function() "macos",
+        uninstall_eplus_qt = function(ver, dir) {
+            abort("Qt uninstaller should not be used.")
+        }
+    )
+
+    expect_identical(uninstall_eplus_macos("9.4", dir), 0L)
+    expect_false(dir.exists(dir))
+})
+
+test_that("Windows Qt installations use the maintenance tool", {
+    dir <- tempfile()
+    dir.create(dir)
+    file.create(file.path(dir, "maintenancetool.exe"))
+
+    called <- NULL
+    local_mocked_bindings(
+        os_type = function() "windows",
+        uninstall_eplus_qt = function(ver, dir) {
+            called <<- list(ver = as.character(ver), dir = dir)
+            0L
+        },
+        uninstall_eplus_portable = function(ver, dir) {
+            abort("Portable uninstaller should not be used.")
+        }
+    )
+
+    expect_identical(uninstall_eplus_win("23.1", dir), 0L)
+    expect_identical(called, list(ver = "23.1.0", dir = dir))
+})
+
+test_that("Windows installs without uninstallers are removed directly", {
+    dir <- tempfile()
+    dir.create(dir)
+
+    called <- NULL
+    local_mocked_bindings(
+        os_type = function() "windows",
+        uninstall_eplus_portable = function(ver, dir) {
+            called <<- list(ver = as.character(ver), dir = dir)
+            0L
+        }
+    )
+
+    expect_identical(uninstall_eplus_win("23.1", dir), 0L)
+    expect_identical(called, list(ver = "23.1.0", dir = dir))
+})
+
+test_that("Linux installs without uninstall.sh are removed directly", {
+    dir <- tempfile()
+    dir.create(dir)
+
+    called <- NULL
+    local_mocked_bindings(
+        uninstall_eplus_portable = function(ver, dir) {
+            called <<- list(ver = as.character(ver), dir = dir)
+            0L
+        }
+    )
+
+    expect_identical(uninstall_eplus_linux("23.1", dir), 0L)
+    expect_identical(called, list(ver = "23.1.0", dir = dir))
+})
+
 test_that("Install EnergyPlus v9.0 and below", {
     skip_on_cran()
     skip_if(Sys.getenv("_EPLUSR_SKIP_TESTS_INSTALL_OLD_") != "")

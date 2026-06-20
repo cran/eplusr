@@ -309,7 +309,7 @@ test_that("Idd implementation", {
     expect_error(get_idd_relation(idd_env, class_id = fld$class_id, field_id = fld$field_id), class = "eplusr_error_idd_relation")
 
     fld <- get_idd_field(idd_env, "Construction")
-    expect_equal(nrow(get_idd_relation(idd_env, field_id = fld$field_id, direction = "ref_by", keep_all = TRUE, depth = 2L)), 32871L)
+    expect_equal(nrow(get_idd_relation(idd_env, field_id = fld$field_id, direction = "ref_by", keep_all = TRUE, depth = 2L)), 32901L)
 
     fld <- get_idd_field(idd_env, "Construction", 2L)
     expect_equal(nrow(get_idd_relation(idd_env, field_id = fld$field_id, direction = "ref_to", depth = 0L)), 14L)
@@ -318,7 +318,7 @@ test_that("Idd implementation", {
     expect_equal(nrow(get_idd_relation(idd_env, field_id = fld$field_id, direction = "ref_by", depth = 3L, class = "PlantEquipmentOperationSchemes")), 282L)
 
     fld <- get_idd_field(idd_env, "Branch", 3:4)
-    expect_equal(nrow(get_idd_relation(idd_env, field_id = fld$field_id, direction = "ref_to", depth = 0L)), 131L)
+    expect_equal(nrow(get_idd_relation(idd_env, field_id = fld$field_id, direction = "ref_to", depth = 0L)), 137L)
 
     fld <- get_idd_field(idd_env, "Pump:ConstantSpeed")
     expect_equal(nrow(get_idd_relation(idd_env, field_id = fld$field_id, direction = "ref_by",
@@ -355,7 +355,7 @@ test_that("Idd implementation", {
     # UNIT CONVERSION {{{
     fld <- get_idd_field(idd_env, "WindowMaterial:Glazing:RefractionExtinctionMethod", 9, property = c("units", "ip_units"))
     expect_equal(field_default_to_unit(idd_env, fld, "si", "ip")$default_num,
-        drop_units(set_units(set_units(0.9, "W/m/K"), "Btu*in/h/ft^2/degF"))
+        units::drop_units(units::set_units(units::set_units(0.9, "W/m/K"), "Btu*in/h/ft^2/degF"))
     )
 
     # can keep input value_id

@@ -309,8 +309,9 @@ Idf <- R6::R6Class(classname = "Idf",
         #' `all` is `FALSE`) or current underlying [Idd] (when `all` is `TRUE`),
         #' and `FALSE`s otherwise.
         #'
-        #' Note that case-sensitive matching is performed, which means that
-        #' `"Version"` is a valid class name but `"version"` is not.
+        #' Class name matching is **case-insensitive**. For convenience,
+        #' underscore-style class names are also allowed, e.g. `Site_Location`
+        #' is equivalent to `Site:Location`.
         #'
         #' @param class A character vector to check.
         #' @param all If `FALSE`, check if input characters are valid class names
@@ -1033,6 +1034,10 @@ Idf <- R6::R6Class(classname = "Idf",
         #' `idf$add(Building = .())` is equivalent to
         #' `idf$add(Building = list())`.
         #'
+        #' Class name matching is **case-insensitive**. For convenience,
+        #' underscore-style class names are also allowed, e.g. `runperiod` is
+        #' equivalent to `RunPeriod`.
+        #'
         #' Field name matching is **case-insensitive**. For convenience,
         #' underscore-style field names are also allowed, e.g. `eNd_MoNtH` is
         #' equivalent to `End Month`. This behavior is consistent among all
@@ -1131,6 +1136,14 @@ Idf <- R6::R6Class(classname = "Idf",
         #'   object ID or names in `.()`. It will set the field of all specified
         #'   objects to specified value.
         #'
+        #' Field values can be updated from their current values using a one-sided
+        #' formula or a function. In `field = ~ . * 0.5`, `.` is the current field
+        #' value. In `field = function(x) x * 0.5`, the first argument receives the
+        #' current field value. eplusr only supplies that first argument; other
+        #' function arguments must have defaults or be captured from the enclosing
+        #' environment. Function updates must return a character, integer, or double
+        #' vector of length `1` or the number of target objects.
+        #'
         #' You can delete a field by assigning `NULL` to it, e.g. `list(fld =
         #' NULL)` means to delete the value of field `fld`, in the condition
         #' that `.default` is `FALSE`, `fld` is not a required field and the
@@ -1148,6 +1161,10 @@ Idf <- R6::R6Class(classname = "Idf",
         #'
         #' New fields that currently do not exist in that object can also be
         #' set. They will be automatically added on the fly.
+        #'
+        #' Class name matching in `:=` is **case-insensitive**. For convenience,
+        #' underscore-style class names are also allowed, e.g. `material_nomass`
+        #' is equivalent to `Material:NoMass`.
         #'
         #' Field name matching is **case-insensitive**. For convenience,
         #' underscore-style field names are also allowed, e.g. `eNd_MoNtH` is
@@ -1205,6 +1222,10 @@ Idf <- R6::R6Class(classname = "Idf",
         #' idf$set(r13layer = list(solar_absorptance = 0.8),
         #'         r31layer = list(solar_absorptance = 0.8)
         #' )
+        #'
+        #' # update values using the current field values
+        #' idf$set(Material := list(conductivity = ~ . * 0.5))
+        #' idf$set(Material := list(conductivity = function(x) x * 0.5))
         #'
         #' # use variable input
         #' sets <- list(r13layer = list(roughness = "smooth"))
@@ -2195,7 +2216,8 @@ Idf <- R6::R6Class(classname = "Idf",
         #'        type being a string instead of a number. Default: `TRUE`.
         #' @param unit Only applicable when `string_value` is `FALSE`. If
         #'        `TRUE`, values of numeric fields are assigned with units using
-        #'        [units::set_units()] if applicable. Default: `FALSE`.
+        #'        [units::set_units()] if applicable. This requires the suggested
+        #'        package `units`. Default: `FALSE`.
         #' @param wide Only applicable if target objects belong to a same class.
         #'        If `TRUE`, a wide table will be returned, i.e. first three
         #'        columns are always `id`, `name` and `class`, and then every
@@ -2803,7 +2825,7 @@ idf_is_valid_group_name <- function(self, private, group, all = FALSE) {
 #' @importFrom checkmate assert_character
 idf_is_valid_class_name <- function(self, private, class, all = FALSE) {
     assert_valid_type(class, "Class Name", type = "name")
-    class %in% idf_class_name(self, private, all, FALSE)
+    lower_name(class) %chin% lower_name(idf_class_name(self, private, all, FALSE))
 }
 # }}}
 # idf_is_valid_object_id {{{
@@ -3776,9 +3798,9 @@ replace_objects_in_class <- function(self, private, class, value, unique_object 
     if (i %chin% ls(x)) return(NextMethod())
 
     private <- get_priv_env(x)
+    normalize_idd_class_name_us(private$idd_env())
 
-    cls_id <- chmatch(i, private$idd_env()$class$class_name_us)
-    if (is.na(cls_id)) cls_id <- chmatch(i, private$idd_env()$class$class_name)
+    cls_id <- chmatch(lower_name(i), private$idd_env()$class$class_name_us)
 
     # skip if not a valid IDD class name
     if (is.na(cls_id)) return(NextMethod())
@@ -3803,8 +3825,9 @@ replace_objects_in_class <- function(self, private, class, value, unique_object 
     if (i %chin% ls(x)) return(NextMethod())
 
     private <- get_priv_env(x)
+    normalize_idd_class_name_us(private$idd_env())
 
-    cls_id <- chmatch(i, private$idd_env()$class$class_name)
+    cls_id <- chmatch(lower_name(i), private$idd_env()$class$class_name_us)
 
     # skip if not a valid IDD class name
     if (is.na(cls_id)) return(NextMethod())
@@ -3829,10 +3852,10 @@ replace_objects_in_class <- function(self, private, class, value, unique_object 
 
     self <- get_self_env(x)
     private <- get_priv_env(x)
+    normalize_idd_class_name_us(private$idd_env())
 
     # match both normal and underscore class names
-    cls_id <- chmatch(name, private$idd_env()$class$class_name)
-    if (is.na(cls_id)) cls_id <- chmatch(name, private$idd_env()$class$class_name_us)
+    cls_id <- chmatch(lower_name(name), private$idd_env()$class$class_name_us)
 
     # skip if not a valid IDD class name
     if (is.na(cls_id)) return(NextMethod())
@@ -3857,9 +3880,10 @@ replace_objects_in_class <- function(self, private, class, value, unique_object 
 
     self <- get_self_env(x)
     private <- get_priv_env(x)
+    normalize_idd_class_name_us(private$idd_env())
 
-    # match only normal class names
-    cls_id <- chmatch(name, private$idd_env()$class$class_name)
+    # match both normal and underscore class names
+    cls_id <- chmatch(lower_name(name), private$idd_env()$class$class_name_us)
 
     # skip if not a valid IDD class name
     if (is.na(cls_id)) return(NextMethod())

@@ -5,7 +5,10 @@ ALL_EPLUS_VER <- c(
     paste0("8.", 0:9, ".0"), paste0("8.3.", 1:3),
     paste0("9.0.", 0:1), paste0("9.", 1:6, ".0"),
     paste0("22.", 1:2, ".0"),
-    paste0("23.", 1, ".0")
+    paste0("23.", 1:2, ".0"),
+    paste0("24.", 1:2, ".0"),
+    paste0("25.", 1:2, ".0"),
+    "26.1.0"
 )
 
 LATEST_EPLUS_VER <- ALL_EPLUS_VER[length(ALL_EPLUS_VER)]
@@ -23,11 +26,20 @@ ALL_IDD_VER <- c(
     paste0("9.0.", 0:1),
     paste0("9.", 1:6, ".0"),
     paste0("22.", 1:2, ".0"),
-    paste0("23.", 1, ".0")
+    paste0("23.", 1:2, ".0"),
+    paste0("24.", 1:2, ".0"),
+    paste0("25.", 1:2, ".0"),
+    "26.1.0"
 )
 
 ALL_EPLUS_RELEASE_COMMIT <- data.table::fread(
     "version , commit
+     26.1.0  , 6f2e40d102
+     25.2.0  , cf7368216c
+     25.1.0  , 68a4a7c774
+     24.2.0  , e7ecb2d53b
+     24.1.0  , 9d7789a3ac
+     23.2.0  , 7636e6b3e9
      23.1.0  , 87ed9199d4
      22.2.0  , c249759bad
      22.1.0  , ed759b17ee
@@ -51,6 +63,55 @@ ALL_EPLUS_RELEASE_COMMIT <- data.table::fread(
 
 # data for OS version specific EnergyPlus installers
 ALL_EPLUS_OSVER <- list(
+    "26.1.0" = list(
+        macos = list(
+            x86_64 = c("macOS12.1"),
+            arm64  = c("macOS13")
+        ),
+        linux = list(
+            x86_64 = c("Ubuntu24.04"),
+            arm64  = c("Ubuntu24.04")
+        )
+    ),
+    "25.2.0" = list(
+        macos = list(
+            x86_64 = c("macOS12.1"),
+            arm64  = c("macOS13")
+        ),
+        linux = list(
+            x86_64 = c("Ubuntu22.04", "Ubuntu24.04"),
+            arm64  = c("Ubuntu22.04", "Ubuntu24.04")
+        )
+    ),
+    "25.1.0" = list(
+        macos = list(
+            x86_64 = c("macOS12.1"),
+            arm64  = c("macOS13")
+        ),
+        linux = list(
+            x86_64 = c("Ubuntu22.04", "Ubuntu24.04"),
+            arm64  = c("Ubuntu22.04", "Ubuntu24.04")
+        )
+    ),
+    "24.2.0" = list(
+        macos = list(
+            x86_64 = c("macOS12.1"),
+            arm64  = c("macOS13")
+        ),
+        linux = list(
+            x86_64 = c("Ubuntu22.04", "Ubuntu24.04")
+        )
+    ),
+    "24.1.0" = list(
+        macos = list(
+            x86_64 = c("macOS11.6", "macOS12.1"),
+            arm64  = c("macOS12.1")
+        ),
+        linux = list(
+            x86_64 = c("Ubuntu20.04", "Ubuntu22.04"),
+            arm64  = c("Ubuntu22.04")
+        )
+    ),
     "23.2.0" = list(
         macos = list(
             x86_64 = c("macOS10.15", "macOS11.6", "macOS12.1"),
@@ -168,7 +229,8 @@ utils::globalVariables(c(
     "i.projection_axis", "i.required_field", "i.rleid", "i.src_value_chr",
     "i.src_value_id", "i.src_value_num", "i.subtype", "i.type",
     "i.unique_object_id", "i.value", "i.value_chr", "i.value_id", "i.value_num",
-    "i.value_type", "i.x", "i.y", "i.z", "i.zone_name", "id", "id_list", "idf",
+    "i.value_type", "i.value_update", "i.x", "i.y", "i.z", "i.zone_name", "id",
+    "id_list", "idf",
     "index", "index_str", "index_vertex", "info", "input_num", "ip", "ip_name",
     "ip_units", "is_all_na", "is_empty", "is_name", "is_num", "is_ref",
     "is_resource", "key_value", "last_extensible", "last_required", "latitude",

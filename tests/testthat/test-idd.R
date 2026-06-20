@@ -26,6 +26,7 @@ test_that("can read IDD", {
     expect_error(use_idd(""), class = "eplusr_error_read_lines")
 
     # can directly download from EnergyPlus GitHub repo
+    skip_if(Sys.getenv("_EPLUSR_SKIP_TESTS_DOWNLOAD_IDD_") != "")
     expect_s3_class(idd <- use_idd("8.4", download = TRUE), "Idd")
 
     # can directly return if input is an Idd
@@ -40,10 +41,23 @@ test_that("can read IDD", {
     # EnergyPlus is EnergyPlus v9.0
     expect_s3_class(use_idd("9.0"), "Idd")
 
-    # can stop if that EnergyPlus is not available and IDD if not found in any
+    # can lazily discover EnergyPlus and use corresponding IDD
+    rm_global_cache("eplus", avail_eplus())
+    rm_global_cache("idd")
+    expect_s3_class(use_idd(LATEST_EPLUS_VER), "Idd")
+    expect_true(is_avail_eplus(LATEST_EPLUS_VER))
+
+    # can stop if that EnergyPlus is not available and IDD is not found in any
     # existing VersionUpdater folder
     rm_global_cache("eplus", avail_eplus())
-    expect_error(use_idd(LATEST_EPLUS_VER), class = "eplusr_error_locate_idd")
+    rm_global_cache("idd")
+    local({
+        local_mocked_bindings(
+            is_avail_eplus = function(ver) FALSE,
+            find_idd_from_updater = function(ver) NULL
+        )
+        expect_error(use_idd(LATEST_EPLUS_VER), class = "eplusr_error_locate_idd")
+    })
 
     # can direct read if corresponding EnergyPlus is found
     use_eplus(LATEST_EPLUS_VER)
@@ -128,6 +142,7 @@ test_that("Idd class", {
 
     # can get group name of one class
     expect_equal(idd$from_group("TestSimple"), "TestGroup1")
+    expect_equal(idd$from_group("testsimple"), "TestGroup1")
 
     # can return when multiple class names are given
     expect_equal(idd$from_group(c("TestSlash", "TestSimple")),
@@ -154,6 +169,7 @@ test_that("Idd class", {
 
     # can return an index of a single class
     expect_equal(idd$class_index("TestSlash"), 2L)
+    expect_equal(idd$class_index("testslash"), 2L)
 
     # can return multiple class indexes
     expect_equal(idd$class_index(c("TestSlash", "TestSimple", "TestSimple")),
@@ -180,6 +196,7 @@ test_that("Idd class", {
 
     # can return a single IddObject using class name
     expect_s3_class(idd$object("TestSimple"), "IddObject")
+    expect_s3_class(idd$object("testsimple"), "IddObject")
 
     # can stop when invalid class names are given
     expect_error(idd$object("WrongClass"), class = "eplusr_error_invalid_class_name")
@@ -213,6 +230,11 @@ test_that("Idd class", {
     # can check if input is a valid class
     expect_false(idd$is_valid_class("WrongClass"))
     expect_true(idd$is_valid_class("TestSlash"))
+    expect_true(idd$is_valid_class("testslash"))
+
+    # can access classes case-insensitively
+    expect_s3_class(idd$testslash, "IddObject")
+    expect_s3_class(idd[["testslash"]], "IddObject")
 
     # can export IDD data in data.table format
     expect_equal(idd$to_table("TestSlash", all = TRUE),

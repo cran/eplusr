@@ -1,3 +1,61 @@
+# eplusr 0.17.0
+
+## New features
+
+* `Idf$set()` and `IdfObject$set()` can now update field values from their
+  current values using one-sided formulas or functions (#518).
+
+* `ParametricJob` can now combine one seed IDF with multiple EPW weather cases
+  using `$weathers()`. `$cases(type = "run")` reports the actual simulation
+  cases while `$cases()` keeps the existing parameter-case behavior (#617).
+
+* Store prepared job model snapshots instead of keeping `Idf` objects alive
+  inside `EplusJob`, `EplusGroupJob`, and `ParametricJob`, reducing memory use
+  for large simulation sets. `ParametricJob$seed(new = ...)` can replace the
+  seed model and invalidates existing generated models until they are
+  regenerated (#615).
+
+* Add support for EnergyPlus v26.1.0 (#607, #612).
+
+* Class name matching is now case-insensitive across `Idd` and `Idf` class
+  lookup, `$add()`, and class-wide `$set()` inputs (#152).
+
+* Add support for EnergyPlus v25.2.0 (#605, #606).
+
+* `save_job()` and `read_job()` can now save and restore `EplusJob`,
+  `EplusGroupJob`, and `ParametricJob` objects using a JSON manifest validated
+  by the bundled schemate standalone schema validator. Saved manifests include
+  file metadata and checksums for EnergyPlus result files (#505).
+
+* Add support for EnergyPlus v25.1.0 (#600, #604).
+
+* Add support for EnergyPlus v24.2.0 (#603).
+
+* Add support for EnergyPlus v24.1.0 (#582, #602).
+
+* Add support for EnergyPlus v23.2.0 (#578, #601).
+
+## Bug fixes
+
+* Fix macOS installation from mounted EnergyPlus DMG installers that provide a
+  QtIFW `.app` bundle instead of a `.pkg` file (#620).
+
+* Fix `uninstall_eplus()` dispatch so native uninstallers are used when
+  available and portable or manual installs fall back to direct directory
+  removal (#622).
+
+* Fix EnergyPlus IDD downloads from v23.2.0 and portable macOS tarball
+  installation (#601).
+
+* Delay EnergyPlus installation discovery until needed and allow extra search
+  roots via `locate_eplus(dirs = ...)` and `options(eplusr.eplus_dirs = ...)`
+  (#609).
+
+## Internal refactor
+
+* Move the `units` package from Imports to Suggests and load it only when
+  unit-aware features are used (#466).
+
 # eplusr 0.16.3
 
 ## New features
@@ -314,7 +372,7 @@
 * `run_multi()` now gets a new argument `expand_obj` to control whether
   `ExpandObjects` should be called before simulation or not. Because there is a
   known issue of `ExpandObjects` on Linux system
-  (https://github.com/NREL/EnergyPlus/issues/8376), here we want to avoid
+  (https://github.com/NatLabRockies/EnergyPlus/issues/8376), here we want to avoid
   unnecessary calls of `ExpandObjects` as possible. Also, `EplusJob$run()` and
   `EplusGroupJob$run()` now will detect if there are any `HVACTemplate:*`
   objects and set the `expand_obj` flag properly (#377).
@@ -559,7 +617,7 @@
 * Provide a workaround to fix the issue of EnergyPlus v9.1 and above
   installation which fails to extract files into correct directory
   `/usr/local/EnergyPlus-X-Y-0`, but instead extracting all files directly into
-  `/usr/local` ([NREL/EnergyPlus#7256](https://github.com/NREL/EnergyPlus/issues/7256))
+  `/usr/local` ([NatLabRockies/EnergyPlus#7256](https://github.com/NatLabRockies/EnergyPlus/issues/7256))
   (#193).
 * A new parameter `group_ext` has been added in `Idf$to_table()` and
   `IdfObject$to_table()`, with default value being `"none"`.

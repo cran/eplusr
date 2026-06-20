@@ -20,8 +20,8 @@ the schema format is XSD; for IDF, the schema format is IDD. For each release
 of EnergyPlus, valid IDF files are defined by the "Energy+.idd" file shipped
 with the release.
 
-eplusr tries to detect all installed EnergyPlus in default installation
-locations when loading, i.e. \verb{C:\\\\EnergyPlusVX-X-0} on Windows,
+eplusr tries to detect installed EnergyPlus lazily when that information is
+needed, using default installation locations, i.e. \verb{C:\\\\EnergyPlusVX-X-0} on Windows,
 \verb{/usr/local/EnergyPlus-X-Y-0} on Linux, and
 \verb{/Applications/EnergyPlus-X-Y-0} on macOS and stores all found locations
 internally. This data is used to locate the distributed "Energy+.idd" file of
@@ -287,7 +287,7 @@ idd$print()
 
 }
 \references{
-\href{https://github.com/NREL/EnergyPlus/tree/develop/src/IDF_Editor}{IDFEditor},
+\href{https://github.com/NatLabRockies/EnergyPlus/tree/develop/src/IDF_Editor}{IDFEditor},
 \href{https://openstudio-sdk-documentation.s3.amazonaws.com/cpp/OpenStudio-2.5.1-doc/utilities/html/idf_page.html}{OpenStudio utilities library}
 }
 \seealso{
@@ -808,8 +808,9 @@ Check if elements in input character vector are valid class names.
 contains valid class names in the context of current \code{Idd}, and
 \code{FALSE}s otherwise.
 
-Note that case-sensitive matching is performed, which means that
-\code{"Version"} is a valid class name but \code{"version"} is not.
+Class name matching is \strong{case-insensitive}. For convenience,
+underscore-style class names are also allowed, e.g. \code{Site_Location}
+is equivalent to \code{Site:Location}.
 }
 
 \subsection{Returns}{
@@ -849,10 +850,8 @@ string specifying the class name.}
 \verb{$object()} returns an \link{IddObject} object specified by a class ID
 or name.
 
-Note that case-sensitive matching is performed, which means that
-\code{"Version"} is a valid class name but \code{"version"} is not.
-
-For convenience, underscore-style names are allowed, e.g.
+Class name matching is \strong{case-insensitive}. For convenience,
+underscore-style names are allowed, e.g.
 \code{Site_Location} is equivalent to \code{Site:Location}.
 }
 
@@ -894,10 +893,8 @@ vector specifying class names.}
 \verb{$objects()} returns a named list of \link{IddObject} objects using class
 indices or names. The returned list is named using class names.
 
-Note that case-sensitive matching is performed, which means that
-\code{"Version"} is a valid class name but \code{"version"} is not.
-
-For convenience, underscore-style names are allowed, e.g.
+Class name matching is \strong{case-insensitive}. For convenience,
+underscore-style names are allowed, e.g.
 \code{Site_Location} is equivalent to \code{Site:Location}.
 }
 
