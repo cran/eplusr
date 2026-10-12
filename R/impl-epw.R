@@ -706,12 +706,19 @@ validate_epw_header_basic <- function(idd_env, header, class = NULL, field = NUL
     # TEMPERATURES'
     if (nrow(valid$incomplete_extensible) && EPW_CLASS$ground %chin% valid$incomplete_extensible$class_name) {
         add_field_property(idd_env, valid$incomplete_extensible, "extensible_group")
+        add_class_property(idd_env, valid$incomplete_extensible,
+            c("first_extensible", "num_extensible"))
+
+        # Validation now contains only invalid empty fields, so derive each
+        # field's position from the IDD instead of its row order in the result.
         valid$incomplete_extensible[extensible_group > 0,
-            extensible_field_index := seq_len(.N), by = c("object_id", "extensible_group")]
+            extensible_field_index :=
+                (field_index - first_extensible) %% num_extensible + 1L]
 
         ext_grp <- valid$incomplete_extensible[J(EPW_CLASS$ground), on = "class_name",
-            by = "extensible_group", list(incomplete = anyNA(value_chr[-(2:4)]))
-        ][J(FALSE), on = "incomplete", nomatch = NULL, extensible_group]
+            by = "extensible_group",
+            list(soil_properties_only = all(extensible_field_index %in% 2:4))
+        ][J(TRUE), on = "soil_properties_only", nomatch = NULL, extensible_group]
 
         if (length(ext_grp)) {
             valid$incomplete_extensible <- valid$incomplete_extensible[
@@ -719,7 +726,10 @@ validate_epw_header_basic <- function(idd_env, header, class = NULL, field = NUL
                 on = c("class_name", "extensible_group")]
         }
 
-        set(valid$incomplete_extensible, NULL, c("extensible_group", "extensible_field_index"), NULL)
+        set(valid$incomplete_extensible, NULL,
+            c("extensible_group", "first_extensible", "num_extensible",
+              "extensible_field_index"),
+            NULL)
     }
 
     setattr(valid, "class", c("EpwValidity", class(valid)))
@@ -987,17 +997,29 @@ as_EpwDate.numeric <- function(x, leapyear = TRUE) {
 #' @keywords internal
 as_EpwDate.character <- function(x, leapyear = TRUE) {
     res <- init_epwdate_vctr(length(x))
-    if (length(x) == 0L) return(res)
+    if (length(x) == 0L) {
+        return(res)
+    }
 
     # coerce to double first
     is_dbl <- !is.na(suppressWarnings(as.double(x)))
     # check if ending with zero, e.g. "3.10"
-    is_tenth <- as.double(stri_split_fixed(x[is_dbl], ".", 2L, simplify = TRUE)[, 2L]) %% 10 == 0L
-    is_dbl[is_tenth] <- FALSE
+    is_tenth <- as.double(stri_split_fixed(
+        x[is_dbl],
+        ".",
+        2L,
+        simplify = TRUE
+    )[, 2L]) %%
+        10 ==
+        0L
+    # Map the filtered numeric positions back to the original date vector.
+    is_dbl[which(is_dbl)[which(is_tenth)]] <- FALSE
 
     res[is_dbl] <- as_EpwDate.numeric(as.double(x[is_dbl]))
 
-    if (sum(is_dbl) == length(x)) return(res)
+    if (sum(is_dbl) == length(x)) {
+        return(res)
+    }
 
     # init
     x <- x[!is_dbl]
@@ -1005,7 +1027,13 @@ as_EpwDate.character <- function(x, leapyear = TRUE) {
 
     # component separator, include "." to support "Month.Day" format
     sep <- "[/\\-\\.]"
-    s <- stri_split_charclass(x, sep, n = 5L, omit_empty = TRUE, simplify = TRUE)
+    s <- stri_split_charclass(
+        x,
+        sep,
+        n = 5L,
+        omit_empty = TRUE,
+        simplify = TRUE
+    )
 
     # month-day type
     is_md <- stri_isempty(s[, 3L]) & !stri_isempty(s[, 2L])
@@ -1015,7 +1043,12 @@ as_EpwDate.character <- function(x, leapyear = TRUE) {
     # only accept numeric values for each field
     is_ymd <- stri_isempty(s[, 4L]) & !stri_isempty(s[, 3L])
     s_ymd <- matrix(suppressWarnings(as.integer(s[is_ymd, ])), ncol = 5L)
-    d[is_ymd] <- parse_epwdate_ymd(s_ymd[, 1L], s_ymd[, 2L], s_ymd[, 3L], leapyear)
+    d[is_ymd] <- parse_epwdate_ymd(
+        s_ymd[, 1L],
+        s_ymd[, 2L],
+        s_ymd[, 3L],
+        leapyear
+    )
 
     # weekday type
     # split by space

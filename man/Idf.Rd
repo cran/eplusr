@@ -303,6 +303,16 @@ idf[["Zone"]]
 
 
 ## ------------------------------------------------
+## Method `Idf$reorder`
+## ------------------------------------------------
+
+\dontrun{
+# reverse material order
+idf$reorder("Material", rev(idf$object_id("Material", simplify = TRUE)))
+}
+
+
+## ------------------------------------------------
 ## Method `Idf$objects_in_group`
 ## ------------------------------------------------
 
@@ -437,6 +447,19 @@ idf$set(Material := list(conductivity = function(x) x * 0.5))
 # use variable input
 sets <- list(r13layer = list(roughness = "smooth"))
 idf$set(sets)
+}
+
+
+## ------------------------------------------------
+## Method `Idf$drop`
+## ------------------------------------------------
+
+\dontrun{
+# remove Layer 2 and shift later layers forward
+idf$drop(r13wall = "Layer 2")
+
+# drop the same fields in multiple objects
+idf$drop(.("r13wall", "roof31") := "Layer 2")
 }
 
 
@@ -889,6 +912,7 @@ Hongyuan Jia
 \item \href{#method-Idf-objects}{\code{Idf$objects()}}
 \item \href{#method-Idf-object_unique}{\code{Idf$object_unique()}}
 \item \href{#method-Idf-objects_in_class}{\code{Idf$objects_in_class()}}
+\item \href{#method-Idf-reorder}{\code{Idf$reorder()}}
 \item \href{#method-Idf-objects_in_group}{\code{Idf$objects_in_group()}}
 \item \href{#method-Idf-object_relation}{\code{Idf$object_relation()}}
 \item \href{#method-Idf-objects_in_relation}{\code{Idf$objects_in_relation()}}
@@ -896,6 +920,7 @@ Hongyuan Jia
 \item \href{#method-Idf-dup}{\code{Idf$dup()}}
 \item \href{#method-Idf-add}{\code{Idf$add()}}
 \item \href{#method-Idf-set}{\code{Idf$set()}}
+\item \href{#method-Idf-drop}{\code{Idf$drop()}}
 \item \href{#method-Idf-del}{\code{Idf$del()}}
 \item \href{#method-Idf-purge}{\code{Idf$purge()}}
 \item \href{#method-Idf-duplicated}{\code{Idf$duplicated()}}
@@ -1813,6 +1838,55 @@ idf[["Zone"]]
 
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Idf-reorder"></a>}}
+\if{latex}{\out{\hypertarget{method-Idf-reorder}{}}}
+\subsection{Method \code{reorder()}}{
+Reorder objects in a class
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Idf$reorder(class, object)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{class}}{A single string of valid class name for current \code{Idf}
+object.}
+
+\item{\code{object}}{An integer vector of object IDs or a character vector
+of object names in the target class. It must include all
+objects in \code{class} exactly once.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+\verb{$reorder()} updates the display and saving order of objects in one
+class without changing object IDs. The input \code{object} should contain
+every object in the target class exactly once, in the desired order.
+
+The new order is reflected in \verb{$object_id()}, \verb{$object_name()},
+\verb{$objects_in_class()}, \verb{$to_table()}, \verb{$to_string()}, and \verb{$save()}.
+The existing \code{"new_top"} and \code{"new_bot"} saving formats still use
+their original new-or-modified object ordering before applying the
+class order.
+}
+
+\subsection{Returns}{
+The modified \code{Idf} object itself, invisibly.
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+# reverse material order
+idf$reorder("Material", rev(idf$object_id("Material", simplify = TRUE)))
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Idf-objects_in_group"></a>}}
 \if{latex}{\out{\hypertarget{method-Idf-objects_in_group}{}}}
 \subsection{Method \code{objects_in_group()}}{
@@ -2264,6 +2338,10 @@ underscore-style field names are also allowed, e.g. \code{eNd_MoNtH} is
 equivalent to \verb{End Month}. This behavior is consistent among all
 methods that take field names as input.
 
+For choice fields whose valid choices include \code{"Yes"} and \code{"No"},
+logical values are accepted and converted to those choices, i.e.
+\code{TRUE} is treated as \code{"Yes"} and \code{FALSE} as \code{"No"}.
+
 There is no need to give all field values if only specific fields are
 interested, as long as other fields are not required. For example, to
 define a new object in \code{RunPeriod} class, the following is enough (at
@@ -2383,12 +2461,17 @@ function arguments must have defaults or be captured from the enclosing
 environment. Function updates must return a character, integer, or double
 vector of length \code{1} or the number of target objects.
 
-You can delete a field by assigning \code{NULL} to it, e.g. \code{list(fld = NULL)} means to delete the value of field \code{fld}, in the condition
-that \code{.default} is \code{FALSE}, \code{fld} is not a required field and the
-index of \code{fld} is larger than the number minimum fields required for
-that class. If those conditions are not required, \code{fld} will be left
-as blank if \code{.default} is \code{FALSE} or filled with default value if
-\code{.default} is \code{TRUE}.
+For choice fields whose valid choices include \code{"Yes"} and \code{"No"},
+logical values are accepted and converted to those choices, i.e.
+\code{TRUE} is treated as \code{"Yes"} and \code{FALSE} as \code{"No"}.
+
+You can clear a field value by assigning \code{NULL} to it, e.g. \code{list(fld = NULL)} means to clear the value of field \code{fld}. If \code{.default} is
+\code{FALSE}, \code{fld} is not a required field and the index of \code{fld} is
+larger than the number minimum fields required for that class, trailing
+empty fields will be deleted. Otherwise \code{fld} will be left as blank if
+\code{.default} is \code{FALSE} or filled with default value if \code{.default} is
+\code{TRUE}. To structurally remove field slots and shift following values
+forward, use \verb{$drop()}.
 
 By default, trailing empty fields that are not required will be
 removed and only minimum required fields are kept. For example, if
@@ -2460,6 +2543,71 @@ idf$set(Material := list(conductivity = function(x) x * 0.5))
 # use variable input
 sets <- list(r13layer = list(roughness = "smooth"))
 idf$set(sets)
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Idf-drop"></a>}}
+\if{latex}{\out{\hypertarget{method-Idf-drop}{}}}
+\subsection{Method \code{drop()}}{
+Drop existing fields.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Idf$drop(..., .empty = FALSE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Field drop definitions. Each value should be a character
+vector of field names or an integer vector of field indexes.}
+
+\item{\code{.empty}}{If \code{TRUE}, trailing empty fields are kept after field
+values are shifted. Default: \code{FALSE}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+\verb{$drop()} removes field slots from existing objects and shifts the
+following values in the same field sequence forward. This is useful
+for objects such as \code{Construction}, where dropping \verb{Layer 2} should
+move \verb{Layer 3} into \verb{Layer 2}.
+
+Unlike \verb{$set(field = NULL)}, \verb{$drop()} changes the object field
+structure instead of only clearing field values. Only fields in IDD
+extensible groups or numbered repeated field sequences, such as
+\verb{Layer 2}, \verb{Layer 3}, and so on, can be dropped. For classes whose
+extensible group contains multiple fields, all fields in the group
+must be dropped together.
+
+The input format follows \verb{$set()} object selection rules:
+\itemize{
+\item \code{object = field}: Drop one or more fields in the named object.
+\item \code{..ID = field}: Drop one or more fields in the object with ID \code{ID}.
+\item \code{class := field}: Drop one or more fields from all objects in a class.
+\item \code{.(object, object) := field}: Drop one or more fields from multiple
+objects.
+}
+
+Field names are matched case-insensitively and underscore-style field
+names are allowed.
+}
+
+\subsection{Returns}{
+A named list of modified \link{IdfObject} objects.
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+# remove Layer 2 and shift later layers forward
+idf$drop(r13wall = "Layer 2")
+
+# drop the same fields in multiple objects
+idf$drop(.("r13wall", "roof31") := "Layer 2")
 }
 
 }
@@ -2974,6 +3122,8 @@ class.
 Each value should have the right type as the corresponding field
 definition.  Otherwise, errors will be issued if current
 \link[=level_checks]{validation level} includes invalid-type checking.
+Logical values are accepted for choice fields whose valid choices
+include \code{"Yes"} and \code{"No"}.
 }
 \item \code{id}: \strong{Optional}. Integer type. If input data.frame includes
 multiple object definitions in a same class, values in \code{id} column
@@ -3128,6 +3278,8 @@ class.
 Each value should have the right type as the corresponding field
 definition.  Otherwise, errors will be issued if current
 \link[=level_checks]{validation level} includes invalid-type checking.
+Logical values are accepted for choice fields whose valid choices
+include \code{"Yes"} and \code{"No"}.
 }
 }
 
@@ -3425,7 +3577,8 @@ represents the results from a single validation checking component.
 \item \code{invalid_autocalculate}: Result of \code{auto_field} checking for
 invalid \code{Autocalculate} field values.
 \item \code{invalid_character}: Result of \code{type} checking for invalid
-character field values.
+character field values, including character values that contain
+IDF delimiters \verb{,} or \verb{;}.
 \item \code{invalid_numeric}: Result of \code{type} checking for invalid
 numeric field values.
 \item \code{invalid_integer}: Result of \code{type} checking for invalid
@@ -3588,7 +3741,8 @@ Format \code{Idf} as a character vector
   header = TRUE,
   format = eplusr_option("save_format"),
   leading = 4L,
-  sep_at = 29L
+  sep_at = 29L,
+  field = TRUE
 )}\if{html}{\out{</div>}}
 }
 
@@ -3624,6 +3778,9 @@ options \code{"Sorted"}, \code{"Original with New at Top"}, and \code{"Original 
 
 \item{\code{sep_at}}{The character width to separate value string and field
 string. Default: \code{29L} which is the same as IDF Editor.}
+
+\item{\code{field}}{If \code{FALSE}, field names will not be included as comments.
+Default: \code{TRUE}.}
 }
 \if{html}{\out{</div>}}
 }

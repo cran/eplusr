@@ -95,9 +95,10 @@ exclude_invalid <- function(env_in, invalid, on) {
 #' `FALSE`.
 #' @param auto_field Check if all fields with value `"Autosize"` and
 #' `"Autocalculate"` are valid or not. Default: `FALSE`.
-#' @param type Check if all fields have values with valid types, i.e. 
+#' @param type Check if all fields have values with valid types, i.e.
 #' character, numeric and integer fields should be filled with corresponding
-#' type of values. Default: `FALSE`.
+#' type of values, and character fields should not contain IDF delimiters `,` or
+#' `;`. Default: `FALSE`.
 #' @param choice Check if all choice fields have valid choice values. Default:
 #' `FALSE`.
 #' @param range Check if all numeric fields have values within defined ranges.
@@ -445,9 +446,25 @@ check_conflict_name <- function(idd_env, idf_env, env_in) {
 check_incomplete_extensible <- function(idd_env, idf_env, env_in) {
     # extensible groups in input
     ext <- env_in$value[extensible_group > 0L,
-        list(object_id, field_index, field_id, extensible_group, value_chr)]
+        list(object_id, class_id, field_index, field_id, extensible_group,
+             value_id, value_chr)]
 
     if (!nrow(ext)) return(env_in)
+
+    # Required flags are cleared from expanded fields after the class-level
+    # last required field. Map every slot back to the first extensible group so
+    # active groups retain the template's actual required-field pattern.
+    ext[idd_env$class, on = "class_id", `:=`(
+        first_extensible = i.first_extensible,
+        num_extensible = i.num_extensible
+    )]
+    ext[, template_field_index :=
+        first_extensible + (field_index - first_extensible) %% num_extensible]
+    template <- idd_env$field[extensible_group == 1L,
+        list(class_id, template_field_index = field_index,
+             template_required = required_field)]
+    ext[template, on = c("class_id", "template_field_index"),
+        template_required := i.template_required]
 
     # check incomplete extensible fields
     # check if fields in an extensible group have any NA or are all NAs
@@ -460,11 +477,21 @@ check_incomplete_extensible <- function(idd_env, idf_env, env_in) {
     empty_info[can_be_na == FALSE | is.na(can_be_na), can_be_na := can_be_na[1L],
         by = list(cumsum(!is.na(can_be_na)), object_id)]
     empty_info[is.na(can_be_na), can_be_na := TRUE]
-    incomplete <- empty_info[has_any_na == TRUE & can_be_na == FALSE, list(object_id, extensible_group)]
+    incomplete_group <- empty_info[
+        has_any_na == TRUE & can_be_na == FALSE,
+        list(object_id, extensible_group)
+    ]
+
+    # Optional template fields can stay empty regardless of their defaults.
+    incomplete <- ext[incomplete_group, on = c("object_id", "extensible_group")][
+        is.na(value_chr) & template_required == TRUE,
+        list(value_id)
+    ]
     setorderv(incomplete, names(incomplete))
 
     if (nrow(incomplete)) {
-        add_validity(idd_env, idf_env, env_in, incomplete, "incomplete_extensible", c("object_id", "extensible_group"))
+        add_validity(idd_env, idf_env, env_in, incomplete,
+            "incomplete_extensible", "value_id")
     }
 
     env_in
@@ -503,9 +530,15 @@ check_invalid_autocalculate <- function(idd_env, idf_env, env_in) {
     env_in
 }
 # }}}
-# check_invalid_character: invalid numeric fields {{{
+# check_invalid_character: invalid character fields {{{
 check_invalid_character <- function(idd_env, idf_env, env_in) {
-    invalid_character <- env_in$value[type_enum > IDDFIELD_TYPE$real & !is.na(value_num)]
+    check_idf_delimiter <- !"WEATHER DATA" %chin% idd_env$class$class_name
+    invalid_character <- env_in$value[
+        type_enum > IDDFIELD_TYPE$real &
+            (!is.na(value_num) |
+                (check_idf_delimiter & !is.na(value_chr) &
+                    (stri_detect_fixed(value_chr, ",") | stri_detect_fixed(value_chr, ";"))))
+    ]
 
     if (!nrow(invalid_character)) return(env_in)
 
@@ -713,7 +746,7 @@ format_single_validity <- function(single_validity, type, epw = FALSE) {
         invalid_autosize = "Fields below cannot be `autosize`:",
         invalid_autocalculate = "Fields below cannot be `autocalculate`:",
         invalid_numeric = "Fields below should be numbers but are not:",
-        invalid_character = "Fields below should be characters but are not:",
+        invalid_character = "Character fields below should not be numeric inputs or contain IDF delimiters `,` or `;`:",
         invalid_integer = "Fields below are not or cannot be coerced into integers:",
         invalid_choice = "Fields below are not one of prescribed choices:",
         invalid_range = "Fields below exceed prescribed ranges:",

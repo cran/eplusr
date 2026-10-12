@@ -341,6 +341,34 @@ IdfObject <- R6::R6Class(classname = "IdfObject",
             idfobj_value(self, private, which, all, simplify, unit),
         # }}}
 
+        # is_valid_field {{{
+        #' @description
+        #' Check if fields exist in current object.
+        #'
+        #' @details
+        #' `$is_valid_field()` returns `TRUE` if the specified fields are present
+        #' in the current `IdfObject`. It checks fields that the object actually
+        #' contains, not all possible fields defined in the underlying [Idd].
+        #' Fields with blank values are still treated as existing.
+        #'
+        #' Field names can be given in underscore style, e.g. `"outside_layer"`
+        #' is equivalent to `"Outside Layer"`.
+        #'
+        #' @param which An integer vector of field indexes or a character vector
+        #'        of field names.
+        #'
+        #' @return A logical vector with the same length as `which`.
+        #'
+        #' @examples
+        #' \dontrun{
+        #' con <- idf$Construction[[1L]]
+        #' con$is_valid_field(c("Name", "Layer 5"))
+        #' }
+        #'
+        is_valid_field = function(which)
+            idfobj_is_valid_field(self, private, which),
+        # }}}
+
         # set {{{
         #' @description
         #' Modify object field values.
@@ -356,12 +384,14 @@ IdfObject <- R6::R6Class(classname = "IdfObject",
         #'
         #' * Only one single list is allowed, e.g. `idfobj$set(lst1)` where `lst1 <-
         #'   list(field1 = value1)` is allowed, but `idfobj$set(lst1, lst2)` is not.
-        #' * You can delete a field by assigning `NULL` to it, e.g. `iddobj$set(fld =
-        #'   NULL)` means to delete the value of field `fld`. If `.default` is FALSE,
-        #'   also `fld` is not a required field and the index of `fld` is larger than
-        #'   the number minimum fields required for that class, it will be deleted.
-        #'   Otherwise it will be left as blank. If `.default` is `TRUE`, that field
-        #'   will be filled with default value if applicable and left as blank if not.
+        #' * You can clear a field value by assigning `NULL` to it, e.g.
+        #'   `idfobj$set(fld = NULL)` means to clear the value of field `fld`. If
+        #'   `.default` is FALSE, also `fld` is not a required field and the index of
+        #'   `fld` is larger than the number minimum fields required for that class,
+        #'   trailing empty fields will be deleted. Otherwise it will be left as
+        #'   blank. If `.default` is `TRUE`, that field will be filled with default
+        #'   value if applicable and left as blank if not. To structurally remove
+        #'   field slots and shift following values forward, use `$drop()`.
         #' * By default, trailing empty fields that are not required will be removed and
         #'   only minimum required fields are kept. You can keep the trailing empty
         #'   fields by setting `.empty` to `TRUE`.
@@ -398,6 +428,11 @@ IdfObject <- R6::R6Class(classname = "IdfObject",
         #'
         #' @param .empty If `TRUE`, trailing empty fields are kept. Default: `FALSE`.
         #'
+        #' @details
+        #' For choice fields whose valid choices include `"Yes"` and `"No"`,
+        #' logical values are accepted and converted to those choices, i.e.
+        #' `TRUE` is treated as `"Yes"` and `FALSE` as `"No"`.
+        #'
         #' @examples
         #' \dontrun{
         #' # set field values
@@ -422,6 +457,45 @@ IdfObject <- R6::R6Class(classname = "IdfObject",
         #'
         set = function(..., .default = TRUE, .empty = FALSE)
             idfobj_set(self, private, ..., .default = .default, .empty = .empty),
+        # }}}
+
+        # drop {{{
+        #' @description
+        #' Drop existing fields.
+        #'
+        #' @details
+        #' `$drop()` removes field slots from the current object and shifts the
+        #' following values in the same field sequence forward. This is useful
+        #' for objects such as `Construction`, where dropping `Layer 2` should
+        #' move `Layer 3` into `Layer 2`.
+        #'
+        #' Unlike `$set(field = NULL)`, `$drop()` changes the object field
+        #' structure instead of only clearing field values. Only fields in IDD
+        #' extensible groups or numbered repeated field sequences, such as
+        #' `Layer 2`, `Layer 3`, and so on, can be dropped. For classes whose
+        #' extensible group contains multiple fields, all fields in the group
+        #' must be dropped together.
+        #'
+        #' Field names are matched case-insensitively and underscore-style field
+        #' names are allowed.
+        #'
+        #' @param ... Field names or indexes to drop.
+        #' @param .empty If `TRUE`, trailing empty fields are kept after field
+        #'        values are shifted. Default: `FALSE`.
+        #'
+        #' @return The modified `IdfObject` itself.
+        #'
+        #' @examples
+        #' \dontrun{
+        #' # remove Layer 2 and shift later layers forward
+        #' construction$drop("Layer 2")
+        #'
+        #' # drop fields by index
+        #' construction$drop(3)
+        #' }
+        #'
+        drop = function(..., .empty = FALSE)
+            idfobj_drop(self, private, ..., .empty = .empty),
         # }}}
 
         # value_possible {{{
@@ -574,7 +648,8 @@ IdfObject <- R6::R6Class(classname = "IdfObject",
         #' * `invalid_autocalculate`: Result of `auto_field` checking for
         #'   invalid `Autocalculate` field values.
         #' * `invalid_character`: Result of `type` checking for invalid
-        #'   character field values.
+        #'   character field values, including character values that contain
+        #'   IDF delimiters `,` or `;`.
         #' * `invalid_numeric`: Result of `type` checking for invalid
         #'   numeric field values.
         #' * `invalid_integer`: Result of `type` checking for invalid
@@ -1337,6 +1412,9 @@ IdfObject <- R6::R6Class(classname = "IdfObject",
         #'        class that objects belong to will be returned. Default:
         #'        `FALSE`.
         #'
+        #' @param field If `FALSE`, field names will not be included as comments.
+        #'        Default: `TRUE`.
+        #'
         #' @return A character vector.
         #'
         #' @examples
@@ -1352,8 +1430,9 @@ IdfObject <- R6::R6Class(classname = "IdfObject",
         #' mat$to_string(leading = 0)
         #' }
         #'
-        to_string = function(comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE)
-            idfobj_to_string(self, private, comment, leading, sep_at, all),
+        to_string = function(comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE, field = TRUE)
+            idfobj_to_string(self, private, comment = comment, leading = leading,
+                sep_at = sep_at, all = all, field = field),
         # }}}
 
         # print {{{
@@ -1568,6 +1647,21 @@ idfobj_value <- function(self, private, which = NULL, all = FALSE, simplify = FA
     get_idfobj_value(private$idd_env(), private$idf_env(), private$m_object_id, which, all, simplify, unit)
 }
 # }}}
+# idfobj_is_valid_field {{{
+#' @importFrom checkmate assert_character test_integerish
+idfobj_is_valid_field <- function(self, private, which) {
+    val <- private$idf_env()$value[J(private$m_object_id), on = "object_id", nomatch = 0L]
+    fld <- private$idd_env()$field[J(val$field_id), on = "field_id", nomatch = 0L]
+
+    if (test_integerish(which, lower = 1L, any.missing = FALSE)) {
+        return(as.integer(which) %in% fld$field_index)
+    }
+
+    assert_character(which, any.missing = FALSE)
+
+    lower_name(which) %chin% lower_name(fld$field_name)
+}
+# }}}
 # idfobj_set {{{
 idfobj_set <- function(self, private, ..., .default = TRUE, .empty = FALSE) {
     # support value input in a list format
@@ -1576,6 +1670,27 @@ idfobj_set <- function(self, private, ..., .default = TRUE, .empty = FALSE) {
     names(lst) <- paste0("..", private$m_object_id)
     idf_set(get_self_env(private$m_parent), get_priv_env(private$m_parent),
         lst, .default = .default, .empty = .empty
+    )
+
+    self
+}
+# }}}
+# idfobj_drop {{{
+idfobj_drop <- function(self, private, ..., .empty = FALSE) {
+    field <- list(...)
+    if (!length(field)) {
+        abort("No fields to drop are specified.", "drop_no_field")
+    }
+
+    if (length(field) == 1L && is.list(field[[1L]]) && !is.data.frame(field[[1L]])) {
+        field <- field[[1L]]
+    }
+    field <- unlist(field, use.names = FALSE)
+
+    lst <- list(field)
+    names(lst) <- paste0("..", private$m_object_id)
+    idf_drop(get_self_env(private$m_parent), get_priv_env(private$m_parent),
+        lst, .empty = .empty
     )
 
     self
@@ -1788,9 +1903,10 @@ idfobj_to_table <- function(self, private, all = FALSE, string_value = TRUE,
 }
 # }}}
 # idfobj_to_string {{{
-idfobj_to_string <- function(self, private, comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE) {
+idfobj_to_string <- function(self, private, comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE, field = TRUE) {
     get_idfobj_string(private$idd_env(), private$idf_env(), private$m_object_id,
-        comment = comment, leading = leading, sep_at = sep_at, all = all
+        comment = comment, leading = leading, sep_at = sep_at, all = all,
+        field = field
     )
 }
 # }}}
@@ -1846,6 +1962,8 @@ idfobj_print <- function(self, private, comment = TRUE, auto_sep = FALSE, brief 
 #' Default: `29L` which is the same as IDF Editor.
 #' @param all If `TRUE`, values of all possible fields in current class the
 #'   [IdfObject] belongs to are returned. Default: `FALSE`
+#' @param field If `FALSE`, field names will not be included as comments.
+#' Default: `TRUE`.
 #' @param ... Further arguments passed to or from other methods.
 #' @return A character vector.
 #' @examples
@@ -1861,8 +1979,9 @@ idfobj_print <- function(self, private, comment = TRUE, auto_sep = FALSE, brief 
 #'
 #' @export
 # format.IdfObject {{{
-format.IdfObject <- function(x, comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE, ...) {
-    paste0(x$to_string(comment = comment, leading = leading, sep_at = sep_at, all = all), collapse = "\n")
+format.IdfObject <- function(x, comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE, field = TRUE, ...) {
+    paste0(x$to_string(comment = comment, leading = leading, sep_at = sep_at,
+        all = all, field = field), collapse = "\n")
 }
 # }}}
 
@@ -1885,8 +2004,9 @@ format.IdfObject <- function(x, comment = TRUE, leading = 4L, sep_at = 29L, all 
 #'
 #' @export
 # as.character.IdfObject {{{
-as.character.IdfObject <- function(x, comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE, ...) {
-    x$to_string(comment = comment, leading = leading, sep_at = sep_at, all = all)
+as.character.IdfObject <- function(x, comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE, field = TRUE, ...) {
+    x$to_string(comment = comment, leading = leading, sep_at = sep_at,
+        all = all, field = field)
 }
 # }}}
 

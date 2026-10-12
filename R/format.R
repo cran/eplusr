@@ -135,7 +135,7 @@ format_idf <- function(
     dt_value, dt_object = NULL, dt_order = NULL,
     header = TRUE, comment = TRUE, save_format = c("sorted", "new_top", "new_bot"),
     special_format = FALSE, leading = 4L, sep_at = 29L, index = FALSE,
-    blank = FALSE, end = TRUE, required = FALSE
+    blank = FALSE, end = TRUE, required = FALSE, field = TRUE
 )
 {
     assert_names(names(dt_value), must.include = c("object_id", "class_id", "class_name", "field_index"))
@@ -147,12 +147,14 @@ format_idf <- function(
     assert_flag(blank)
     assert_flag(end)
     assert_flag(required)
+    assert_flag(field)
 
     setorderv(dt_value, c("object_id", "field_index"))
 
     # get field value
     fld <- format_field(dt_value, leading = leading, sep_at = sep_at,
-        index = index, blank = blank, end = end, required = required)
+        index = index, blank = blank, end = end, required = required,
+        field = field)
 
     # init output as field values
     set(dt_value, NULL, "fmt", fld)
@@ -183,9 +185,30 @@ format_idf <- function(
         ]
     }
 
+    if (!is.null(dt_order)) {
+        assert_data_frame(dt_order, any.missing = FALSE, min.cols = 2)
+        assert_names(names(dt_order), must.include = c("object_id", "object_order"))
+
+        dt_order <- copy(dt_order)
+        if (!has_names(dt_order, "object_rank")) {
+            set(dt_order, NULL, "object_rank", seq_len(nrow(dt_order)))
+        }
+
+        out[dt_order, on = "object_id", `:=`(
+            object_order = i.object_order,
+            object_rank = i.object_rank
+        )]
+    } else {
+        set(out, NULL, "object_rank", out$object_id)
+    }
+
+    if (anyNA(out$object_rank)) {
+        out[is.na(object_rank), object_rank := object_id]
+    }
+
     # object order {{{
     if (save_format == "sorted") {
-        setorderv(out, c("class_id", "object_id"))
+        setorderv(out, c("class_id", "object_rank", "object_id"))
         # nest by class
         out <- out[, list(class_name = class_name[[1L]],
             fmt = list(c(format_class_header(class_name[[1L]]), fmt))),
@@ -193,16 +216,14 @@ format_idf <- function(
         ]
     } else {
         if (!is.null(dt_order)) {
-            assert_data_frame(dt_order, any.missing = FALSE, min.cols = 2)
-            assert_names(names(dt_order), must.include = c("object_id", "object_order"))
-
-            out[dt_order, on = "object_id", object_order := i.object_order]
             if (save_format == "new_top") {
-                setorderv(out, c("object_order", "object_id"), c(-1L, 1L))
+                setorderv(out, c("object_order", "object_rank", "object_id"), c(-1L, 1L, 1L))
             } else {
-                setorderv(out, c("object_order", "object_id"), c(1L, 1L))
+                setorderv(out, c("object_order", "object_rank", "object_id"), c(1L, 1L, 1L))
             }
-            set(out, NULL, "object_order", NULL)
+            set(out, NULL, c("object_order", "object_rank"), NULL)
+        } else {
+            set(out, NULL, "object_rank", NULL)
         }
     }
     # }}}
@@ -874,20 +895,24 @@ format_field <- function(dt,
                           # value
                           value = TRUE, quote = FALSE, blank = FALSE, end = TRUE, required = FALSE,
                           # field
-                          prefix = TRUE) {
+                          field = TRUE, prefix = TRUE) {
+    assert_flag(field)
+
     idx <- NULL
+    show_field <- field && sep_at >= 0L
 
     if (index) {
         idx <- paste0(format_index(dt, required = required, pad_char = pad_char), ": ")
     }
 
     if (value) {
-        val <- format_value(dt, leading = leading, length = sep_at, quote = quote, blank = blank, end = end)
+        val <- format_value(dt, leading = leading, length = if (show_field) sep_at else -1L,
+            quote = quote, blank = blank, end = end)
     } else {
         val <- NULL
     }
 
-    nm <- if (sep_at < 0L) "" else format_name(dt, prefix)
+    nm <- if (show_field) format_name(dt, prefix) else ""
 
     paste0(idx, val, nm)
 }
@@ -1181,7 +1206,7 @@ format.Range <- function(x, ...) {
 #' @export
 # print.Range {{{
 print.Range <- function(x, ...) {
-    cat(format.Range(x, ...), "\n")
+    cli::cat_line(format.Range(x, ...))
     invisible(x)
 }
 # }}}

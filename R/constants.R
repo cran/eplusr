@@ -8,7 +8,7 @@ ALL_EPLUS_VER <- c(
     paste0("23.", 1:2, ".0"),
     paste0("24.", 1:2, ".0"),
     paste0("25.", 1:2, ".0"),
-    "26.1.0"
+    paste0("26.", 1:2, ".0")
 )
 
 LATEST_EPLUS_VER <- ALL_EPLUS_VER[length(ALL_EPLUS_VER)]
@@ -29,11 +29,12 @@ ALL_IDD_VER <- c(
     paste0("23.", 1:2, ".0"),
     paste0("24.", 1:2, ".0"),
     paste0("25.", 1:2, ".0"),
-    "26.1.0"
+    paste0("26.", 1:2, ".0")
 )
 
 ALL_EPLUS_RELEASE_COMMIT <- data.table::fread(
     "version , commit
+     26.2.0  , 4bd7a1f26f
      26.1.0  , 6f2e40d102
      25.2.0  , cf7368216c
      25.1.0  , 68a4a7c774
@@ -63,6 +64,16 @@ ALL_EPLUS_RELEASE_COMMIT <- data.table::fread(
 
 # data for OS version specific EnergyPlus installers
 ALL_EPLUS_OSVER <- list(
+    "26.2.0" = list(
+        macos = list(
+            x86_64 = c("macOS13.3"),
+            arm64 = c("macOS14.0")
+        ),
+        linux = list(
+            x86_64 = c("Ubuntu24.04"),
+            arm64 = c("Ubuntu24.04")
+        )
+    ),
     "26.1.0" = list(
         macos = list(
             x86_64 = c("macOS12.1"),
@@ -218,18 +229,20 @@ utils::globalVariables(c(
     "extensible_field_index", "extensible_group", "field", "field_anid",
     "field_anid_an", "field_count", "field_id", "field_in", "field_index",
     "field_name", "field_name_noid", "field_num", "field_rleid",
-    "first_extensible", "fmt", "found", "group", "group_id", "group_name",
+    "first_extensible", "fixed_prefix", "fmt", "found", "group", "group_id", "group_name",
     "has_any_na", "has_range", "header", "height", "height_width", "hour",
     "i.class_id", "i.color", "i.comment", "i.datetime", "i.day",
-    "i.extensible_group", "i.field_id", "i.field_index", "i.field_name",
+    "i.extensible_group", "i.field_id", "i.field_index", "i.field_name", "i.first_extensible", "i.fixed_prefix",
     "i.hour", "i.id", "i.key_value", "i.min_fields", "i.minute", "i.month",
     "i.name", "i.new_object_name_lower", "i.num_extensible", "i.object_id",
-    "i.object_name", "i.object_name_lower", "i.object_order", "i.object_rleid",
+    "i.object_name", "i.object_name_lower", "i.object_order", "i.object_rank",
+    "i.object_rleid",
     "i.origin_x", "i.origin_y", "i.origin_z", "i.outside_boundary_condition",
     "i.projection_axis", "i.required_field", "i.rleid", "i.src_value_chr",
     "i.src_value_id", "i.src_value_num", "i.subtype", "i.type",
-    "i.unique_object_id", "i.value", "i.value_chr", "i.value_id", "i.value_num",
-    "i.value_type", "i.value_update", "i.x", "i.y", "i.z", "i.zone_name", "id",
+    "i.unique_object_id", "i.value", "i.value_chr", "i.value_id", "i.value_lgl",
+    "i.template_required", "i.value_num", "i.value_type", "i.value_update", "i.x", "i.y", "i.z",
+    "i.zone_name", "id",
     "id_list", "idf",
     "index", "index_str", "index_vertex", "info", "input_num", "ip", "ip_name",
     "ip_units", "is_all_na", "is_empty", "is_name", "is_num", "is_ref",
@@ -242,7 +255,8 @@ utils::globalVariables(c(
     "new_object_name", "new_object_name_lower", "new_year", "num",
     "num_extensible", "num_extensible_group", "num_fields", "num_fld",
     "num_group", "obj_num", "object_id", "object_id_dup", "object_list",
-    "object_name", "object_name_lower", "object_order", "object_rleid", "old",
+    "object_name", "object_name_lower", "object_order", "object_rank",
+    "object_rleid", "old",
     "old_exist", "old_min_fields", "origin_x", "origin_y", "origin_z", "out",
     "output_dir", "outside_boundary_condition",
     "outside_boundary_condition_object", "parent_surface_name", "patterns",
@@ -257,10 +271,11 @@ utils::globalVariables(c(
     "src_value_id", "src_value_num", "start", "start_day", "start_day_of_week",
     "starting_x_coordinate", "starting_y_coordinate", "starting_z_coordinate",
     "state_province", "status", "string", "sun_exposure", "sun_exposure_lower",
-    "surface_type", "surface_type_int", "tilt_angle", "title", "type",
+    "surface_type", "surface_type_int", "template_field_index", "template_required",
+    "tilt_angle", "title", "type",
     "type_enum", "type_rleid", "unique_object", "unique_object_id",
     "update_value_reference", "upper_incbounds", "value", "value_chr",
-    "value_count", "value_id", "value_lower", "value_num", "value_type",
+    "value_count", "value_id", "value_lgl", "value_lower", "value_num", "value_type",
     "variable", "weather", "wind_exposure", "wind_exposure_lower", "wmo_number",
     "x", "y", "z", "zone_name", "DAY_TYPE", "SIMULATION_DAYS", "daytype",
     "daytype_index", "i.daytype", "i.for", "i.interp", "i.interpolate",

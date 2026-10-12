@@ -35,14 +35,14 @@ test_that("Epw Header", {
             TYPICAL/EXTREME PERIODS
             GROUND TEMPERATURES
             HOLIDAYS/DAYLIGHT SAVINGS,yes,0,0,0
-            COMMENTS 1
+            COMMENTS 1,Allowed; comment
             COMMENTS 2
             DATA PERIODS,1,1, Data, Friday, 2016/01/01, 2016/12/31
             "
         )
     )
     expect_equal(h$value[object_id %in% c(2, 3, 4), value_num], rep(0, 3))
-    expect_equal(h$value[object_id %in% c(6, 7), value_chr], rep(NA_character_, 2))
+    expect_equal(h$value[object_id %in% c(6, 7), value_chr], c("Allowed; comment", NA_character_))
 
     # can fix mismatched extensible group and value of number field
     suppressWarnings(expect_warning(
@@ -493,5 +493,28 @@ test_that("EpwDate Class", {
     expect_equal({d <- epw_date(1:2);d[[1]] <- epw_date(3);d}, epw_date(c(3, 2)))
 })
 # }}}
+
+# Mixed date formats must retain their original positions after numeric filtering.
+test_that("mixed EPW dates retain decimal-tail and missing-value positions", {
+    inputs <- list(
+        c("4", "1/3", "1.1"),
+        c("4", "1/3", "3.10"),
+        c("1/3", "4", "3.10"),
+        c("3.10", "4", "1/3"),
+        c(NA_character_, "3.10", "4", "1/3"),
+        character()
+    )
+    for (leapyear in c(TRUE, FALSE)) {
+        for (input in inputs) {
+            expected <- if (length(input)) {
+                do.call(c, lapply(input, epw_date, leapyear = leapyear))
+            } else {
+                epw_date(input, leapyear = leapyear)
+            }
+            expect_silent(actual <- epw_date(input, leapyear = leapyear))
+            expect_identical(actual, expected)
+        }
+    }
+})
 
 # vim: set fdm=marker:

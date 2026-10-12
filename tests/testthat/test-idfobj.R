@@ -8,11 +8,11 @@ test_that("$new()", {
 
     expect_s3_class(mat <- IdfObject$new(1, parent = idf), "IdfObject")
     expect_equal(get_priv_env(mat)$m_object_id, 1L)
-    expect_equal(get_priv_env(mat)$m_class_id, 56L)
+    expect_equal(get_priv_env(mat)$m_class_id, 58L)
 
-    expect_s3_class(mat <- IdfObject$new(1, 56, parent = idf), "IdfObject")
+    expect_s3_class(mat <- IdfObject$new(1, 58, parent = idf), "IdfObject")
     expect_equal(get_priv_env(mat)$m_object_id, 1L)
-    expect_equal(get_priv_env(mat)$m_class_id, 56L)
+    expect_equal(get_priv_env(mat)$m_class_id, 58L)
 })
 # }}}
 
@@ -159,7 +159,10 @@ test_that("$value()", {
 
     # can detect invalid `index` values
     expect_error(mat$value("1"), class = "eplusr_error_invalid_field_name")
-    expect_error(mat$value(c(1, 10:11)), class = "eplusr_error_invalid_field_index")
+    expect_error(
+        mat$value(c(1, 13:14)),
+        class = "eplusr_error_invalid_field_index"
+    )
 
     # can return subset of values in a object using `index`
     expect_equal(
@@ -178,6 +181,27 @@ test_that("$value()", {
 
     # can detect invalid `name` values
     expect_error(mat$value(c("Thickness", "Wrong", "Name")), class = "eplusr_error_invalid_field_name")
+})
+# }}}
+
+# IS_VALID_FIELD {{{
+test_that("$is_valid_field()", {
+    skip_on_cran()
+    expect_s3_class(idf <- read_idf(idftext("idf")), "Idf")
+    expect_s3_class(con <- IdfObject$new(2, parent = idf), "IdfObject")
+
+    expect_equal(
+        con$is_valid_field(c("Name", "Layer 4", "Layer 5", "Wrong")),
+        c(TRUE, TRUE, FALSE, FALSE)
+    )
+    expect_equal(con$is_valid_field(c(1L, 5L, 6L)), c(TRUE, TRUE, FALSE))
+
+    expect_true(con$is_valid_field("layer_4"))
+    expect_true(con$is_valid_field("layer 4"))
+    expect_false(con$is_valid_field("layer_5"))
+
+    expect_silent(without_checking(con$set(`Layer 5` = "", .empty = TRUE)))
+    expect_true(con$is_valid_field("Layer 5"))
 })
 # }}}
 
@@ -203,6 +227,10 @@ test_that("$set()", {
 
     # can stop when invalid names are given for a non-extensible class
     expect_error(mat$set(wrong = "something"), class = "eplusr_error_invalid_field_name")
+
+    # can stop when character fields contain IDF delimiters
+    expect_s3_class(err <- catch_cnd(mat$set(name = "Bad;Name")), "eplusr_error_validity_check")
+    expect_equal(err$data$invalid_character$value_chr, "Bad;Name")
 
     # can stop when invalid names are given for an extensible class
     expect_error(con$set(name = "first", wrong = "second"), class = "eplusr_error_invalid_field_name")
@@ -241,6 +269,34 @@ test_that("$set()", {
     expect_equal(mat$name(), "NewMaterialName1")
     expect_silent(mat[[1]] <- "NewMaterialName")
     expect_equal(mat$name(), "NewMaterialName")
+})
+# }}}
+
+# DROP {{{
+test_that("$drop()", {
+    skip_on_cran()
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+
+    con <- idf$Construction$R13WALL
+    expect_error(con$drop(), class = "eplusr_error_drop_no_field")
+
+    con$set(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER")
+    expect_s3_class(con$drop("Layer 2"), "IdfObject")
+    expect_equal(con$value(),
+        list(Name = "R13WALL", `Outside Layer` = "R13LAYER", `Layer 2` = "R31LAYER")
+    )
+
+    con$set(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER")
+    expect_s3_class(con$drop(list("Layer 2")), "IdfObject")
+    expect_equal(con$value(),
+        list(Name = "R13WALL", `Outside Layer` = "R13LAYER", `Layer 2` = "R31LAYER")
+    )
+
+    surf <- idf$BuildingSurface_Detailed[[1L]]
+    expect_silent(surf$set(vertex_5_x_coordinate = 1, vertex_5_y_coordinate = 2, vertex_5_z_coordinate = 3))
+    expect_error(surf$drop("Vertex 5 X-coordinate"), class = "eplusr_error_drop_incomplete_extensible")
+    expect_s3_class(surf$drop(c("Vertex 5 X-coordinate", "Vertex 5 Y-coordinate", "Vertex 5 Z-coordinate")), "IdfObject")
+    expect_equal(length(surf$value()), 23L)
 })
 # }}}
 
@@ -494,7 +550,7 @@ test_that("$to_table()", {
         ignore_attr = TRUE, tolerance = 1e-5,
         mat$to_table(string_value = FALSE),
         data.table(id = 1L, name = "WD01", class = "Material", index = 1:9,
-            field = mat$definition()$field_name(),
+            field = mat$definition()$field_name()[1:9],
             value = list("WD01", "MediumSmooth", units::set_units(0.0191, m),
                 units::set_units(0.115, W/K/m), units::set_units(513, kg/m^3),
                 units::set_units(1381, J/K/kg), 0.9, 0.78, 0.78
@@ -530,6 +586,14 @@ test_that("$to_string()", {
           "PW03,     !- Layer 2",
           "IN02,     !- Layer 3",
           "GP01;     !- Layer 4")
+    )
+    expect_equal(con$to_string(leading = 0, sep_at = 10, field = FALSE),
+        c("Construction,",
+          "WALL-1,",
+          "WD01,",
+          "PW03,",
+          "IN02,",
+          "GP01;")
     )
     expect_equal(con$to_string(leading = 0, sep_at = 10, all = TRUE),
         c("Construction,",
@@ -578,6 +642,10 @@ test_that("format.IdfObject, as.character.IdfObject, etc", {
 
     expect_type(format(con), "character")
     expect_equal(as.character(con), con$to_string())
+    expect_equal(format(con, field = FALSE),
+        paste0(con$to_string(field = FALSE), collapse = "\n")
+    )
+    expect_equal(as.character(con, field = FALSE), con$to_string(field = FALSE))
     expect_output(str(con))
     expect_output(print(con))
 })

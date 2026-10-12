@@ -1,3 +1,76 @@
+# eplusr 0.18.0
+
+## New features
+
+* Add support for EnergyPlus v26.2.0 (#647).
+
+* `IdfObject$is_valid_field()` can now check whether fields are present in the
+  current object instead of only being defined in the IDD (#391).
+
+* Add a `field` argument to `$to_string()` methods to optionally omit field
+  name comments from generated IDF strings (#77).
+
+* Add `Idf$reorder()` to reorder objects within a class without changing object
+  IDs (#66).
+
+* `Idf$drop()` and `IdfObject$drop()` can now remove field slots from
+  extensible groups or numbered repeated field sequences and shift following
+  values forward (#217).
+
+* Yes/No choice fields in `Idf$add()`, `Idf$set()`, `Idf$load()`,
+  `Idf$update()`, and `IdfObject$set()` now accept logical `TRUE` and `FALSE`
+  inputs as aliases for `"Yes"` and `"No"` (#257).
+
+## Internal refactor
+
+* Remove redundant `field` resets from `trans_funs$f2510t2520()` and
+  `trans_funs$f2520t2610()` because transition loading is driven by `class` and
+  `index` (#646).
+
+* Run tests serially by default and reserve network, transition, preprocessor,
+  and other heavy external-program checks for an explicit integration mode,
+  while retaining latest-version SQLite output coverage in the default suite
+  (#637).
+
+* Use DuckDB to read EnergyPlus SQLite output files, reducing eplusr's
+  recursive dependency chain and raising the minimum supported R version to
+  4.2.0 (#635).
+
+* Use cli conditions for eplusr verbose logging, package warnings, errors, and
+  narrow user-facing console messages while preserving eplusr condition classes
+  (#551).
+
+* Truncate large parametric verbose messages and print summarized status output
+  for large parametric jobs (#569).
+
+## Bug fixes
+
+* Preserve original positions when parsing mixed EPW date formats, including
+  decimal month/day strings ending in zero (#650).
+
+* Report the correct integer fields in truncation warnings (#650).
+
+* Reject unavailable or failed snapshot exports and preserve existing
+  destination files until an export succeeds (#650).
+
+* Match weather dictionary cloneability to its parent IDD class, avoiding
+  R6 inheritance diagnostics when reading EPW files (#650).
+
+* Keep `IdfViewer` triangulation compatible with decido 0.5.0 and infer
+  detailed fenestration vertices from populated XYZ coordinate fields (#643).
+
+* Validate active extensible groups using the first-group required-field
+  template, allowing optional fields without defaults to remain empty (#641).
+
+* Allow optional fields with default values to remain empty inside active
+  extensible groups during validation (#640).
+
+* Reject character field values that contain IDF delimiters, preventing comma or
+  semicolon inputs from corrupting generated IDF syntax (#67).
+
+* Skip CRAN checks that would otherwise download the latest EnergyPlus IDD during
+  IDD relation tests.
+
 # eplusr 0.17.0
 
 ## New features

@@ -149,16 +149,44 @@ get_idf_object <- function(idd_env, idf_env, class = NULL, object = NULL, proper
     obj
 }
 # }}}
+# add_idf_object_rank {{{
+add_idf_object_rank <- function(dt_object, dt_order = NULL) {
+    if (is.null(dt_order)) {
+        set(dt_object, NULL, "object_rank", dt_object$object_id)
+        return(dt_object)
+    }
+
+    dt_order <- copy(dt_order)
+    if (!has_names(dt_order, "object_rank")) {
+        set(dt_order, NULL, "object_rank", seq_len(nrow(dt_order)))
+    }
+
+    dt_object[dt_order, on = "object_id", object_rank := i.object_rank]
+    dt_object[is.na(object_rank), object_rank := object_id]
+    dt_object
+}
+# }}}
 # get_idf_object_id {{{
-get_idf_object_id <- function(idd_env, idf_env, class = NULL, simplify = FALSE) {
+get_idf_object_id <- function(idd_env, idf_env, class = NULL, simplify = FALSE, dt_order = NULL) {
     obj <- get_idf_object(idd_env, idf_env, class)
+
+    add_idf_object_rank(obj, dt_order)
+    if (is.null(class)) {
+        if (simplify) {
+            setorderv(obj, c("object_rank", "object_id"))
+        } else {
+            setorderv(obj, c("class_id", "object_rank", "object_id"))
+        }
+    } else {
+        setorderv(obj, c("rleid", "object_rank", "object_id"))
+    }
+
     if (simplify) return(obj$object_id)
 
     obj <- add_class_name(idd_env, obj)
 
     if (is.null(class)) {
         col_by <- "class_id"
-        setorderv(obj, "class_id")
         nm <- unique(obj$class_name)
     } else {
         col_by <- "rleid"
@@ -171,16 +199,27 @@ get_idf_object_id <- function(idd_env, idf_env, class = NULL, simplify = FALSE) 
 }
 # }}}
 # get_idf_object_name {{{
-get_idf_object_name <- function(idd_env, idf_env, class = NULL, simplify = FALSE, lower = FALSE) {
+get_idf_object_name <- function(idd_env, idf_env, class = NULL, simplify = FALSE, lower = FALSE, dt_order = NULL) {
     obj <- get_idf_object(idd_env, idf_env, class)
     col <- if (lower) "object_name_lower" else "object_name"
+
+    add_idf_object_rank(obj, dt_order)
+    if (is.null(class)) {
+        if (simplify) {
+            setorderv(obj, c("object_rank", "object_id"))
+        } else {
+            setorderv(obj, c("class_id", "object_rank", "object_id"))
+        }
+    } else {
+        setorderv(obj, c("rleid", "object_rank", "object_id"))
+    }
+
     if (simplify) return(obj[[col]])
 
     obj <- add_class_name(idd_env, obj)
 
     if (is.null(class)) {
         col_by <- "class_id"
-        setorderv(obj, "class_id")
         nm <- unique(obj$class_name)
     } else {
         col_by <- "rleid"
@@ -1104,6 +1143,57 @@ as_idf_value_update <- function(value, n, dt_value) {
     list(value_chr = value_chr, value_num = value_num)
 }
 
+is_yes_no_choice <- function(choice) {
+    if (is.null(choice)) return(FALSE)
+    choice <- stri_trans_tolower(choice)
+    "yes" %chin% choice && "no" %chin% choice
+}
+
+logical_choice_to_chr <- function(choice, value) {
+    choice <- unlist(choice, use.names = FALSE)
+    choice[[chmatch(if (isTRUE(value)) "yes" else "no", stri_trans_tolower(choice))]]
+}
+
+standardize_idf_logical_choice <- function(idd_env, dt_value) {
+    if (!has_names(dt_value, "value_lgl")) return(dt_value)
+
+    i <- which(!is.na(dt_value$value_lgl))
+
+    prop <- setdiff(c("type_enum", "choice"), names(dt_value))
+    if (length(prop)) add_field_property(idd_env, dt_value, prop)
+
+    is_choice <- rep(FALSE, nrow(dt_value))
+    if (length(i)) {
+        is_choice[i] <- dt_value[i, {
+            ok <- type_enum == IDDFIELD_TYPE$choice & vlapply(choice, is_yes_no_choice)
+            ok[is.na(ok)] <- FALSE
+            ok
+        }]
+    }
+
+    if (length(bad <- i[!is_choice[i]])) {
+        msg <- dt_value[bad, paste0(
+            " #", lpad(rleid, "0"), "| Class '", class_name,
+            "', Field '", field_name, "'"
+        )]
+        abort(paste0(
+            "Logical field values can only be used for choice fields whose ",
+            "valid choices include 'Yes' and 'No'. Invalid input:\n",
+            paste0(msg, collapse = "\n")
+        ), "dots_logical_choice")
+    }
+
+    dt_value[i, `:=`(
+        value_chr = apply2_chr(choice, value_lgl, logical_choice_to_chr),
+        value_num = NA_real_
+    )]
+
+    if (length(prop)) set(dt_value, NULL, prop, NULL)
+    set(dt_value, NULL, "value_lgl", NULL)
+
+    dt_value
+}
+
 apply_idf_value_updates <- function(idd_env, idf_env, dt_value, default = FALSE) {
     if (!has_names(dt_value, "value_update")) return(dt_value)
 
@@ -1213,6 +1303,7 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
         id = list(NA_integer_), name = as.list(nm), comment = list(),
         field_index = list(NA_integer_), field_name = list(NA_character_),
         value_chr = list(NA_character_), value_num = list(NA_real_),
+        value_lgl = list(NA),
         is_empty = FALSE, is_ref = FALSE, lhs_sgl = FALSE, rhs_sgl = TRUE, is_id = FALSE
     )
 
@@ -1302,7 +1393,7 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
         }
 
         if (!evaluated) val <- eval(li, .env)
-        type <- c("character", "integer", "double", "null")
+        type <- c("character", "integer", "double", "logical", "null")
         if (.fun_update) type <- c(type, "formula", "function")
         assert_list(val, type, .var.name = "Input",
             all.missing = .empty
@@ -1369,18 +1460,23 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
         if (.scalar) {
             val[isnull] <- list(NA_character_)
             isnum <- vlapply(val, is.numeric)
+            islgl <- vlapply(val, is.logical)
 
             val_chr <- stri_trim_both(unlist(val, FALSE, FALSE))
             val_chr[stri_isempty(val_chr)] <- NA_character_
             val_num <- rep(NA_real_, length(val_chr))
             val_num[isnum] <- unlist(val[isnum], FALSE, FALSE)
+            val_lgl <- rep(NA, length(val_chr))
+            val_lgl[islgl] <- unlist(val[islgl], FALSE, FALSE)
 
             set(dt_in, i, "value_chr", val_chr)
             set(dt_in, i, "value_num", val_num)
+            set(dt_in, i, "value_lgl", val_lgl)
 
         } else if (!.pair) {
             val[isnull] <- list(NA_character_)
             isnum <- vlapply(val, is.numeric)
+            islgl <- vlapply(val, is.logical)
 
             len <- each_length(val)
 
@@ -1390,9 +1486,12 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
             val_chr <- lapply(val, function(x) {x <- stri_trim_both(x); x[stri_isempty(x)] <- NA_character_;x})
             val_num <- lapply(len, function(n) rep(NA_real_, n))
             val_num[isnum] <- lapply(val[isnum], as.double)
+            val_lgl <- lapply(len, function(n) rep(NA, n))
+            val_lgl[islgl] <- lapply(val[islgl], as.logical)
 
             set(dt_in, i, "value_chr", list(list(val_chr)))
             set(dt_in, i, "value_num", list(list(val_num)))
+            set(dt_in, i, "value_lgl", list(list(val_lgl)))
 
         # make sure id/name are paired with field values
         } else {
@@ -1432,18 +1531,26 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
                 if (isupdate[[k]]) {
                     chr <- rep(NA_character_, len)
                     num <- rep(NA_real_, len)
+                    lgl <- rep(NA, len)
                 } else if (is.null(v)) {
                     chr <- rep(NA_character_, len)
                     num <- rep(NA_real_, len)
+                    lgl <- rep(NA, len)
                 } else if (l == 1L) {
                     if (is.character(v)) {
                         v <- stri_trim_both(v)
                         v[stri_isempty(v)] <- NA_character_
                         chr <- rep(v, len)
                         num <- rep(NA_real_, len)
+                        lgl <- rep(NA, len)
+                    } else if (is.logical(v)) {
+                        chr <- rep(as.character(v), len)
+                        num <- rep(NA_real_, len)
+                        lgl <- rep(v, len)
                     } else {
                         chr <- rep(as.character(v), len)
                         num <- rep(as.double(v), len)
+                        lgl <- rep(NA, len)
                     }
                 } else if (l == len) {
                     if (is.character(v)) {
@@ -1451,9 +1558,15 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
                         v[stri_isempty(v)] <- NA_character_
                         chr <- v
                         num <- rep(NA_real_, len)
+                        lgl <- rep(NA, len)
+                    } else if (is.logical(v)) {
+                        chr <- as.character(v)
+                        num <- rep(NA_real_, len)
+                        lgl <- v
                     } else {
                         chr <- as.character(v)
                         num <- as.double(v)
+                        lgl <- rep(NA, len)
                     }
                 } else {
                     abort(paste0("Assertion on 'Field Value' failed, element ",
@@ -1463,7 +1576,7 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
                         "dots_pair_length"
                     )
                 }
-                list(chr = chr, num = num)
+                list(chr = chr, num = num, lgl = lgl)
             })
 
             if (has_names(dt_in, "value_update")) {
@@ -1476,12 +1589,14 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
             if (length(len_val) == 1L) {
                 set(dt_in, i, "value_chr", list(list(as.list(val_lst[[1L]]$chr))))
                 set(dt_in, i, "value_num", list(list(as.list(val_lst[[1L]]$num))))
+                set(dt_in, i, "value_lgl", list(list(as.list(val_lst[[1L]]$lgl))))
                 if (has_names(dt_in, "value_update")) {
                     set(dt_in, i, "value_update", list(list(upd_lst[[1L]])))
                 }
             } else {
                 set(dt_in, i, "value_chr", list(list(transpose(lapply(val_lst, .subset2, "chr")))))
                 set(dt_in, i, "value_num", list(list(transpose(lapply(val_lst, .subset2, "num")))))
+                set(dt_in, i, "value_lgl", list(list(transpose(lapply(val_lst, .subset2, "lgl")))))
                 if (has_names(dt_in, "value_update")) {
                     set(dt_in, i, "value_update", list(list(transpose(upd_lst))))
                 }
@@ -1524,7 +1639,8 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
             field_index = unlist(rep(field_index, len_obj), FALSE, FALSE),
             field_name = unlist(rep(field_name, len_obj), FALSE, FALSE),
             value_chr = unlist(rep(value_chr, len_obj), FALSE, FALSE),
-            value_num = unlist(rep(value_num, len_obj), FALSE, FALSE)
+            value_num = unlist(rep(value_num, len_obj), FALSE, FALSE),
+            value_lgl = unlist(rep(value_lgl, len_obj), FALSE, FALSE)
         )]
     } else if (!.pair) {
         # Should treat one-row input specially. Otherwise, vector field value input
@@ -1538,7 +1654,8 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
                 field_index = unlist(rep(field_index, len_obj), FALSE, FALSE),
                 field_name = unlist(rep(field_name, len_obj), FALSE, FALSE),
                 value_chr = rep(unlist(value_chr, FALSE, FALSE), len_obj),
-                value_num = rep(unlist(value_num, FALSE, FALSE), len_obj)
+                value_num = rep(unlist(value_num, FALSE, FALSE), len_obj),
+                value_lgl = rep(unlist(value_lgl, FALSE, FALSE), len_obj)
             )]
         } else {
             val <- dt_in[, list(
@@ -1549,7 +1666,8 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
                 field_index = unlist(rep(field_index, len_obj), FALSE, FALSE),
                 field_name = unlist(rep(field_name, len_obj), FALSE, FALSE),
                 value_chr = unlist(rep(value_chr, len_obj), FALSE, FALSE),
-                value_num = unlist(rep(value_num, len_obj), FALSE, FALSE)
+                value_num = unlist(rep(value_num, len_obj), FALSE, FALSE),
+                value_lgl = unlist(rep(value_lgl, len_obj), FALSE, FALSE)
             )]
         }
     } else {
@@ -1561,7 +1679,8 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
             field_index = unlist(rep(field_index, len_obj), FALSE, FALSE),
             field_name = unlist(rep(field_name, len_obj), FALSE, FALSE),
             value_chr = unlist(value_chr, TRUE, FALSE),
-            value_num = unlist(value_num, TRUE, FALSE)
+            value_num = unlist(value_num, TRUE, FALSE),
+            value_lgl = unlist(value_lgl, TRUE, FALSE)
         )]
     }
 
@@ -1583,6 +1702,10 @@ parse_dots_value <- function(..., .scalar = TRUE, .pair = FALSE,
         }
 
         set(val, NULL, "value_update", lapply(value_update, list))
+    }
+
+    if (has_names(val, "value_lgl") && all(is.na(unlist(val$value_lgl, recursive = TRUE, use.names = FALSE)))) {
+        set(val, NULL, "value_lgl", NULL)
     }
 
     list(object = obj, value = val)
@@ -1745,9 +1868,10 @@ expand_idf_dots_value <- function(idd_env, idf_env, ...,
                 add_joined_cols(fld_in, fld_out, c("rleid" = "object_rleid"), "rleid")
 
                 # match
-                val <- fld_out[val, on = c("rleid", "field_index"), `:=`(
-                    value_chr = i.value_chr, value_num = i.value_num
-                )]
+                cols <- c("value_chr", "value_num")
+                if (has_names(val, "value_lgl")) cols <- c(cols, "value_lgl")
+                val <- fld_out[val, on = c("rleid", "field_index"),
+                    (cols) := mget(paste0("i.", cols))]
             }
             # }}}
 
@@ -1764,7 +1888,7 @@ expand_idf_dots_value <- function(idd_env, idf_env, ...,
         # combine
         if (nrow(val_emp)) {
             if (nrow(val)) {
-                val <- rbindlist(list(val, val_emp), use.names = TRUE)
+                val <- rbindlist(list(val, val_emp), use.names = TRUE, fill = TRUE)
                 # keep input order
                 setorderv(val, "rleid")
             } else {
@@ -1938,14 +2062,11 @@ expand_idf_dots_value <- function(idd_env, idf_env, ...,
                     }
 
                     # assign input value
-                    if (has_names(cls_val, "value_update")) {
-                        cls_val_out[cls_val, on = c("rleid", "object_id", "field_index"),
-                            `:=`(value_chr = i.value_chr, value_num = i.value_num,
-                                value_update = i.value_update)]
-                    } else {
-                        cls_val_out[cls_val, on = c("rleid", "object_id", "field_index"),
-                            `:=`(value_chr = i.value_chr, value_num = i.value_num)]
-                    }
+                    cols <- c("value_chr", "value_num")
+                    if (has_names(cls_val, "value_lgl")) cols <- c(cols, "value_lgl")
+                    if (has_names(cls_val, "value_update")) cols <- c(cols, "value_update")
+                    cls_val_out[cls_val, on = c("rleid", "object_id", "field_index"),
+                        (cols) := mget(paste0("i.", cols))]
                     cls_val <- cls_val_out
                 } else {
                     setnames(cls_val, "name", "object_name")
@@ -2095,14 +2216,11 @@ expand_idf_dots_value <- function(idd_env, idf_env, ...,
                     }
 
                     # assign input value
-                    if (has_names(obj_val, "value_update")) {
-                        obj_val_out[obj_val, on = c("each_rleid", "object_id", "field_id"),
-                            `:=`(value_chr = i.value_chr, value_num = i.value_num,
-                                value_update = i.value_update)]
-                    } else {
-                        obj_val_out[obj_val, on = c("each_rleid", "object_id", "field_id"),
-                            `:=`(value_chr = i.value_chr, value_num = i.value_num)]
-                    }
+                    cols <- c("value_chr", "value_num")
+                    if (has_names(obj_val, "value_lgl")) cols <- c(cols, "value_lgl")
+                    if (has_names(obj_val, "value_update")) cols <- c(cols, "value_update")
+                    obj_val_out[obj_val, on = c("each_rleid", "object_id", "field_id"),
+                        (cols) := mget(paste0("i.", cols))]
                     obj_val <- obj_val_out
                 } else {
                     # add object name
@@ -2134,6 +2252,172 @@ expand_idf_dots_value <- function(idd_env, idf_env, ...,
     # }}}
 
     list(object = obj, value = val)
+}
+# }}}
+# expand_idf_dots_drop {{{
+parse_dots_drop_field <- function(x, .env = parent.frame()) {
+    if (is.symbol(x) || is.call(x)) x <- eval(x, .env)
+    if (is.list(x) && !is.data.frame(x)) x <- unlist(x, use.names = FALSE)
+    assert_valid_type(x, "Field Index|Name")
+}
+
+parse_dots_drop_selector <- function(name) {
+    if (stri_detect_regex(name, "^\\.\\.\\d+$")) {
+        id <- stri_sub(name, 3L)
+        storage.mode(id) <- "integer"
+        id
+    } else {
+        name
+    }
+}
+
+parse_dots_drop <- function(..., .env = parent.frame()) {
+    l <- eval(substitute(alist(...)))
+    assert_list(l, any.missing = FALSE, all.missing = FALSE, .var.name = "Input", min.len = 1L)
+
+    specs <- list()
+    add_spec <- function(scope, selector, field) {
+        specs[[length(specs) + 1L]] <<- data.table(
+            scope = scope,
+            selector = list(selector),
+            field = list(field)
+        )
+    }
+    add_named_list <- function(x) {
+        nm <- names2(x, default = "")
+        assert_character(nm[!stri_isempty(nm)], any.missing = FALSE,
+            unique = TRUE, .var.name = "Object Name"
+        )
+        if (any(stri_isempty(nm))) {
+            abort("Assertion on 'Input' failed: All field drop list elements must be named.",
+                "drop_no_name"
+            )
+        }
+        for (i in seq_along(x)) {
+            add_spec("object", parse_dots_drop_selector(nm[[i]]),
+                parse_dots_drop_field(x[[i]], .env)
+            )
+        }
+    }
+
+    nm <- names2(l)
+    for (i in seq_along(l)) {
+        li <- l[[i]]
+
+        if (is.symbol(li) && is.na(nm[[i]])) {
+            add_named_list(eval(li, .env))
+            next
+        }
+
+        if (!is.symbol(li) && is.call(li) && li[[1L]] == ":=") {
+            lhs <- li[[2L]]
+            rhs <- parse_dots_drop_field(li[[3L]], .env)
+
+            if (length(lhs) == 1L) {
+                add_spec("class", assert_valid_type(as.character(lhs), "Class Name", type = "name"), rhs)
+            } else if (is.call(lhs) && as.character(lhs[[1L]]) %chin% c("c", ".")) {
+                lhs[[1L]] <- as.name("c")
+                add_spec("object", assert_valid_type(eval(lhs, .env), "Object ID|Name"), rhs)
+            } else if (is.call(lhs) && as.character(lhs[[1L]]) == "..") {
+                lhs[[1L]] <- as.name("c")
+                add_spec("class", assert_valid_type(eval(lhs, .env), "Class Name", type = "name"), rhs)
+            } else {
+                abort("Assertion on 'Input' failed: LHS of ':=' must start with '.()', 'c()', or '..()'",
+                    "drop_ref_lhs"
+                )
+            }
+            next
+        }
+
+        if (is.na(nm[[i]])) {
+            add_named_list(eval(li, .env))
+        } else {
+            add_spec("object", parse_dots_drop_selector(nm[[i]]),
+                parse_dots_drop_field(li, .env)
+            )
+        }
+    }
+
+    rbindlist(specs, use.names = TRUE)[, rleid := .I][]
+}
+
+expand_idf_dots_drop <- function(idd_env, idf_env, ..., .env = parent.frame()) {
+    spec <- parse_dots_drop(..., .env = .env)
+
+    objects <- vector("list", nrow(spec))
+    fields <- vector("list", nrow(spec))
+    for (i in seq_len(nrow(spec))) {
+        selector <- spec$selector[[i]]
+        field <- spec$field[[i]]
+
+        if (spec$scope[[i]] == "class") {
+            obj <- get_idf_object(idd_env, idf_env, class = selector, underscore = TRUE)
+        } else {
+            obj <- get_idf_object(idd_env, idf_env, object = selector, ignore_case = TRUE)
+        }
+        objects[[i]] <- obj
+        field_len <- length(field)
+        if (is.numeric(field)) {
+            fields[[i]] <- data.table(
+                object_id = rep(obj$object_id, each = field_len),
+                field_index = rep(as.integer(field), times = nrow(obj)),
+                field_name = NA_character_
+            )
+        } else {
+            fields[[i]] <- data.table(
+                object_id = rep(obj$object_id, each = field_len),
+                field_index = NA_integer_,
+                field_name = rep(field, times = nrow(obj))
+            )
+        }
+    }
+
+    obj <- rbindlist(objects, use.names = TRUE)
+    obj <- obj[!duplicated(object_id)]
+    set(obj, NULL, "rleid", seq_len(nrow(obj)))
+
+    field <- unique(rbindlist(fields, use.names = TRUE),
+        by = c("object_id", "field_index", "field_name")
+    )
+    field <- obj[, .SD, .SDcols = c("rleid", "class_id", "class_name", "object_id")][
+        field, on = "object_id"
+    ]
+    set(field, NULL, "drop_id", seq_len(nrow(field)))
+
+    resolve_field <- function(dt, by_index = TRUE) {
+        if (!nrow(dt)) return(data.table())
+
+        fld <- get_idd_field(idd_env, dt$class_id,
+            if (by_index) dt$field_index else dt$field_name,
+            property = "extensible_group", no_ext = TRUE
+        )
+        input_rleid <- fld$rleid
+        set(fld, NULL, "drop_id", dt$drop_id[input_rleid])
+        set(fld, NULL, "rleid", dt$rleid[input_rleid])
+        set(fld, NULL, "object_id", dt$object_id[input_rleid])
+        fld
+    }
+
+    field <- rbindlist(list(
+        resolve_field(field[!is.na(field_index)], TRUE),
+        resolve_field(field[!is.na(field_name)], FALSE)
+    ), use.names = TRUE)
+    setorderv(field, "drop_id")
+    field <- idf_env$value[field, on = c("object_id", "field_id")]
+
+    if (nrow(missing <- field[J(NA_integer_), on = "value_id", nomatch = 0L])) {
+        abort(paste0("Cannot drop fields that are not present in target objects:\n",
+            paste0(" #", rpad(missing$rleid), "| Object ID ", missing$object_id,
+                ", Field ", surround(missing$field_name), collapse = "\n")),
+            "drop_missing_field"
+        )
+    }
+
+    setcolorder(field, c("rleid", "class_id", "class_name", "object_id",
+        "field_id", "field_index", "field_name", "value_id", "value_chr",
+        "value_num", "extensible_group"))
+
+    list(object = obj, field = field)
 }
 # }}}
 # match_idd_field {{{
@@ -2493,6 +2777,7 @@ expand_idf_dots_literal <- function(idd_env, idf_env, ..., .default = TRUE, .exa
         # add rleid for latter error printing
         set(obj_chr, NULL, "rleid", obj_chr$object_id)
         set(val_chr, NULL, "rleid", val_chr$object_id)
+        set(val_chr, NULL, "value_lgl", NA)
         # }}}
         # match {{{
         add_class_name(idd_env, obj_chr)
@@ -2594,6 +2879,7 @@ expand_idf_dots_literal <- function(idd_env, idf_env, ..., .default = TRUE, .exa
                 value_chr <- stri_trim_both(.subset2(dt, "value"))
                 value_chr[stri_isempty(value_chr)] <- NA_character_
                 value_num <- suppressWarnings(as.double(value_chr))
+                value_lgl <- rep(NA, length(value_chr))
             # if value is a list, each element should be a single character or a
             # number.
             } else {
@@ -2618,12 +2904,17 @@ expand_idf_dots_literal <- function(idd_env, idf_env, ..., .default = TRUE, .exa
                 isnum <- vlapply(value, is.numeric)
                 value_num <- rep(NA_real_, length(value))
                 value_num[isnum] <- unlist(value[isnum], FALSE, FALSE)
+
+                islgl <- vlapply(value, is.logical)
+                value_lgl <- rep(NA, length(value))
+                value_lgl[islgl] <- unlist(value[islgl], FALSE, FALSE)
             }
 
-            set(dt, NULL, c("rleid", "value_type", "value_chr", "value_num"), list(i, type, value_chr, value_num))
+            set(dt, NULL, c("rleid", "value_type", "value_chr", "value_num", "value_lgl"),
+                list(i, type, value_chr, value_num, value_lgl))
             set(dt, NULL, "value", NULL)
 
-            if (length(extra_cols <- setdiff(names(dt), c("id", "class", "index", "rleid", "value_type", "value_chr", "value_num")))) {
+            if (length(extra_cols <- setdiff(names(dt), c("id", "class", "index", "rleid", "value_type", "value_chr", "value_num", "value_lgl")))) {
                 set(dt, NULL, extra_cols, NULL)
             }
 
@@ -2700,7 +2991,8 @@ expand_idf_dots_literal <- function(idd_env, idf_env, ..., .default = TRUE, .exa
 
         # assign input value
         val_dt[dt, on = c(rleid = "object_rleid", "field_index"),
-            `:=`(value_chr = i.value_chr, value_num = i.value_num)
+            `:=`(value_chr = i.value_chr, value_num = i.value_num,
+                value_lgl = i.value_lgl)
         ]
         # update rleid related
         val_dt[obj_dt, on = c("rleid" = "object_rleid"),
@@ -2741,6 +3033,10 @@ expand_idf_dots_literal <- function(idd_env, idf_env, ..., .default = TRUE, .exa
 
     # assign default value if necessary
     if (.default) val <- assign_idf_value_default(idd_env, idf_env, val)
+
+    if (has_names(val, "value_lgl") && all(is.na(val$value_lgl))) {
+        set(val, NULL, "value_lgl", NULL)
+    }
 
     # keep column order
     setcolorder(obj, c("rleid", "class_id", "class_name", "object_id", "object_name", "object_name_lower", "comment"))
@@ -2981,6 +3277,8 @@ add_idf_object <- function(idd_env, idf_env, dt_object, dt_value,
     # assign value id
     dt_value <- assign_new_id(idf_env, dt_value, "value")
 
+    dt_value <- standardize_idf_logical_choice(idd_env, dt_value)
+
     # update object name
     if (!has_names(dt_value, "is_name")) add_field_property(idd_env, dt_value, "is_name")
     dt_object[dt_value[J(TRUE), on = "is_name", nomatch = 0L], on = c("rleid", "object_id"), object_name := i.value_chr]
@@ -3104,6 +3402,8 @@ set_idf_object <- function(idd_env, idf_env, dt_object, dt_value, empty = FALSE,
     # add new value id in case there are new fields added
     dt_value[value_id < 0L, value_id := new_id(idf_env$value, "value_id", .N)]
 
+    dt_value <- standardize_idf_logical_choice(idd_env, dt_value)
+
     # update object name
     if (!has_names(dt_value, "is_name")) add_field_property(idd_env, dt_value, "is_name")
     dt_object[dt_value[J(TRUE), on = "is_name", nomatch = 0L], on = c("rleid", "object_id"), object_name := i.value_chr]
@@ -3206,6 +3506,107 @@ set_idf_object <- function(idd_env, idf_env, dt_object, dt_value, empty = FALSE,
         changed = c(dt_object$object_id),
         updated = setdiff(ref$object_id, dt_object$object_id)
     ))
+}
+# }}}
+# drop_idf_fields {{{
+numbered_field_prefix <- function(field_name) {
+    prefix <- stri_match_first_regex(field_name, "^(.*?)[[:space:]]+\\d+$")[, 2L]
+    prefix[stri_isempty(prefix)] <- NA_character_
+    prefix
+}
+
+drop_idf_fields <- function(idd_env, idf_env, dt_object, dt_field,
+                            empty = FALSE, level = eplusr_option("validate_level")) {
+    if (!nrow(dt_field)) {
+        abort("No fields to drop are specified.", "drop_no_field")
+    }
+
+    dt_field <- unique(dt_field, by = c("object_id", "field_id"))
+
+    if (!has_names(dt_field, "extensible_group")) {
+        add_field_property(idd_env, dt_field, "extensible_group")
+    }
+    if (!has_names(dt_field, "num_extensible")) {
+        add_class_property(idd_env, dt_field, "num_extensible")
+    }
+
+    set(dt_field, NULL, "fixed_prefix", NA_character_)
+    dt_field[J(0L), on = "extensible_group", fixed_prefix := numbered_field_prefix(field_name)]
+
+    if (nrow(invld <- dt_field[extensible_group == 0L & is.na(fixed_prefix)])) {
+        abort(paste0("Only extensible fields or numbered repeated fields can be dropped. Invalid input:\n",
+            paste0(" #", rpad(invld$rleid), "| Object ID ", invld$object_id,
+                ", Field ", surround(invld$field_name), collapse = "\n")),
+            "drop_non_extensible"
+        )
+    }
+
+    invld <- dt_field[extensible_group > 0L,
+        .N, by = c("rleid", "object_id", "extensible_group", "num_extensible")][
+        N != num_extensible
+    ]
+    if (nrow(invld)) {
+        invld <- dt_field[invld, on = c("rleid", "object_id", "extensible_group", "num_extensible")]
+        abort(paste0("Fields in an extensible group must be dropped together. Invalid input:\n",
+            paste0(" #", rpad(invld$rleid), "| Object ID ", invld$object_id,
+                ", Field ", surround(invld$field_name), collapse = "\n")),
+            "drop_incomplete_extensible"
+        )
+    }
+
+    val <- get_idf_value(idd_env, idf_env, object = dt_object$object_id)
+    add_field_property(idd_env, val, "extensible_group")
+    set(val, NULL, "fixed_prefix", numbered_field_prefix(val$field_name))
+    set(val, NULL, "field_drop", FALSE)
+    val[dt_field, on = c("object_id", "field_id"),
+        `:=`(field_drop = TRUE, fixed_prefix = i.fixed_prefix)]
+
+    shift_one <- function(x) {
+        x <- copy(x)
+        setorderv(x, "field_index")
+
+        ext <- which(x$extensible_group > 0L)
+        if (length(ext)) {
+            keep <- ext[!x$field_drop[ext]]
+            value_chr <- x$value_chr[keep]
+            value_num <- x$value_num[keep]
+
+            set(x, ext, "value_chr", NA_character_)
+            set(x, ext, "value_num", NA_real_)
+
+            if (length(keep)) {
+                i <- ext[seq_along(keep)]
+                set(x, i, "value_chr", value_chr)
+                set(x, i, "value_num", value_num)
+            }
+        }
+
+        for (prefix in unique(x$fixed_prefix[x$field_drop & x$extensible_group == 0L])) {
+            group <- which(x$fixed_prefix == prefix)
+            keep <- group[!x$field_drop[group]]
+            value_chr <- x$value_chr[keep]
+            value_num <- x$value_num[keep]
+
+            set(x, group, "value_chr", NA_character_)
+            set(x, group, "value_num", NA_real_)
+
+            if (length(keep)) {
+                i <- group[seq_along(keep)]
+                set(x, i, "value_chr", value_chr)
+                set(x, i, "value_num", value_num)
+            }
+        }
+
+        x
+    }
+
+    val <- rbindlist(lapply(split(val, by = "object_id"), shift_one), use.names = TRUE)
+    set(val, NULL, c("field_drop", "extensible_group", "fixed_prefix"), NULL)
+    setorderv(val, c("rleid", "field_index"))
+
+    set_idf_object(idd_env, idf_env, dt_object, val,
+        empty = empty, level = level, replace = TRUE
+    )
 }
 # }}}
 # del_idf_object {{{
@@ -4322,7 +4723,7 @@ read_idfeditor_copy <- function(idd_env, idf_env, version = NULL, in_ip = FALSE)
 get_idf_table <- function(idd_env, idf_env, class = NULL, object = NULL,
                            string_value = TRUE, unit = FALSE, wide = FALSE,
                            align = FALSE, all = FALSE, group_ext = c("none", "group", "index"),
-                           force = FALSE, init = FALSE) {
+                           force = FALSE, init = FALSE, dt_order = NULL) {
     group_ext <- match.arg(group_ext)
 
     cols <- c("object_id", "object_name", "class_name",
@@ -4344,6 +4745,17 @@ get_idf_table <- function(idd_env, idf_env, class = NULL, object = NULL,
             property = c("units", "ip_units", "type_enum", "extensible_group"),
             align = align, complete = TRUE, all = all, ignore_case = TRUE)[
             , .SD, .SDcols = c("rleid", cols)]
+
+        if (is.null(object) && !is.null(dt_order) && nrow(val)) {
+            add_idf_object_rank(val, dt_order)
+            if (is.null(class)) {
+                setorderv(val, c("object_rank", "object_id", "field_index"))
+            } else {
+                setorderv(val, c("rleid", "object_rank", "object_id", "field_index"))
+            }
+            val[, rleid := rleid(object_id)]
+            set(val, NULL, "object_rank", NULL)
+        }
     }
 
     if (wide && length(cls <- unique(val$class_name)) != 1L && !force) {
@@ -4521,7 +4933,7 @@ dt_to_load <- function(dt, string_value = TRUE) {
 get_idf_string <- function(idd_env, idf_env, dt_order = NULL, class = NULL, object = NULL,
                             in_ip = FALSE, comment = TRUE, header = TRUE,
                             format = c("sorted", "new_top", "new_bot"),
-                            leading = 4L, sep_at = 29L, flat = TRUE) {
+                            leading = 4L, sep_at = 29L, flat = TRUE, field = TRUE) {
     format <- match.arg(format)
 
     # IP - SI conversion
@@ -4543,7 +4955,8 @@ get_idf_string <- function(idd_env, idf_env, dt_order = NULL, class = NULL, obje
                     idf_env$value[J(obj$object_id), on = "object_id"],
                     idf_env$object[J(obj$object_id), on = "object_id"],
                     dt_order, header = header, comment = comment,
-                    save_format = format, leading = leading, sep_at = sep_at
+                    save_format = format, leading = leading, sep_at = sep_at,
+                    field = field
                 )
             )
         ))
@@ -4552,7 +4965,7 @@ get_idf_string <- function(idd_env, idf_env, dt_order = NULL, class = NULL, obje
             with_option(list(view_in_ip = temp_ip),
                 format_idf(idf_env$value, idf_env$object, dt_order,
                     header = header, comment = comment, save_format = format,
-                    leading = leading, sep_at = sep_at
+                    leading = leading, sep_at = sep_at, field = field
                 )
             )
         ))

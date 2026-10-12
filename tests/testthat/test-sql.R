@@ -1,10 +1,122 @@
+test_that("SQL literals are quoted for DuckDB", {
+    expect_equal(.sql_sep(c("Annual", "O'Brien")), "'annual','o''brien'")
+    expect_equal(.sql_sep(c("Annual", "O'Brien"), ignore_case = FALSE), "'Annual','O''Brien'")
+    expect_equal(.sql_make(c("Annual", "O'Brien"), sql_col = "report_name"),
+        "lower(report_name) IN ('annual','o''brien')"
+    )
+})
+
+test_that("DuckDB SQLite extension is explicit", {
+    calls <- character()
+
+    expect_true(with_mocked_bindings(
+        install_duckdb_sqlite(),
+        sql_exec = function(sql, conn) {
+            calls <<- c(calls, sql)
+            0
+        },
+        .package = "duckdb"
+    ))
+    expect_equal(calls, "INSTALL sqlite")
+})
+
+test_that("DuckDB SQLite extension install failure includes guidance", {
+    expect_error(
+        with_mocked_bindings(
+            install_duckdb_sqlite(),
+            sql_exec = function(sql, conn) stop("offline install", call. = FALSE),
+            .package = "duckdb"
+        ),
+        "network, proxy, or offline",
+        class = "eplusr_error_duckdb_sqlite_install"
+    )
+})
+
+test_that("DuckDB SQLite load failure does not auto-install", {
+    path <- tempfile(fileext = ".sql")
+    file.create(path)
+    calls <- character()
+
+    expect_error(
+        with_mocked_bindings(
+            conn_sql(path),
+            sql_exec = function(sql, conn) {
+                calls <<- c(calls, sql)
+                stop("load failed", call. = FALSE)
+            },
+            .package = "duckdb"
+        ),
+        "install_duckdb_sqlite",
+        class = "eplusr_error_duckdb_sqlite_extension"
+    )
+    expect_equal(calls, "LOAD sqlite")
+})
+
+test_that("DuckDB SQLite attach failure reports attach context", {
+    path <- tempfile(fileext = ".sql")
+    file.create(path)
+    calls <- character()
+
+    expect_error(
+        with_mocked_bindings(
+            conn_sql(path),
+            sql_exec = function(sql, conn) {
+                sql <- as.character(sql)
+                calls <<- c(calls, sql)
+                if (grepl("^ATTACH ", sql)) stop("attach failed", call. = FALSE)
+                0
+            },
+            .package = "duckdb"
+        ),
+        "Failed to attach EnergyPlus SQLite output",
+        class = "eplusr_error_duckdb_sqlite_attach"
+    )
+    expect_equal(length(calls), 2L)
+    expect_equal(calls[[1L]], "LOAD sqlite")
+    expect_match(calls[[2L]], "^ATTACH '.+' AS eplus_sql \\(TYPE sqlite\\)$")
+})
+
+test_that("DuckDB SQLite connection attaches output database", {
+    path <- tempfile(fileext = ".sql")
+    file.create(path)
+    calls <- character()
+
+    con <- with_mocked_bindings(
+        conn_sql(path),
+        sql_exec = function(sql, conn) {
+            calls <<- c(calls, as.character(sql))
+            0
+        },
+        .package = "duckdb"
+    )
+    on.exit(duckdb::dbDisconnect(con), add = TRUE)
+
+    expect_true(duckdb::dbIsValid(con))
+    expect_equal(calls[[1L]], "LOAD sqlite")
+    expect_match(calls[[2L]], "^ATTACH '.+' AS eplus_sql \\(TYPE sqlite\\)$")
+    expect_equal(calls[[3L]], "USE eplus_sql")
+})
+
+test_that("DuckDB SQL query failures are preserved", {
+    path <- tempfile(fileext = ".sql")
+    file.create(path)
+
+    expect_error(
+        with_mocked_bindings(
+            read_sql_table(path, "Zones"),
+            sql_exec = function(sql, conn) 0,
+            sql_query = function(sql, conn) stop("query failed", call. = FALSE),
+            .package = "duckdb"
+        ),
+        "query failed"
+    )
+})
+
 test_that("Sql methods", {
     skip_on_cran()
 
-    example <- copy_example()
-    idf <- read_idf(example$idf)
-
-    expect_s3_class(job <- idf$run(example$epw, NULL, echo = FALSE), "EplusJob")
+    bundle <- latest_output_bundle()
+    expect_s3_class(job <- bundle$job, "EplusJob")
     expect_silent(sql <- eplus_sql(job$locate_output(".sql")))
 
     expect_output(sql$print())
@@ -12,8 +124,8 @@ test_that("Sql methods", {
     expect_type(format(sql), "character")
 
     # path
-    expect_equal(sql$path(), normalizePath(file.path(tempdir(), "5Zone_Transformer.sql")))
-    expect_equal(sql$path_idf(), normalizePath(file.path(tempdir(), "5Zone_Transformer.idf")))
+    expect_equal(sql$path(), normalizePath(job$locate_output(".sql")))
+    expect_equal(sql$path_idf(), normalizePath(job$locate_output(".idf")))
 
     # can get all table names
     expect_equal(length(sql$list_table()), 44L)
@@ -76,7 +188,7 @@ test_that("Sql methods", {
     expect_equal(nrow(sql$report_data(day_type = "designday")), 0)
     expect_equal(nrow(sql$report_data(environment_name = "WINTERDAY")), 1920)
 
-    expect_equal(nrow(sql$tabular_data()), 12077L)
+    expect_equal(nrow(sql$tabular_data()), 12162L)
     expect_equal(nrow(sql$tabular_data(
         report_name = c(
             "AnnualBuildingUtilityPerformanceSummary",
@@ -93,9 +205,7 @@ test_that("Sql methods", {
 
     expect_equal(
         ignore_attr = TRUE,
-        read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf"))$
-            run(NULL, tempdir(), echo = FALSE)$
-            tabular_data(table_name = "Site and Source Energy", wide = TRUE)[[1]][
+        sql$tabular_data(table_name = "Site and Source Energy", wide = TRUE)[[1]][
             , lapply(.SD, class)],
         data.table(
             case = "character",
@@ -124,19 +234,24 @@ test_that("Sql methods", {
 
     # can get path
     if (!is_macos()) expect_equal(sql$path(), job$locate_output(".sql"))
-    clean_wd(example$idf)
-    unlink(c(example$idf, example$epw))
 })
 
 test_that("Data extraction", {
     skip_on_cran()
+
     # can handle multiple time resolution
-    example <- copy_example()
+    bundle <- latest_output_bundle()
+    example <- list(
+        idf = tempfile(fileext = ".idf"),
+        epw = tempfile(fileext = ".epw")
+    )
+    expect_true(file.copy(bundle$idf_path, example$idf))
+    expect_true(file.copy(bundle$epw_path, example$epw))
     all_freq <- c("Detailed", "Timestep", "Hourly", "Daily", "Monthly",
           "RunPeriod", "Environment", "Annual"
     )
     idf <- read_idf(example$idf)
-    job <- idf$run(NULL, echo = FALSE)
+    job <- bundle$job
     # remove original run periods
     idf$RunPeriod <- NULL
     # define new run periods
@@ -158,21 +273,31 @@ test_that("Data extraction", {
     res1 <- job$report_data(wide = TRUE)
     res2 <- job$report_data(all = TRUE, wide = TRUE)
     expect_equal(nrow(res1), nrow(res2))
+    expect_silent(data_all <- job$report_data(all = TRUE))
 
-    jobs <- lapply(all_freq, function (freq) {
-        idf$`Output:Variable`<- NULL
+    # EnergyPlus stores Detailed/Timestep using canonical SQLite names and
+    # combines RunPeriod/Environment under the same Run Period frequency.
+    dict <- job$report_data_dict()
+    actual_freq <- dict[, .N, by = reporting_frequency]
+    expected_freq <- data.table(
+        reporting_frequency = c(
+            "HVAC System Timestep", "Zone Timestep", "Hourly", "Daily",
+            "Monthly", "Run Period", "Annual"
+        ),
+        N = c(2L, 2L, 2L, 2L, 2L, 4L, 2L)
+    )
+    expect_equal(
+        setorder(actual_freq, reporting_frequency),
+        setorder(expected_freq, reporting_frequency)
+    )
 
-        dt <- idf$to_table(class = "Output:Meter")
-        dt[index == 2L, value := freq]
-        idf$update(dt)
-
-        idf$save(tempfile(fileext = ".idf"))
-
-        idf$run(NULL, echo = FALSE)
-    })
-
-    expect_silent(data_all <- lapply(jobs, function (job) get_sql_report_data(job$locate_output(".sql"), all = TRUE)))
-    expect_silent(data_wide <- lapply(jobs, function (job) get_sql_report_data(job$locate_output(".sql"), all = TRUE, wide = TRUE)))
+    # Verify every real frequency in the single long and wide extraction from
+    # the authoritative latest-version SQLite output.
+    for (freq in expected_freq$reporting_frequency) {
+        item <- dict[reporting_frequency == freq][1L]
+        expect_true(freq %in% data_all$reporting_frequency)
+        expect_true(any(stri_detect_fixed(names(res2), item$name)))
+    }
 
     clean_wd(example$idf)
     unlink(c(example$idf, example$epw))

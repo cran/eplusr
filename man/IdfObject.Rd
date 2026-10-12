@@ -13,11 +13,14 @@ parent \link{Idf} object, using \verb{$object()}, \verb{$objects_in_class()} and
 \note{
 \itemize{
 \item Only one single list is allowed, e.g. \code{idfobj$set(lst1)} where \code{lst1 <- list(field1 = value1)} is allowed, but \code{idfobj$set(lst1, lst2)} is not.
-\item You can delete a field by assigning \code{NULL} to it, e.g. \code{iddobj$set(fld = NULL)} means to delete the value of field \code{fld}. If \code{.default} is FALSE,
-also \code{fld} is not a required field and the index of \code{fld} is larger than
-the number minimum fields required for that class, it will be deleted.
-Otherwise it will be left as blank. If \code{.default} is \code{TRUE}, that field
-will be filled with default value if applicable and left as blank if not.
+\item You can clear a field value by assigning \code{NULL} to it, e.g.
+\code{idfobj$set(fld = NULL)} means to clear the value of field \code{fld}. If
+\code{.default} is FALSE, also \code{fld} is not a required field and the index of
+\code{fld} is larger than the number minimum fields required for that class,
+trailing empty fields will be deleted. Otherwise it will be left as
+blank. If \code{.default} is \code{TRUE}, that field will be filled with default
+value if applicable and left as blank if not. To structurally remove
+field slots and shift following values forward, use \verb{$drop()}.
 \item By default, trailing empty fields that are not required will be removed and
 only minimum required fields are kept. You can keep the trailing empty
 fields by setting \code{.empty} to \code{TRUE}.
@@ -191,6 +194,16 @@ mat[c("Name", "Density")]
 
 
 ## ------------------------------------------------
+## Method `IdfObject$is_valid_field`
+## ------------------------------------------------
+
+\dontrun{
+con <- idf$Construction[[1L]]
+con$is_valid_field(c("Name", "Layer 5"))
+}
+
+
+## ------------------------------------------------
 ## Method `IdfObject$set`
 ## ------------------------------------------------
 
@@ -213,6 +226,19 @@ mat$Name <- "another_name"
 mat$Name
 mat[["Thickness"]] <- 0.019
 mat$Thickness
+}
+
+
+## ------------------------------------------------
+## Method `IdfObject$drop`
+## ------------------------------------------------
+
+\dontrun{
+# remove Layer 2 and shift later layers forward
+construction$drop("Layer 2")
+
+# drop fields by index
+construction$drop(3)
 }
 
 
@@ -434,7 +460,9 @@ Hongyuan Jia
 \item \href{#method-IdfObject-definition}{\code{IdfObject$definition()}}
 \item \href{#method-IdfObject-comment}{\code{IdfObject$comment()}}
 \item \href{#method-IdfObject-value}{\code{IdfObject$value()}}
+\item \href{#method-IdfObject-is_valid_field}{\code{IdfObject$is_valid_field()}}
 \item \href{#method-IdfObject-set}{\code{IdfObject$set()}}
+\item \href{#method-IdfObject-drop}{\code{IdfObject$drop()}}
 \item \href{#method-IdfObject-value_possible}{\code{IdfObject$value_possible()}}
 \item \href{#method-IdfObject-validate}{\code{IdfObject$validate()}}
 \item \href{#method-IdfObject-is_valid}{\code{IdfObject$is_valid()}}
@@ -876,6 +904,49 @@ mat[c("Name", "Density")]
 
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-IdfObject-is_valid_field"></a>}}
+\if{latex}{\out{\hypertarget{method-IdfObject-is_valid_field}{}}}
+\subsection{Method \code{is_valid_field()}}{
+Check if fields exist in current object.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{IdfObject$is_valid_field(which)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{which}}{An integer vector of field indexes or a character vector
+of field names.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+\verb{$is_valid_field()} returns \code{TRUE} if the specified fields are present
+in the current \code{IdfObject}. It checks fields that the object actually
+contains, not all possible fields defined in the underlying \link{Idd}.
+Fields with blank values are still treated as existing.
+
+Field names can be given in underscore style, e.g. \code{"outside_layer"}
+is equivalent to \code{"Outside Layer"}.
+}
+
+\subsection{Returns}{
+A logical vector with the same length as \code{which}.
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+con <- idf$Construction[[1L]]
+con$is_valid_field(c("Name", "Layer 5"))
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-IdfObject-set"></a>}}
 \if{latex}{\out{\hypertarget{method-IdfObject-set}{}}}
 \subsection{Method \code{set()}}{
@@ -906,6 +977,11 @@ or in a single list format, sets new values for fields specified, and
 returns the modified \code{IdfObject}. Unlike \verb{$set()} method in \link{Idf}
 class, the special element \code{.comment} is \strong{not allowed}. To modify
 object comments, please use \verb{$comment()}.
+
+
+For choice fields whose valid choices include \code{"Yes"} and \code{"No"},
+logical values are accepted and converted to those choices, i.e.
+\code{TRUE} is treated as \code{"Yes"} and \code{FALSE} as \code{"No"}.
 }
 
 \subsection{Examples}{
@@ -929,6 +1005,61 @@ mat$Name <- "another_name"
 mat$Name
 mat[["Thickness"]] <- 0.019
 mat$Thickness
+}
+
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-IdfObject-drop"></a>}}
+\if{latex}{\out{\hypertarget{method-IdfObject-drop}{}}}
+\subsection{Method \code{drop()}}{
+Drop existing fields.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{IdfObject$drop(..., .empty = FALSE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Field names or indexes to drop.}
+
+\item{\code{.empty}}{If \code{TRUE}, trailing empty fields are kept after field
+values are shifted. Default: \code{FALSE}.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+\verb{$drop()} removes field slots from the current object and shifts the
+following values in the same field sequence forward. This is useful
+for objects such as \code{Construction}, where dropping \verb{Layer 2} should
+move \verb{Layer 3} into \verb{Layer 2}.
+
+Unlike \verb{$set(field = NULL)}, \verb{$drop()} changes the object field
+structure instead of only clearing field values. Only fields in IDD
+extensible groups or numbered repeated field sequences, such as
+\verb{Layer 2}, \verb{Layer 3}, and so on, can be dropped. For classes whose
+extensible group contains multiple fields, all fields in the group
+must be dropped together.
+
+Field names are matched case-insensitively and underscore-style field
+names are allowed.
+}
+
+\subsection{Returns}{
+The modified \code{IdfObject} itself.
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+# remove Layer 2 and shift later layers forward
+construction$drop("Layer 2")
+
+# drop fields by index
+construction$drop(3)
 }
 
 }
@@ -1119,7 +1250,8 @@ represents the results from a single validation checking component.
 \item \code{invalid_autocalculate}: Result of \code{auto_field} checking for
 invalid \code{Autocalculate} field values.
 \item \code{invalid_character}: Result of \code{type} checking for invalid
-character field values.
+character field values, including character values that contain
+IDF delimiters \verb{,} or \verb{;}.
 \item \code{invalid_numeric}: Result of \code{type} checking for invalid
 numeric field values.
 \item \code{invalid_integer}: Result of \code{type} checking for invalid
@@ -2071,7 +2203,13 @@ surf$to_table(group_ext = "index", wide = TRUE, string_value = FALSE, unit = TRU
 \subsection{Method \code{to_string()}}{
 Format current object as a character vector
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{IdfObject$to_string(comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{IdfObject$to_string(
+  comment = TRUE,
+  leading = 4L,
+  sep_at = 29L,
+  all = FALSE,
+  field = TRUE
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -2088,6 +2226,9 @@ string. Default: \code{29L} which is the same as IDF Editor.}
 \item{\code{all}}{If \code{TRUE}, all available fields defined in IDD for the
 class that objects belong to will be returned. Default:
 \code{FALSE}.}
+
+\item{\code{field}}{If \code{FALSE}, field names will not be included as comments.
+Default: \code{TRUE}.}
 }
 \if{html}{\out{</div>}}
 }

@@ -133,7 +133,7 @@ Idf <- R6::R6Class(classname = "Idf",
 
             private$m_log$unsaved <- FALSE
             private$m_log$order <- private$m_idf_env$object[, list(object_id)][
-                , object_order := 0L]
+                , `:=`(object_order = 0L, object_rank = seq_len(.N))]
 
             private$m_log$view_in_ip <- eplusr_option("view_in_ip")
             private$m_log$save_format <- idf_file$options$save_format
@@ -713,6 +713,39 @@ Idf <- R6::R6Class(classname = "Idf",
             idf_objects_in_class(self, private, class),
         # }}}
 
+        # reorder {{{
+        #' @description
+        #' Reorder objects in a class
+        #'
+        #' @details
+        #' `$reorder()` updates the display and saving order of objects in one
+        #' class without changing object IDs. The input `object` should contain
+        #' every object in the target class exactly once, in the desired order.
+        #'
+        #' The new order is reflected in `$object_id()`, `$object_name()`,
+        #' `$objects_in_class()`, `$to_table()`, `$to_string()`, and `$save()`.
+        #' The existing `"new_top"` and `"new_bot"` saving formats still use
+        #' their original new-or-modified object ordering before applying the
+        #' class order.
+        #'
+        #' @param class A single string of valid class name for current `Idf`
+        #'        object.
+        #' @param object An integer vector of object IDs or a character vector
+        #'        of object names in the target class. It must include all
+        #'        objects in `class` exactly once.
+        #'
+        #' @return The modified `Idf` object itself, invisibly.
+        #'
+        #' @examples
+        #' \dontrun{
+        #' # reverse material order
+        #' idf$reorder("Material", rev(idf$object_id("Material", simplify = TRUE)))
+        #' }
+        #'
+        reorder = function(class, object)
+            idf_reorder(self, private, class, object),
+        # }}}
+
         # objects_in_group {{{
         #' @description
         #' Extract all [IdfObject] objects in one group.
@@ -1043,6 +1076,10 @@ Idf <- R6::R6Class(classname = "Idf",
         #' equivalent to `End Month`. This behavior is consistent among all
         #' methods that take field names as input.
         #'
+        #' For choice fields whose valid choices include `"Yes"` and `"No"`,
+        #' logical values are accepted and converted to those choices, i.e.
+        #' `TRUE` is treated as `"Yes"` and `FALSE` as `"No"`.
+        #'
         #' There is no need to give all field values if only specific fields are
         #' interested, as long as other fields are not required. For example, to
         #' define a new object in `RunPeriod` class, the following is enough (at
@@ -1144,13 +1181,18 @@ Idf <- R6::R6Class(classname = "Idf",
         #' environment. Function updates must return a character, integer, or double
         #' vector of length `1` or the number of target objects.
         #'
-        #' You can delete a field by assigning `NULL` to it, e.g. `list(fld =
-        #' NULL)` means to delete the value of field `fld`, in the condition
-        #' that `.default` is `FALSE`, `fld` is not a required field and the
-        #' index of `fld` is larger than the number minimum fields required for
-        #' that class. If those conditions are not required, `fld` will be left
-        #' as blank if `.default` is `FALSE` or filled with default value if
-        #' `.default` is `TRUE`.
+        #' For choice fields whose valid choices include `"Yes"` and `"No"`,
+        #' logical values are accepted and converted to those choices, i.e.
+        #' `TRUE` is treated as `"Yes"` and `FALSE` as `"No"`.
+        #'
+        #' You can clear a field value by assigning `NULL` to it, e.g. `list(fld =
+        #' NULL)` means to clear the value of field `fld`. If `.default` is
+        #' `FALSE`, `fld` is not a required field and the index of `fld` is
+        #' larger than the number minimum fields required for that class, trailing
+        #' empty fields will be deleted. Otherwise `fld` will be left as blank if
+        #' `.default` is `FALSE` or filled with default value if `.default` is
+        #' `TRUE`. To structurally remove field slots and shift following values
+        #' forward, use `$drop()`.
         #'
         #' By default, trailing empty fields that are not required will be
         #' removed and only minimum required fields are kept. For example, if
@@ -1234,6 +1276,54 @@ Idf <- R6::R6Class(classname = "Idf",
         #'
         set = function(..., .default = TRUE, .empty = FALSE)
             idf_set(self, private, ..., .default = .default, .empty = .empty, .env = parent.frame()),
+        # }}}
+
+        # drop {{{
+        #' @description
+        #' Drop existing fields.
+        #'
+        #' @details
+        #' `$drop()` removes field slots from existing objects and shifts the
+        #' following values in the same field sequence forward. This is useful
+        #' for objects such as `Construction`, where dropping `Layer 2` should
+        #' move `Layer 3` into `Layer 2`.
+        #'
+        #' Unlike `$set(field = NULL)`, `$drop()` changes the object field
+        #' structure instead of only clearing field values. Only fields in IDD
+        #' extensible groups or numbered repeated field sequences, such as
+        #' `Layer 2`, `Layer 3`, and so on, can be dropped. For classes whose
+        #' extensible group contains multiple fields, all fields in the group
+        #' must be dropped together.
+        #'
+        #' The input format follows `$set()` object selection rules:
+        #'
+        #' * `object = field`: Drop one or more fields in the named object.
+        #' * `..ID = field`: Drop one or more fields in the object with ID `ID`.
+        #' * `class := field`: Drop one or more fields from all objects in a class.
+        #' * `.(object, object) := field`: Drop one or more fields from multiple
+        #'   objects.
+        #'
+        #' Field names are matched case-insensitively and underscore-style field
+        #' names are allowed.
+        #'
+        #' @param ... Field drop definitions. Each value should be a character
+        #'        vector of field names or an integer vector of field indexes.
+        #' @param .empty If `TRUE`, trailing empty fields are kept after field
+        #'        values are shifted. Default: `FALSE`.
+        #'
+        #' @return A named list of modified [IdfObject] objects.
+        #'
+        #' @examples
+        #' \dontrun{
+        #' # remove Layer 2 and shift later layers forward
+        #' idf$drop(r13wall = "Layer 2")
+        #'
+        #' # drop the same fields in multiple objects
+        #' idf$drop(.("r13wall", "roof31") := "Layer 2")
+        #' }
+        #'
+        drop = function(..., .empty = FALSE)
+            idf_drop(self, private, ..., .empty = .empty, .env = parent.frame()),
         # }}}
 
         # del {{{
@@ -1610,6 +1700,8 @@ Idf <- R6::R6Class(classname = "Idf",
         #'     Each value should have the right type as the corresponding field
         #'     definition.  Otherwise, errors will be issued if current
         #'     [validation level][level_checks()] includes invalid-type checking.
+        #'     Logical values are accepted for choice fields whose valid choices
+        #'     include `"Yes"` and `"No"`.
         #' * `id`: **Optional**. Integer type. If input data.frame includes
         #'   multiple object definitions in a same class, values in `id` column
         #'   will be used to distinguish each definition. If `id` column does
@@ -1746,6 +1838,8 @@ Idf <- R6::R6Class(classname = "Idf",
         #'     Each value should have the right type as the corresponding field
         #'     definition.  Otherwise, errors will be issued if current
         #'     [validation level][level_checks()] includes invalid-type checking.
+        #'     Logical values are accepted for choice fields whose valid choices
+        #'     include `"Yes"` and `"No"`.
         #'
         #' Note that `$update()` assumes all definitions are from the same version
         #' as current `Idf` object. If input definition is from different
@@ -1975,7 +2069,8 @@ Idf <- R6::R6Class(classname = "Idf",
         #' * `invalid_autocalculate`: Result of `auto_field` checking for
         #'   invalid `Autocalculate` field values.
         #' * `invalid_character`: Result of `type` checking for invalid
-        #'   character field values.
+        #'   character field values, including character values that contain
+        #'   IDF delimiters `,` or `;`.
         #' * `invalid_numeric`: Result of `type` checking for invalid
         #'   numeric field values.
         #' * `invalid_integer`: Result of `type` checking for invalid
@@ -2139,6 +2234,8 @@ Idf <- R6::R6Class(classname = "Idf",
         #' @param leading Leading spaces added to each field. Default: `4L`.
         #' @param sep_at The character width to separate value string and field
         #'        string. Default: `29L` which is the same as IDF Editor.
+        #' @param field If `FALSE`, field names will not be included as comments.
+        #'        Default: `TRUE`.
         #'
         #' @return A character vector.
         #'
@@ -2162,10 +2259,10 @@ Idf <- R6::R6Class(classname = "Idf",
         #'
         to_string = function(which = NULL, class = NULL, comment = TRUE,
                               header = TRUE, format = eplusr_option("save_format"),
-                              leading = 4L, sep_at = 29L)
+                              leading = 4L, sep_at = 29L, field = TRUE)
             idf_to_string(self, private, which, class, comment = comment,
                           header = header, format = format,
-                          leading = leading, sep_at = sep_at),
+                          leading = leading, sep_at = sep_at, field = field),
         # }}}
 
         # to_table {{{
@@ -2730,6 +2827,7 @@ Idf <- R6::R6Class(classname = "Idf",
         log_new_order = function(id) log_new_order(private$m_log, id),
         log_add_order = function(id) log_add_order(private$m_log, id),
         log_del_order = function(id) log_del_order(private$m_log, id),
+        log_reorder = function(id) log_reorder(private$m_log, id),
 
         idd_env = function() get_priv_env(private$m_idd)$m_idd_env,
         idf_env = function() private$m_idf_env,
@@ -2801,12 +2899,14 @@ idf_class_name <- function(self, private, all = FALSE, sorted = TRUE, by_group =
 # }}}
 # idf_object_id {{{
 idf_object_id <- function(self, private, class = NULL, simplify = TRUE) {
-    get_idf_object_id(private$idd_env(), private$idf_env(), class, simplify)
+    get_idf_object_id(private$idd_env(), private$idf_env(), class, simplify,
+        private$m_log$order)
 }
 # }}}
 # idf_object_name {{{
 idf_object_name <- function(self, private, class = NULL, simplify = FALSE) {
-    get_idf_object_name(private$idd_env(), private$idf_env(), class, simplify)
+    get_idf_object_name(private$idd_env(), private$idf_env(), class, simplify,
+        dt_order = private$m_log$order)
 }
 # }}}
 # idf_object_num {{{
@@ -2928,8 +3028,49 @@ idf_objects <- function(self, private, which, class = NULL) {
 idf_objects_in_class <- function(self, private, class) {
     assert_valid_type(class, "Class Name", type = "name")
     obj <- get_idf_object(private$idd_env(), private$idf_env(), class)
+    add_idf_object_rank(obj, private$m_log$order)
+    setorderv(obj, c("rleid", "object_rank", "object_id"))
+    set(obj, NULL, "object_rank", NULL)
 
     idf_return_matched(self, private, obj)
+}
+# }}}
+# idf_reorder {{{
+idf_reorder <- function(self, private, class, object) {
+    assert_valid_type(class, "Class Name", len = 1L, type = "name")
+    assert_valid_type(object, "Object ID|Name")
+
+    cls_obj <- get_idf_object(private$idd_env(), private$idf_env(), class)
+    obj <- get_idf_object(private$idd_env(), private$idf_env(),
+        class = class, object = object, ignore_case = TRUE)
+
+    if (anyDuplicated(obj$object_id)) {
+        dup <- obj[duplicated(object_id) | duplicated(object_id, fromLast = TRUE)]
+        abort(paste0(
+            "Input 'object' contains duplicated objects:\n",
+            get_object_info(dup, collapse = "\n")
+        ))
+    }
+
+    if (!setequal(cls_obj$object_id, obj$object_id)) {
+        mis <- cls_obj[!J(obj$object_id), on = "object_id"]
+        abort(paste0(
+            "Input 'object' must include all objects in class ",
+            surround(unique(cls_obj$class_name)), " exactly once. Missing objects:\n",
+            get_object_info(mis, collapse = "\n")
+        ))
+    }
+
+    add_idf_object_rank(cls_obj, private$m_log$order)
+    setorderv(cls_obj, c("object_rank", "object_id"))
+
+    if (identical(cls_obj$object_id, obj$object_id)) return(invisible(self))
+
+    private$log_reorder(obj$object_id)
+    private$log_unsaved()
+    private$log_new_uuid()
+
+    invisible(self)
 }
 # }}}
 # idf_objects_in_group {{{
@@ -3101,6 +3242,22 @@ idf_set <- function(self, private, ..., .default = TRUE, .empty = FALSE, .env = 
 
     private$update_idf_env(set)
     idf_return_matched(self, private, set$changed)
+}
+# }}}
+# idf_drop {{{
+idf_drop <- function(self, private, ..., .empty = FALSE, .env = parent.frame()) {
+    l <- expand_idf_dots_drop(private$idd_env(), private$idf_env(), ..., .env = .env)
+
+    drop <- drop_idf_fields(private$idd_env(), private$idf_env(),
+        l$object, l$field, empty = .empty)
+
+    # log
+    private$log_add_order(c(drop$changed, drop$updated))
+    private$log_unsaved()
+    private$log_new_uuid()
+
+    private$update_idf_env(drop)
+    idf_return_matched(self, private, drop$changed)
 }
 # }}}
 # idf_del {{{
@@ -3326,12 +3483,12 @@ idf_is_valid <- function(self, private, level = eplusr_option("validate_level"))
 # idf_to_string {{{
 idf_to_string <- function(self, private, which = NULL, class = NULL,
                            comment = TRUE, header = TRUE, format = eplusr_option("save_format"),
-                           leading = 4L, sep_at = 29L) {
+                           leading = 4L, sep_at = 29L, field = TRUE) {
     if (format == "asis") format <- private$m_log$save_format
 
     get_idf_string(private$idd_env(), private$idf_env(), private$m_log$order,
         class, which, comment = comment, header = header, format = format,
-        leading = leading, sep_at = sep_at
+        leading = leading, sep_at = sep_at, field = field
     )
 }
 # }}}
@@ -3339,7 +3496,8 @@ idf_to_string <- function(self, private, which = NULL, class = NULL,
 idf_to_table <- function(self, private, which = NULL, class = NULL, string_value = TRUE, unit = FALSE, wide = FALSE, align = FALSE, all = FALSE, group_ext = c("none", "group", "index"), force = FALSE, init = FALSE) {
     get_idf_table(private$idd_env(), private$idf_env(), class = class, object = which,
         string_value = string_value, unit = unit, wide = wide, align = align,
-        all = all, group_ext = group_ext, force = force, init = init)
+        all = all, group_ext = group_ext, force = force, init = init,
+        dt_order = private$m_log$order)
 }
 # }}}
 # idf_save {{{
@@ -3947,6 +4105,8 @@ str.Idf <- function(object, zoom = "class", ...) {
 #' @param leading Leading spaces added to each field. Default: `4L`.
 #' @param sep_at The character width to separate value string and field string.
 #' Default: `29L` which is the same as IDF Editor.
+#' @param field If `FALSE`, field names will not be included as comments.
+#' Default: `TRUE`.
 #' @param ... Further arguments passed to or from other methods.
 #' @return A single length string.
 #' @examples
@@ -3959,10 +4119,10 @@ str.Idf <- function(object, zoom = "class", ...) {
 # format.idf {{{
 format.Idf <- function(x, comment = TRUE, header = TRUE,
                         format = eplusr_option("save_format"),
-                        leading = 4L, sep_at = 29L, ...) {
+                        leading = 4L, sep_at = 29L, field = TRUE, ...) {
     paste0(
         x$to_string(comment = comment, header = header, format = format,
-            leading = leading, sep_at = sep_at, ...
+            leading = leading, sep_at = sep_at, field = field, ...
         ),
         collapse = "\n"
     )
@@ -3985,9 +4145,9 @@ format.Idf <- function(x, comment = TRUE, header = TRUE,
 # as.character.Idf {{{
 as.character.Idf <- function(x, comment = TRUE, header = TRUE,
                         format = eplusr_option("save_format"),
-                        leading = 4L, sep_at = 29L, ...) {
+                        leading = 4L, sep_at = 29L, field = TRUE, ...) {
     x$to_string(comment = comment, header = header, format = format,
-        leading = leading, sep_at = sep_at, ...
+        leading = leading, sep_at = sep_at, field = field, ...
     )
 }
 # }}}

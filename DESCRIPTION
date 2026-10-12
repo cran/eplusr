@@ -1,7 +1,7 @@
 Package: eplusr
 Title: A Toolkit for Using Whole Building Simulation Program
         'EnergyPlus'
-Version: 0.17.0
+Version: 0.18.0
 Authors@R: c(
     person(given = "Hongyuan",
            family = "Jia",
@@ -22,11 +22,12 @@ License: MIT + file LICENSE
 URL: https://hongyuanjia.github.io/eplusr/,
         https://github.com/hongyuanjia/eplusr
 BugReports: https://github.com/hongyuanjia/eplusr/issues
-Depends: R (>= 3.2.0)
+Depends: R (>= 4.2.0)
 Imports: callr (>= 2.0.4), checkmate (>= 2.0.0), cli (>= 3.0.0),
-        data.table (>= 1.14.6), jsonlite, lubridate, processx (>=
-        3.2.0), R6, RSQLite, S7 (>= 0.2.1), stringi
-Suggests: hms, decido, rgl (>= 0.105.13), testthat (>= 3.0.0), units
+        data.table (>= 1.14.6), duckdb (>= 1.5.0), jsonlite, lubridate,
+        processx (>= 3.2.0), R6, S7 (>= 0.2.1), stringi
+Suggests: chromote, hms, decido, png, rgl (>= 0.105.13), testthat (>=
+        3.0.0), units, webshot2, withr
 Encoding: UTF-8
 RoxygenNote: 7.3.3
 SystemRequirements: EnergyPlus (optional) (<https://energyplus.net>);
@@ -41,12 +42,12 @@ Collate: 'constants.R' 'assert.R' 'diagram.R' 'eplusr.R' 'utils.R'
         'run.R' 'sql.R' 'transition.R' 'units.R' 'validate.R'
         'viewer.R' 'zzz.R'
 Config/testthat/edition: 3
-Config/testthat/parallel: true
+Config/testthat/parallel: false
 NeedsCompilation: no
-Packaged: 2026-06-20 12:11:46 UTC; hongyuanjia
+Packaged: 2026-10-12 17:36:45 UTC; hongyuanjia
 Author: Hongyuan Jia [aut, cre, cph] (ORCID:
     <https://orcid.org/0000-0002-0075-8183>),
   Adrian Chong [aut] (ORCID: <https://orcid.org/0000-0002-9486-4728>)
 Maintainer: Hongyuan Jia <hongyuanjia@cqust.edu.cn>
 Repository: CRAN
-Date/Publication: 2026-06-20 14:10:21 UTC
+Date/Publication: 2026-10-12 18:40:02 UTC

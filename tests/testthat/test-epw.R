@@ -336,7 +336,11 @@ test_that("Data Setter", {
 
     # $set() {{{
     expect_s3_class(d <- epw$data(start_year = 2017), "data.table")
-    expect_output(with_verbose(epw$set(d, realyear = TRUE)))
+    expect_message(
+        with_verbose(epw$set(d, realyear = TRUE)),
+        "Data period #1 has been replaced with input data",
+        class = "eplusr_message_epw_period"
+    )
     expect_equal(epw$period(),
         data.table(index = 1L, name = "Data", start_day_of_week = "Sunday",
             start_day = epw_date("2017/1/1"), end_day = epw_date("2017/12/31")
@@ -380,7 +384,11 @@ test_that("Data Setter", {
     expect_error(epw$add(epw$data()), class = "eplusr_error_parse_epw")
 
     # after 0L
-    expect_output(with_verbose(epw$add(epw$data(start_year = 2017), realyear = TRUE)))
+    expect_message(
+        with_verbose(epw$add(epw$data(start_year = 2017), realyear = TRUE)),
+        "New data period has been added successfully",
+        class = "eplusr_message_epw_period"
+    )
     expect_equal(epw$period()$name, c("Data1", "Data"))
     expect_equal(lubridate::year(epw$data(1, align_wday = FALSE)$datetime[1]), 2017)
     expect_equal(get_priv_env(epw)$m_log$matched,
@@ -460,7 +468,15 @@ test_that("Data Setter", {
     expect_error(epw$del(1))
 
     expect_s3_class(epw$add(epw$data(start_year = 2017), realyear = TRUE), "Epw")
-    expect_message(with_verbose(epw$del(1)))
+    expect_message(
+        expect_message(
+            with_verbose(epw$del(1)),
+            "Data period #1 'Data1' has been successfully deleted",
+            class = "eplusr_message_verbose"
+        ),
+        "Data period #1 has been successfully deleted",
+        class = "eplusr_message_epw_period"
+    )
     # }}}
 })
 # }}}
@@ -525,7 +541,7 @@ test_that("==.Epw & !=.Epw", {
 test_that("download_weather()", {
     skip_on_cran()
 
-    skip_if(Sys.getenv("_EPLUSR_SKIP_TESTS_DOWNLOAD_EPW_") != "")
+    skip_if_not_integration()
     # download weather
     expect_message({path_epw <- with_verbose(
         download_weather("USA_CA_San.Francisco.Intl.AP.724940_TMY3", ask = FALSE, type = "epw", dir = tempdir(), max_match = 2)
@@ -535,5 +551,21 @@ test_that("download_weather()", {
     )})
 })
 # }}}
+
+# A fresh weather dictionary must follow the non-cloneable Idd inheritance contract.
+test_that("weather dictionaries instantiate without cloneability diagnostics", {
+    expect_false(EpwIdd$cloneable)
+    for (version in c("before_2021", "after_2021")) {
+        expect_silent(
+            idd <- EpwIdd$new(
+                system.file("extdata/epw.idd", package = "eplusr"),
+                version = version
+            )
+        )
+        expect_s3_class(idd, "Idd")
+        expect_null(idd$clone)
+        expect_identical(idd$version_specs(), version)
+    }
+})
 
 # vim: set fdm=marker:

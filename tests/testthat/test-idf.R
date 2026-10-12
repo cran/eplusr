@@ -307,6 +307,43 @@ test_that("$objects_in_class()", {
 })
 # }}}
 
+# REORDER {{{
+test_that("$reorder()", {
+    skip_on_cran()
+    expect_s3_class(idf <- read_idf(idftext("idf", LATEST_EPLUS_VER)), "Idf")
+
+    mat <- idf$object("WD01")
+    uuid <- get_priv_env(idf)$m_log$uuid
+    expect_false(idf$is_unsaved())
+
+    expect_silent(noop <- idf$reorder("Material", c("WD01", "WD02")))
+    expect_identical(noop, idf)
+    expect_false(idf$is_unsaved())
+    expect_equal(get_priv_env(idf)$m_log$uuid, uuid)
+
+    expect_silent(idf$reorder("Material", c("WD02", "WD01")))
+    expect_true(idf$is_unsaved())
+    expect_false(identical(get_priv_env(idf)$m_log$uuid, uuid))
+    expect_equal(idf$object_id("Material", simplify = TRUE), c(4L, 1L))
+    expect_equal(idf$object_name("Material", simplify = TRUE), c("WD02", "WD01"))
+    expect_equal(names(idf$objects_in_class("Material")), c("WD02", "WD01"))
+    expect_equal(unique(idf$to_table(class = "Material")$name), c("WD02", "WD01"))
+
+    str <- idf$to_string(class = "Material", comment = FALSE, header = FALSE)
+    expect_lt(grep("WD02", str, fixed = TRUE)[[1L]], grep("WD01", str, fixed = TRUE)[[1L]])
+
+    expect_equal(mat$id(), 1L)
+    expect_equal(mat$name(), "WD01")
+
+    expect_silent(idf$reorder("Material", c(1L, 4L)))
+    expect_equal(idf$object_name("Material", simplify = TRUE), c("WD01", "WD02"))
+
+    expect_error(idf$reorder("Material", "WD01"), "must include all objects")
+    expect_error(idf$reorder("Material", c("WD01", "WD01")), "duplicated objects")
+    expect_error(idf$reorder("Construction", c("WD02", "WD01")), class = "eplusr_error")
+})
+# }}}
+
 # OBJECTS_IN_GROUP {{{
 test_that("$objects_in_group()", {
     skip_on_cran()
@@ -438,6 +475,11 @@ test_that("$add()", {
     expect_silent(idf_full <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")))
     expect_error(idf_full$add("Building" = list()))
 
+    expect_s3_class(err <- catch_cnd(idf$add("Building" = list("Bad,Name"))), "eplusr_error_validity_check")
+    expect_equal(err$data$invalid_character$value_chr, "Bad,Name")
+    expect_s3_class(err <- catch_cnd(idf$add("Building" = list("Bad;Name"))), "eplusr_error_validity_check")
+    expect_equal(err$data$invalid_character$value_chr, "Bad;Name")
+
     # adding empty object
     expect_s3_class(idf$add("Building" = list())[[1L]], "IdfObject")
 
@@ -505,6 +547,18 @@ test_that("$add()", {
     )))
     expect_equal(idf$object("rp_test_4")$class_name(), "RunPeriod")
 
+    expect_silent(idf$add(runperiod = list(
+        name = "rp_test_5",
+        begin_month = 6,
+        begin_day_of_month = 1,
+        end_month = 6,
+        end_day_of_month = 30,
+        use_weather_file_rain_indicators = TRUE,
+        use_weather_file_snow_indicators = FALSE
+    )))
+    expect_equal(idf$object("rp_test_5")$Use_Weather_File_Rain_Indicators, "Yes")
+    expect_equal(idf$object("rp_test_5")$Use_Weather_File_Snow_Indicators, "No")
+
     # can stop adding objects if trying to add a object with same name
     expect_error(idf$add(RunPeriod = list("rp_test_1", 1, 1, 2, 1)), class = "eplusr_error_validity_check")
 })
@@ -514,6 +568,9 @@ test_that("$add()", {
 test_that("$set()", {
     skip_on_cran()
     expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+
+    expect_s3_class(err <- catch_cnd(idf$set(..8 = list(name = "rp,test"))), "eplusr_error_validity_check")
+    expect_equal(err$data$invalid_character$value_chr, "rp,test")
 
     # set new values and comments
     expect_type(type = "list",
@@ -534,6 +591,34 @@ test_that("$set()", {
     )
     expect_equal(length(idf$RunPeriod$rp_test$value()), 13)
     expect_equal(idf$RunPeriod$rp_test$Use_Weather_File_Rain_Indicators, "Yes")
+
+    expect_type(type = "list",
+        idf$set(rp_test = list(
+            use_weather_file_rain_indicators = TRUE,
+            use_weather_file_snow_indicators = FALSE
+        ))
+    )
+    expect_equal(idf$RunPeriod$rp_test$Use_Weather_File_Rain_Indicators, "Yes")
+    expect_equal(idf$RunPeriod$rp_test$Use_Weather_File_Snow_Indicators, "No")
+    expect_error(idf$set(R13LAYER = list(roughness = TRUE)), class = "eplusr_error_dots_logical_choice")
+    expect_error(idf$set(rp_test = list(begin_month = TRUE)), class = "eplusr_error_dots_logical_choice")
+
+    expect_silent(idf$add(runperiod = list(
+        name = "rp_test_vec",
+        begin_month = 7,
+        begin_day_of_month = 1,
+        end_month = 7,
+        end_day_of_month = 31
+    )))
+    expect_type(idf$set(RunPeriod := list(use_weather_file_rain_indicators = c(TRUE, FALSE))), "list")
+    expect_equal(idf$RunPeriod$rp_test$Use_Weather_File_Rain_Indicators, "Yes")
+    expect_equal(idf$RunPeriod$rp_test_vec$Use_Weather_File_Rain_Indicators, "No")
+
+    expect_type(idf$set(c("rp_test", "rp_test_vec") := list(
+        use_weather_file_rain_indicators = c(FALSE, TRUE)
+    )), "list")
+    expect_equal(idf$RunPeriod$rp_test$Use_Weather_File_Rain_Indicators, "No")
+    expect_equal(idf$RunPeriod$rp_test_vec$Use_Weather_File_Rain_Indicators, "Yes")
 
     # can remove trailing empty fields
     expect_type(type = "list",
@@ -576,6 +661,23 @@ test_that("$set()", {
     expect_equal(idf$Material_NoMass$R13LAYER$Thermal_Resistance, res[[1L]] * 0.5)
     expect_equal(idf$Material_NoMass$R31LAYER$Thermal_Resistance, res[[2L]] * 2)
 
+    therm_abs <- c(
+        idf$Material_NoMass$R13LAYER$Thermal_Absorptance,
+        idf$Material_NoMass$R31LAYER$Thermal_Absorptance
+    )
+    solar_abs <- c(
+        idf$Material_NoMass$R13LAYER$Solar_Absorptance,
+        idf$Material_NoMass$R31LAYER$Solar_Absorptance
+    )
+    expect_type(idf$set(Material_NoMass := list(
+        thermal_absorptance = ~ . * c(0.5, 1),
+        solar_absorptance = ~ . * c(1, 0.5)
+    )), "list")
+    expect_equal(idf$Material_NoMass$R13LAYER$Thermal_Absorptance, therm_abs[[1L]] * 0.5)
+    expect_equal(idf$Material_NoMass$R31LAYER$Thermal_Absorptance, therm_abs[[2L]])
+    expect_equal(idf$Material_NoMass$R13LAYER$Solar_Absorptance, solar_abs[[1L]])
+    expect_equal(idf$Material_NoMass$R31LAYER$Solar_Absorptance, solar_abs[[2L]] * 0.5)
+
     # can update fields using a function
     half <- function(x, frac = 0.5) x * frac
     expect_type(idf$set(Material_NoMass := list(thermal_resistance = half)), "list")
@@ -613,6 +715,113 @@ test_that("$set()", {
     expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "5Zone_Transformer.idf")), "Idf")
     expect_type(idf$set("Pump:VariableSpeed" := list(c("pump1", "pump2"))), "list")
     expect_equal(idf$"Pump:VariableSpeed"[[1]]$ref_by_object(class = "Branch")[[1L]]$Component_1_Object_Type, "Pump:VariableSpeed")
+})
+# }}}
+
+# DROP {{{
+test_that("$drop()", {
+    skip_on_cran()
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+
+    idf$set(R13WALL = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    expect_type(idf$drop(R13WALL = "Layer 2"), "list")
+    expect_equal(idf$Construction$R13WALL$value(),
+        list(Name = "R13WALL", `Outside Layer` = "R13LAYER", `Layer 2` = "R31LAYER")
+    )
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    idf$set(R13WALL = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    expect_type(idf$drop(R13WALL = 3L), "list")
+    expect_equal(idf$Construction$R13WALL$Layer_2, "R31LAYER")
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    idf$set(R13WALL = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    field <- "Layer 2"
+    expect_type(idf$drop(R13WALL = field), "list")
+    expect_equal(idf$Construction$R13WALL$Layer_2, "R31LAYER")
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    idf$set(R13WALL = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    expect_type(idf$drop(R13WALL = paste("Layer", 2L)), "list")
+    expect_equal(idf$Construction$R13WALL$Layer_2, "R31LAYER")
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    idf$set(R13WALL = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    expect_type(idf$drop(R13WALL = list("Layer 2")), "list")
+    expect_equal(idf$Construction$R13WALL$Layer_2, "R31LAYER")
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    idf$set(R13WALL = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    expect_type(idf$drop(R13WALL = "Layer 2", .empty = TRUE), "list")
+    expect_equal(length(idf$Construction$R13WALL$value()), 4L)
+    expect_equal(idf$Construction$R13WALL$Layer_2, "R31LAYER")
+    expect_true(is.na(idf$Construction$R13WALL$Layer_3))
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    idf$set(R13WALL = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    fields <- list(R13WALL = "Layer 2")
+    expect_type(idf$drop(fields), "list")
+    expect_equal(idf$Construction$R13WALL$Layer_2, "R31LAYER")
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    idf$set(R13WALL = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    oid <- idf$Construction$R13WALL$id()
+    expect_type(do.call(idf$drop, setNames(list("Layer 2"), paste0("..", oid))), "list")
+    expect_equal(idf$Construction$R13WALL$Layer_2, "R31LAYER")
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    idf$set(
+        R13WALL = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"),
+        ROOF31 = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R13LAYER")
+    )
+    expect_type(idf$drop(.("R13WALL", "ROOF31") := "Layer 2"), "list")
+    expect_equal(idf$Construction$R13WALL$Layer_2, "R31LAYER")
+    expect_equal(idf$Construction$ROOF31$Layer_2, "R13LAYER")
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    idf$set(Construction := list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    expect_type(idf$drop(Construction := "Layer 2"), "list")
+    expect_equal(
+        unname(vapply(idf$Construction, function(x) x$Layer_2, character(1L))),
+        rep("R31LAYER", 3L)
+    )
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    idf$set(Construction := list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    expect_type(idf$drop(..("Construction") := "Layer 2"), "list")
+    expect_equal(
+        unname(vapply(idf$Construction, function(x) x$Layer_2, character(1L))),
+        rep("R31LAYER", 3L)
+    )
+
+    expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
+    fields <- list(R13WALL = "Layer 2", "Layer 3")
+    expect_error(idf$drop(fields), class = "eplusr_error_drop_no_name")
+    expect_error(idf$drop(MISSING = "Layer 2"), class = "eplusr_error_invalid_object_name")
+    expect_error(idf$drop((1 + 1) := "Layer 2"), class = "eplusr_error_drop_ref_lhs")
+    expect_error(idf$drop(R13WALL = "Layer 2"), class = "eplusr_error_drop_missing_field")
+    expect_error(idf$drop(R13WALL = "Name"), class = "eplusr_error_drop_non_extensible")
+
+    idf$set(R13WALL = list(layer_2 = "C5 - 4 IN HW CONCRETE", layer_3 = "R31LAYER"))
+    idd_env <- get_priv_env(idf$definition())$idd_env()
+    idf_env <- get_priv_env(idf)$idf_env()
+    obj <- get_idf_object(idd_env, idf_env, object = "R13WALL", ignore_case = TRUE)
+    empty_field <- data.table(
+        rleid = integer(), class_id = integer(), class_name = character(),
+        object_id = integer(), field_id = integer(), field_index = integer(),
+        field_name = character()
+    )
+    expect_error(drop_idf_fields(idd_env, idf_env, obj, empty_field),
+        class = "eplusr_error_drop_no_field"
+    )
+
+    field <- get_idf_value(idd_env, idf_env, object = obj$object_id, field = 3L)
+    if (has_names(field, "extensible_group")) field[, extensible_group := NULL]
+    drop <- drop_idf_fields(idd_env, idf_env, obj, field)
+    expect_equal(
+        drop$value[object_id == obj$object_id, value_chr],
+        c("R13WALL", "R13LAYER", "R31LAYER")
+    )
 })
 # }}}
 
@@ -848,6 +1057,11 @@ test_that("$update()", {
         }
     )
     expect_equal(idf$Material_NoMass$R13LAYER$Roughness, "Rough")
+
+    tbl <- idf$SimulationControl$to_table(string_value = FALSE)
+    tbl[index == 5L, value := TRUE]
+    expect_type(idf$update(tbl[index == 5L]), "list")
+    expect_equal(idf$SimulationControl$Run_Simulation_for_Weather_File_Run_Periods, "Yes")
 })
 # }}}
 
@@ -929,6 +1143,24 @@ test_that("$to_string()", {
     )
     expect_silent(idf_1 <- read_idf(paste0(idf_string, collapse = "\n")))
     expect_equal(idf_1$to_string(format = "new_top"), idf_string)
+    expect_equal(
+        idf_1$to_string(format = "new_top", field = FALSE),
+        c(
+            "!-Generator eplusr",
+            "!-Option OriginalOrderTop",
+            "",
+            "!-NOTE: All comments with '!-' are ignored by the IDFEditor and are generated automatically.",
+            "!-      Use '!' comments if they need to be retained when using the IDFEditor.",
+            "",
+            "Construction,",
+            "    WALL-1,",
+            "    WD01;",
+            "",
+            "Version,",
+            sprintf("    %s;", LATEST_EPLUS_VER),
+            ""
+        )
+    )
 
     expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
     expect_equal(idf$to_string()[2], "!-Option OriginalOrderTop")
@@ -962,7 +1194,7 @@ test_that("$to_table()", {
         ignore_attr = TRUE, tolerance = 1e-5,
         idf$to_table(1, unit = TRUE, string_value = FALSE),
         data.table(id = 1L, name = "WD01", class = "Material", index = 1:9,
-            field = idf$definition("Material")$field_name(),
+            field = idf$definition("Material")$field_name()[1:9],
             value = list("WD01", "MediumSmooth", set_units(0.0191, m),
                 set_units(0.115, W/K/m), set_units(513, kg/m^3),
                 set_units(1381, J/K/kg), 0.9, 0.78, 0.78
@@ -1192,6 +1424,7 @@ test_that("$save()", {
 # RUN {{{
 test_that("$run()", {
     skip_on_cran()
+    skip_if_not_integration()
     expect_error(read_idf(idftext("idf", LATEST_EPLUS_VER))$save(), class = "eplusr_error")
     expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
     expect_s3_class(job <- idf$run(NULL, tempdir(), echo = FALSE), "EplusJob")
@@ -1205,6 +1438,7 @@ test_that("$run()", {
 # LAST_JOB {{{
 test_that("$last_job()", {
     skip_on_cran()
+    skip_if_not_integration()
     expect_s3_class(idf <- read_idf(path_eplus_example(LATEST_EPLUS_VER, "1ZoneUncontrolled.idf")), "Idf")
     expect_null(idf$last_job())
     expect_s3_class({idf$run(NULL, tempdir(), echo = FALSE); idf$last_job()}, "EplusJob")
@@ -1382,9 +1616,9 @@ test_that("[[<-.Idf and $<-.Idf", {
     expect_equal(idf$Material_NoMass$R13LAYER$Thermal_Absorptance, 0.5)
     expect_silent(idf$Material_NoMass$R13LAYER[["Thermal Absorptance"]] <- 0.6)
     expect_equal(idf$Material_NoMass$R13LAYER[["Thermal Absorptance"]], 0.6)
-    expect_silent(idf$SimulationControl$Do_Zone_Sizing_Calculation <- "Yes")
+    expect_silent(idf$SimulationControl$Do_Zone_Sizing_Calculation <- TRUE)
     expect_equal(idf$SimulationControl$Do_Zone_Sizing_Calculation, "Yes")
-    expect_silent(idf$SimulationControl[["Do Zone Sizing Calculation"]] <- "No")
+    expect_silent(idf$SimulationControl[["Do Zone Sizing Calculation"]] <- FALSE)
     expect_equal(idf$SimulationControl[["Do Zone Sizing Calculation"]], "No")
 
     # get data.frame input

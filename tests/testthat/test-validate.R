@@ -121,13 +121,28 @@ test_that("Validate method", {
     env_in$validity <- empty_validity()
     add_joined_cols(env_in$object, env_in$value, "object_id", c("class_id", "object_name"))
     add_class_property(idd_env, env_in$value, c("class_id", "class_name"))
-    add_field_property(idd_env, env_in$value, c("extensible_group", "field_index", "field_name", "units", "ip_units", "type_enum"))
+    add_field_property(idd_env, env_in$value, c(
+        "extensible_group", "field_index", "field_name", "units", "ip_units",
+        "type_enum"
+    ))
     expect_equal(nrow(check_incomplete_extensible(idd_env, idf_env, env_in)$validity$incomplete_extensible), 0L)
     invisible(env_in$value[extensible_group == 3L, value_chr := NA_character_])
     expect_silent({err <- check_incomplete_extensible(idd_env, idf_env, env_in)$validity$incomplete_extensible})
     expect_equal(err$object_id, rep(3L, 3))
     expect_equal(err$field_index, 18:20)
     expect_equal(err$value_id, 32:34)
+
+    # Optional fields without defaults are valid in active groups, while a
+    # required field in a later group still follows the first-group template.
+    hospital <- read_idf(path_eplus_example(
+        LATEST_EPLUS_VER, "RefBldgHospitalNew2004_Chicago.idf"
+    ))
+    expect_equal(nrow(hospital$validate()$incomplete_extensible), 0L)
+    equipment <- hospital$ZoneHVAC_EquipmentList[["Dining_Flr_5 Equipment"]]
+    expect_s3_class(err <- catch_cnd(equipment$set(
+        `Zone Equipment 2 Name` = NULL, .default = FALSE
+    )), "eplusr_error_validity_check")
+    expect_equal(err$data$incomplete_extensible$field_index, 10L)
     # }}}
 
     # MISSING VALUE {{{
@@ -185,6 +200,19 @@ test_that("Validate method", {
     expect_equal(chr$object_id, 1:4)
     expect_equal(chr$field_index, rep(1L, 4L))
     expect_equal(chr$value_id, c(1L, 10L, 15L, 41L))
+
+    env_in <- list2env(parse_idf_file(idftext("idf")))
+    env_in$validity <- empty_validity()
+    add_joined_cols(env_in$object, env_in$value, "object_id", c("class_id", "object_name"))
+    add_class_property(idd_env, env_in$value, c("class_id", "class_name"))
+    add_field_property(idd_env, env_in$value, c("field_index", "field_name", "units", "ip_units", "type_enum"))
+    invisible(env_in$value[value_id %in% c(1L, 10L), value_chr := c("Building,One", "Construction;One")])
+
+    expect_silent({chr <- check_invalid_character(idd_env, idf_env, env_in)$validity$invalid_character})
+    expect_equal(chr$object_id, 1:2)
+    expect_equal(chr$field_index, rep(1L, 2L))
+    expect_equal(chr$value_id, c(1L, 10L))
+    expect_equal(chr$value_chr, c("Building,One", "Construction;One"))
     # }}}
 
     # INVALID NUMERIC {{{

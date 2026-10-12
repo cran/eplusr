@@ -10,10 +10,18 @@
 NULL
 
 # EpwIdd {{{
-EpwIdd <- R6::R6Class(classname = "EpwIdd", cloneable = TRUE, lock_objects = FALSE,
+# Weather dictionaries share the non-cloneable Idd inheritance contract.
+EpwIdd <- R6::R6Class(
+    classname = "EpwIdd",
+    cloneable = FALSE,
+    lock_objects = FALSE,
     inherit = Idd,
     public = list(
-        initialize = function(path, encoding = "unknown", version = "before_2021") {
+        initialize = function(
+            path,
+            encoding = "unknown",
+            version = "before_2021"
+        ) {
             checkmate::assert_choice(version, c("before_2021", "after_2021"))
 
             # add a uuid
@@ -26,7 +34,8 @@ EpwIdd <- R6::R6Class(classname = "EpwIdd", cloneable = TRUE, lock_objects = FAL
             private$m_ver_specs <- version
 
             private$m_idd_env <- list2env(
-                idd_file[!names(idd_file) %in% c("version", "build")], parent = emptyenv()
+                idd_file[!names(idd_file) %in% c("version", "build")],
+                parent = emptyenv()
             )
 
             # use the DESIGON CONDITIONS specs before ASHRAE HOF 2021 by default
@@ -56,20 +65,40 @@ EpwIdd <- R6::R6Class(classname = "EpwIdd", cloneable = TRUE, lock_objects = FAL
             # this is design conditions from ASHRAE HOF 2021
             if (dc_ver == "after_2021") {
                 # removing 'Condition 1 Extreme Maximum Wet-Bulb Temperature'
-                cls_id <- idd_env$class[J(EPW_CLASS$design), on = "class_name", class_id]
-                idd_env$field <- idd_env$field[!J(cls_id, "Condition 1 Extreme Maximum Wet-Bulb Temperature"),
-                    on = c("class_id", "field_name")]
-            # this is design conditions before ASHRAE HOF 2021
+                cls_id <- idd_env$class[
+                    J(EPW_CLASS$design),
+                    on = "class_name",
+                    class_id
+                ]
+                idd_env$field <- idd_env$field[
+                    !J(
+                        cls_id,
+                        "Condition 1 Extreme Maximum Wet-Bulb Temperature"
+                    ),
+                    on = c("class_id", "field_name")
+                ]
+                # this is design conditions before ASHRAE HOF 2021
             } else if (dc_ver == "before_2021") {
                 # removing 'Weather and Shielding Factor (WSF)'
-                cls_id <- idd_env$class[J(EPW_CLASS$design), on = "class_name", class_id]
-                idd_env$field <- idd_env$field[!J(cls_id, "Weather and Shielding Factor (WSF)"),
-                    on = c("class_id", "field_name")]
+                cls_id <- idd_env$class[
+                    J(EPW_CLASS$design),
+                    on = "class_name",
+                    class_id
+                ]
+                idd_env$field <- idd_env$field[
+                    !J(cls_id, "Weather and Shielding Factor (WSF)"),
+                    on = c("class_id", "field_name")
+                ]
             }
 
             # regenerate field index and id
             set(idd_env$field, NULL, "field_id", seq.int(nrow(idd_env$field)))
-            set(idd_env$field, NULL, "field_index", rowidv(idd_env$field, "class_id"))
+            set(
+                idd_env$field,
+                NULL,
+                "field_index",
+                rowidv(idd_env$field, "class_id")
+            )
 
             idd_env
         }
@@ -222,7 +251,7 @@ Epw <- R6::R6Class(classname = "Epw",
             private$m_log$unsaved <- FALSE
             private$m_log$uuid <- unique_id()
             private$m_log$order <- private$m_idf_env$object[, list(object_id)][
-                , object_order := 0L]
+                , `:=`(object_order = 0L, object_rank = seq_len(.N))]
         },
         # }}}
 
@@ -1906,6 +1935,22 @@ epw_align_data_status <- function(self, private, data, period = NULL) {
     data
 }
 # }}}
+# format_epw_period_info {{{
+format_epw_period_info <- function(period) {
+    fmt <- format(period)
+    header <- names(period)
+    width <- pmax(nchar(header, type = "width"), apply(fmt, 2L, function(x) max(nchar(x, type = "width"))))
+
+    lines <- c(
+        paste0(rpad(header, width = width), collapse = " "),
+        vapply(seq_len(nrow(fmt)), function(i) {
+            paste0(rpad(fmt[i, ], width = width), collapse = " ")
+        }, character(1L), USE.NAMES = FALSE)
+    )
+
+    paste0(lines, collapse = "\n")
+}
+# }}}
 # epw_add {{{
 epw_add <- function(self, private, data, realyear = FALSE, name = NULL,
                      start_day_of_week = NULL, after = 0L) {
@@ -1918,19 +1963,18 @@ epw_add <- function(self, private, data, realyear = FALSE, name = NULL,
     private$update_idf_env(lst$header)
 
     if (in_verbose()) {
-        cli::cat_rule("Info", col = "green")
-        cat("New data period has been added successfully:\n\n")
+        period_dt <- self$period()[lst$period][,
+            list(
+                " " = paste0(index, ": "),
+                Name = name,
+                `StartDayOfWeek` = start_day_of_week,
+                `StartDay` = start_day, `EndDay` = end_day)
+        ]
 
-        print(self$period()[lst$period][,
-           list(
-            " " = paste0(index, ": "),
-            Name = name,
-            `StartDayOfWeek` = start_day_of_week,
-            `StartDay` = start_day, `EndDay` = end_day)],
-            class = FALSE, row.names = FALSE
+        verbose_info("New data period has been added successfully:\n\n",
+            format_epw_period_info(period_dt),
+            class = "epw_period"
         )
-
-        cli::cat_rule()
     }
 
     private$log_unsaved()
@@ -1953,19 +1997,19 @@ epw_set <- function(self, private, data, realyear = FALSE, name = NULL,
     private$update_idf_env(lst$header)
 
     if (in_verbose()) {
-        cli::cat_rule("Info", col = "green")
-        cat("Data period", paste0("#", lst$period), "has been replaced with input data.\n\n")
+        period_dt <- self$period()[lst$period][,
+            list(
+                " " = paste0(index, ": "),
+                Name = name,
+                `StartDayOfWeek` = start_day_of_week,
+                `StartDay` = start_day, `EndDay` = end_day)
+        ]
 
-        print(self$period()[lst$period][,
-           list(
-            " " = paste0(index, ": "),
-            Name = name,
-            `StartDayOfWeek` = start_day_of_week,
-            `StartDay` = start_day, `EndDay` = end_day)],
-            class = FALSE, row.names = FALSE
+        verbose_info("Data period ", paste0("#", lst$period),
+            " has been replaced with input data.\n\n",
+            format_epw_period_info(period_dt),
+            class = "epw_period"
         )
-
-        cli::cat_rule()
     }
 
     private$log_unsaved()
@@ -1984,19 +2028,19 @@ epw_del <- function(self, private, period) {
     private$update_idf_env(lst$header)
 
     if (in_verbose()) {
-        cli::cat_rule("Info", col = "green")
-        cat("Data period", paste0("#", lst$period), "has been successfully deleted:\n\n")
+        period_dt <- p[lst$period][,
+            list(
+                " " = paste0(index, ": "),
+                Name = name,
+                `StartDayOfWeek` = start_day_of_week,
+                `StartDay` = start_day, `EndDay` = end_day)
+        ]
 
-        print(p[lst$period][,
-           list(
-            " " = paste0(index, ": "),
-            Name = name,
-            `StartDayOfWeek` = start_day_of_week,
-            `StartDay` = start_day, `EndDay` = end_day)],
-            class = FALSE, row.names = FALSE
+        verbose_info("Data period ", paste0("#", lst$period),
+            " has been successfully deleted:\n\n",
+            format_epw_period_info(period_dt),
+            class = "epw_period"
         )
-
-        cli::cat_rule()
     }
 
     private$log_unsaved()

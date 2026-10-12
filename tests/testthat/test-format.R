@@ -40,6 +40,14 @@ test_that("Formatting", {
           "  Test Character Field 2"
         )
     )
+
+    expect_equal(
+        format_field(
+            copy(idd_parsed$field[1:2])[, value_chr := c("Alpha", "Beta")],
+            leading = 2, sep_at = 10, field = FALSE
+        ),
+        c("  Alpha,", "  Beta;")
+    )
     expect_equal(format_objects(idd_parsed$group, component = "group")$out,
         c("Group: <TestGroup1>", "Group: <TestGroup2>")
     )
@@ -212,26 +220,51 @@ test_that("Formatting", {
         )
     )
 
-    expect_s3_class(pos <- format_possible(get_iddobj_possible(idd_latest, 4)), "IddFieldPossible")
-    expect_equal(pos$fmt_auto,
-        c("* Auto value: <NA>", "* Auto value: <NA>", "* Auto value: <NA>",
-          "* Auto value: <NA>", "* Auto value: <NA>", "* Auto value: <NA>",
-          "* Auto value: <NA>", "* Auto value: <NA>")
+    expect_s3_class(
+        pos <- format_possible(get_iddobj_possible(idd_latest, 4)),
+        "IddFieldPossible"
     )
-    expect_equal(pos$fmt_default,
-        c("* Default: \"NONE\"", "* Default: 0", "* Default: \"Suburbs\"",
-          "* Default: 0.04", "* Default: 0.4", "* Default: \"FullExterior\"",
-          "* Default: 25", "* Default: 1")
+    expect_equal(
+        pos$fmt_auto,
+        c(
+            "* Auto value: <NA>",
+            "* Auto value: <NA>",
+            "* Auto value: <NA>",
+            "* Auto value: <NA>",
+            "* Auto value: <NA>",
+            "* Auto value: <NA>",
+            "* Auto value: <NA>",
+            "* Auto value: <NA>",
+            "* Auto value: <NA>"
+        )
     )
-    expect_equal(pos$fmt_choice,
-        c("* Choice: <NA>",
-          "* Choice: <NA>",
-          "* Choice:\n  - \"Country\"\n  - \"Suburbs\"\n  - \"City\"\n  - \"Ocean\"\n  - \"Urban\"",
-          "* Choice: <NA>",
-          "* Choice: <NA>",
-          "* Choice:\n  - \"MinimalShadowing\"\n  - \"FullExterior\"\n  - \"FullInteriorAndExterior\"\n  - \"FullExteriorWithReflections\"\n  - \"FullInteriorAndExteriorWithReflections\"",
-          "* Choice: <NA>",
-          "* Choice: <NA>")
+    expect_equal(
+        pos$fmt_default,
+        c(
+            "* Default: \"NONE\"",
+            "* Default: 0",
+            "* Default: \"Suburbs\"",
+            "* Default: 0.04",
+            "* Default: 0.4",
+            "* Default: \"FullExterior\"",
+            "* Default: 25",
+            "* Default: 1",
+            "* Default: <NA>"
+        )
+    )
+    expect_equal(
+        pos$fmt_choice,
+        c(
+            "* Choice: <NA>",
+            "* Choice: <NA>",
+            "* Choice:\n  - \"Country\"\n  - \"Suburbs\"\n  - \"City\"\n  - \"Ocean\"\n  - \"Urban\"",
+            "* Choice: <NA>",
+            "* Choice: <NA>",
+            "* Choice:\n  - \"MinimalShadowing\"\n  - \"FullExterior\"\n  - \"FullInteriorAndExterior\"\n  - \"FullExteriorWithReflections\"\n  - \"FullInteriorAndExteriorWithReflections\"",
+            "* Choice: <NA>",
+            "* Choice: <NA>",
+            "* Choice: <NA>"
+        )
     )
     # }}}
     # IDF {{{
@@ -441,7 +474,7 @@ test_that("Formatting", {
           "!-      Use '!' comments if they need to be retained when using the IDFEditor."
         )
     )
-    expect_equal(fmt$format$class_id, c(1L, 56L, 92L, 109L))
+    expect_equal(fmt$format$class_id, c(1L, 58L, 94L, 114L))
     expect_equal(fmt$format$fmt[[2L]],
         list("!-   ===========  ALL OBJECTS IN CLASS: MATERIAL ===========",
              list(c("! this is a test comment for WD01"),
@@ -471,6 +504,16 @@ test_that("Formatting", {
 
     expect_null(format_idf(idf_parsed$value, idf_parsed$object, header = FALSE)$header)
     expect_null(format_idf(idf_parsed$value, idf_parsed$object, comment = FALSE)$format$fmt[[2L]][[2L]][[1L]])
+    expect_silent({fmt <- format_idf(idf_parsed$value, idf_parsed$object,
+        dt_order = data.table(
+            object_id = 1:5,
+            object_order = 0L,
+            object_rank = c(4L, 2L, 3L, 1L, 5L)
+        ))})
+    mat <- fmt$format[class_name == "Material", fmt][[1L]]
+    expect_match(mat[[2L]][[2L]][2L], "WD02", fixed = TRUE)
+    expect_match(mat[[3L]][[2L]][2L], "WD01", fixed = TRUE)
+
     expect_silent({fmt <- format_idf(idf_parsed$value, idf_parsed$object,
         dt_order = data.table(object_id = 1:5, object_order = 0L),
         save_format = "new_top")})

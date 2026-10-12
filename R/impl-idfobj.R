@@ -22,11 +22,15 @@ get_idfobj_value <- function(idd_env, idf_env, object, which = NULL, all = FALSE
 # get_value_list {{{
 #' @importFrom checkmate assert_names
 get_value_list <- function(dt_value, unit = FALSE) {
-    assert_names(names(dt_value), must.include = c("value_chr", "value_num", "type_enum"))
+    assert_names(
+        names(dt_value),
+        must.include = c("value_chr", "value_num", "type_enum")
+    )
 
     res <- as.list(dt_value[["value_chr"]])
     num <- dt_value$type_enum <= IDDFIELD_TYPE$real &
-        !stri_trans_tolower(dt_value$value_chr) %chin% c("autosize", "autocalculate")
+        !stri_trans_tolower(dt_value$value_chr) %chin%
+            c("autosize", "autocalculate")
 
     val <- dt_value$value_num
     is_double <- dt_value$type_enum == IDDFIELD_TYPE$real
@@ -34,12 +38,20 @@ get_value_list <- function(dt_value, unit = FALSE) {
     res[num & is_double] <- val[num & is_double]
     res[num & !is_double] <- as.integer(val[num & !is_double])
 
-    if (any(unlist(res[exists & num & !is_double]) != val[exists & num & !is_double])) {
-        warn(paste0("Truncated error introduced when converting value of field ",
-                collapse(dt_value[["field_name"]][res[num & !is_double] != val[num & !is_double]]),
+    # Keep original field positions while identifying truncated integer values.
+    integer_rows <- which(exists & num & !is_double)
+    truncated_rows <- integer_rows[
+        unlist(res[integer_rows]) != val[integer_rows]
+    ]
+    if (length(truncated_rows)) {
+        warn(
+            paste0(
+                "Truncated error introduced when converting value of field ",
+                collapse(dt_value[["field_name"]][truncated_rows]),
                 " to integer. This often indicates that integer fields have ",
                 "decimal numbers. Please see '$validate()' for details."
-            ), "warning_value_int_trunc"
+            ),
+            "warning_value_int_trunc"
         )
     }
 
@@ -59,8 +71,13 @@ get_value_list <- function(dt_value, unit = FALSE) {
 
             col <- paste0(prefix, "_standard_name")
 
-            unit <- FIELD_UNIT_TABLE[J(dt_value[[input]][u]), on = c(paste0(prefix, "_name")),
-                mult = "first", .SD, .SDcols = c(col)]
+            unit <- FIELD_UNIT_TABLE[
+                J(dt_value[[input]][u]),
+                on = c(paste0(prefix, "_name")),
+                mult = "first",
+                .SD,
+                .SDcols = c(col)
+            ]
 
             res[u] <- apply2(res[u], unit[[col]], function(val, unit) {
                 units::set_units(val, unit, mode = "standard")
@@ -196,14 +213,15 @@ get_idfobj_table <- function(idd_env, idf_env, object_id, all = FALSE,
 }
 # }}}
 # get_idfobj_string {{{
-get_idfobj_string <- function(idd_env, idf_env, object_id, comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE) {
+get_idfobj_string <- function(idd_env, idf_env, object_id, comment = TRUE, leading = 4L, sep_at = 29L, all = FALSE, field = TRUE) {
     val <- get_idf_value(idd_env, idf_env, object = object_id, property = c("units", "ip_units"), all = all)
 
     cls <- paste0(val$class_name[[1L]], ",")
 
     # get field value
     fld <- format_field(val, leading = leading, sep_at = sep_at,
-        index = FALSE, blank = FALSE, end = TRUE, required = FALSE)
+        index = FALSE, blank = FALSE, end = TRUE, required = FALSE,
+        field = field)
 
     if (comment) {
         id <- object_id
